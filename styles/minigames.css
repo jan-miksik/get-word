@@ -283,84 +283,8 @@
   color: #fff;
 }
 
-/* Multiple choice */
-/* Two columns is the right shape for most rounds, but the option count is
-   configurable from 2 to 8. An odd count would leave a lone stretched button on
-   the last row, so those fall back to a single column, and the roomiest rounds
-   get narrower cells rather than eight full-width bars. */
-.game-options-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.game-options-grid[data-option-count='2'],
-.game-options-grid[data-option-count='3'],
-.game-options-grid[data-option-count='5'],
-.game-options-grid[data-option-count='7'] {
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 480px) {
-  .game-options-grid[data-option-count='3'],
-  .game-options-grid[data-option-count='5'],
-  .game-options-grid[data-option-count='6'],
-  .game-options-grid[data-option-count='7'],
-  .game-options-grid[data-option-count='8'] {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.game-options-grid[data-option-count='7'] > :last-child,
-.game-options-grid[data-option-count='5'] > :last-child,
-.game-options-grid[data-option-count='3'] > :last-child {
-  grid-column: 1 / -1;
-}
-
-.game-option {
-  padding: 12px 10px;
-  border-radius: 12px;
-  border: 2px solid var(--game-ink);
-  background: var(--game-surface);
-  color: var(--game-ink);
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-  text-align: center;
-  line-height: 1.3;
-}
-
-@media (hover: hover) {
-  .game-option:not(:disabled):hover {
-    background: var(--game-surface-hover);
-    border-color: var(--game-accent);
-  }
-}
-
-.game-option:focus:not(:focus-visible) {
-  outline: none;
-}
-
-.game-option--correct {
-  background: var(--game-correct);
-  border-color: var(--game-ink);
-  color: #fff;
-}
-.game-option--wrong {
-  background: var(--game-wrong);
-  border-color: var(--game-ink);
-  color: #fff;
-  animation: game-shake 0.35s ease;
-}
-.game-option--reveal {
-  background: var(--game-surface-hover);
-  border-color: var(--game-correct);
-  color: var(--game-correct);
-}
+/* Multiple choice and matching both render `StudyOptionButton`, so the option
+   look and the grid shapes live in that component now. */
 
 /* Typing */
 .game-typing-area {
@@ -531,105 +455,9 @@
   cursor: default;
 }
 
-/* Matching pairs */
-.game-match-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.game-match-col {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.game-match-btn {
-  padding: 11px 8px;
-  border-radius: 12px;
-  border: 2px solid var(--game-ink);
-  background: var(--game-surface);
-  color: var(--game-ink);
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-  line-height: 1.3;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  hyphens: auto;
-}
-
-@media (hover: hover) {
-  .game-match-btn:not(:disabled):not(.game-match-btn--selected):not(.game-match-btn--wrong):hover {
-    background: var(--game-surface-hover);
-    border-color: var(--game-accent);
-    color: var(--game-ink);
-  }
-
-  .game-match-btn--selected:not(:disabled):hover {
-    background: var(--game-accent);
-    border-color: var(--game-ink);
-    color: #fff;
-    filter: brightness(1.08);
-  }
-}
-
-.game-match-btn--selected {
-  background: var(--game-accent);
-  border-color: var(--game-ink);
-  color: #fff;
-}
-
-.game-match-btn--matched {
-  cursor: default;
-}
-
-.game-match-btn--matched.game-match-btn--c1 {
-  background: rgb(var(--match-1) / 0.18);
-  border-color: var(--game-ink);
-  color: var(--game-ink);
-}
-.game-match-btn--matched.game-match-btn--c2 {
-  background: rgb(var(--match-2) / 0.18);
-  border-color: var(--game-ink);
-  color: var(--game-ink);
-}
-.game-match-btn--matched.game-match-btn--c3 {
-  background: rgb(var(--match-3) / 0.22);
-  border-color: var(--game-ink);
-  color: var(--game-ink);
-}
-.game-match-btn--matched.game-match-btn--c4 {
-  background: rgb(var(--match-4) / 0.18);
-  border-color: var(--game-ink);
-  color: var(--game-ink);
-}
-/* Rounds go up to eight pairs, so four colours would repeat twice and make two
-   unrelated pairs look connected. */
-.game-match-btn--matched.game-match-btn--c5 {
-  background: rgb(var(--match-5) / 0.20);
-  border-color: var(--game-ink);
-  color: var(--game-ink);
-}
-.game-match-btn--matched.game-match-btn--c6 {
-  background: rgb(var(--match-6) / 0.20);
-  border-color: var(--game-ink);
-  color: var(--game-ink);
-}
-
-.game-match-btn--wrong {
-  background: var(--game-wrong);
-  border-color: var(--game-ink);
-  color: #fff;
-  animation: game-shake 0.35s ease;
-}
+/* Matching pairs now share `StudyOptionButton` with multiple choice, so the
+   only thing left here is the pair colouring, which the buttons read as inline
+   tints from `--match-1..6` in tokens.css. */
 
 /* Feedback row */
 .game-feedback {
@@ -1102,5 +930,37 @@
   .session-rail-label {
     animation-duration: 2600ms;
     animation-timing-function: step-end;
+  }
+}
+
+/* Session breather: the handover between two blocks. The track draws itself
+   from the block just finished towards the one that starts now, and the node it
+   arrives at settles with a single beat. The point of the pause is that a
+   boundary is *felt*, so the handover is shown happening rather than presented
+   already done. */
+.session-handover-track {
+  transform-origin: left center;
+  animation: session-handover-draw 520ms ease-out both;
+}
+
+.session-handover-next {
+  animation: session-handover-land 520ms 380ms ease-out both;
+}
+
+@keyframes session-handover-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes session-handover-land {
+  0% { transform: scale(0.86); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-handover-track,
+  .session-handover-next {
+    animation: none;
   }
 }

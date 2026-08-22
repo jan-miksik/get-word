@@ -226,6 +226,7 @@ const PREFERENCE_FIELDS = new Set<keyof SyncMutationPayload>([
   'study_goal_base_revision',
   'goal_reminder_enabled',
   'goal_reminder_local_minutes',
+  'goal_reminder_intro_answered',
   'goal_intro_answered',
   'review_opt_in',
   'ai_review_opt_in',

@@ -12,3 +12,8 @@ export function isoWeekStart(dayKey: string): string {
   const weekday = date.getUTCDay() || 7;
   return addDays(dayKey, -(weekday - WEEK_START_DAY));
 }
+
+export function isoWeekday(dayKey: string): number {
+  const weekday = new Date(`${dayKey}T12:00:00Z`).getUTCDay();
+  return weekday || 7;
+}

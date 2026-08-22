@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 const baseProps = {
-  minigameFrequency: { min: 2, max: 4 } as const,
+  minigameFrequency: { min: 2, max: 3 } as const,
   onMinigameFrequencyChange: vi.fn(),
   isOpen: true,
 };
@@ -96,12 +96,14 @@ describe('LearningSettingsPanel', () => {
     expect(screen.queryByRole('checkbox', { name: /see the foreign word/i })).not.toBeInTheDocument();
   });
 
-  it('starts on the balanced preset', () => {
+  it('offers only Default and Custom, starting on Default', () => {
     render(<LearningSettingsPanel {...baseProps} />);
-    expect(screen.getByRole('radio', { name: /^balanced$/i })).toHaveAttribute(
+    expect(screen.getAllByRole('radio', { name: /^(default|custom)$/i })).toHaveLength(2);
+    expect(screen.getByRole('radio', { name: /^default$/i })).toHaveAttribute(
       'aria-checked',
       'true',
     );
+    expect(screen.queryByRole('radio', { name: /^(gentle|demanding)$/i })).not.toBeInTheDocument();
   });
 
   it('opens a level to reveal its exercises, with typing options under Advanced', async () => {

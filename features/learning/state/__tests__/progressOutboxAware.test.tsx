@@ -17,6 +17,7 @@ vi.mock('@/lib/tab-sync', () => ({
 
 import { enqueueOp } from '@/lib/local-first/enqueue';
 import { useProgress } from '../progress';
+import { STAGES } from '@/lib/words';
 
 const REVIEW_EVENT_OUTBOX_KEY = 'get_word_review_event_outbox';
 
@@ -124,6 +125,40 @@ describe('useProgress outbox-aware merge', () => {
 
     expect(result.current.progress.w001.stageIndex).toBe(2);
     expect(result.current.progress.w001.knownCount).toBe(2);
+  });
+
+  it('keeps a retired word retired when it is answered right again', () => {
+    // Practise-ahead can still surface a word the learner retired as "fully
+    // known". Getting it right must not quietly book another 60 days.
+    seedOutbox([event('w001', 'known')]);
+
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => useProgress(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.applyServerProgress(
+        serverProgress([{ id: 'w001', stage: STAGES.length - 1, nextDueAt: null }]),
+      );
+    });
+
+    expect(result.current.progress.w001.stageIndex).toBe(STAGES.length - 1);
+    expect(result.current.progress.w001.nextDueAt).toBeUndefined();
+  });
+
+  it('returns a retired word to the rotation when it is answered wrong', () => {
+    seedOutbox([event('w001', 'unknown')]);
+
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => useProgress(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.applyServerProgress(
+        serverProgress([{ id: 'w001', stage: STAGES.length - 1, nextDueAt: null }]),
+      );
+    });
+
+    expect(result.current.progress.w001.stageIndex).toBe(STAGES.length - 2);
+    expect(result.current.progress.w001.nextDueAt).toBeGreaterThan(0);
   });
 
   it('does not replay an older pending review event over a newer custom progress row', () => {

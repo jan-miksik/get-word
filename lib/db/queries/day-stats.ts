@@ -115,6 +115,48 @@ export function reviewCountsTowardSnapshot(
   return transition.previousStageIndex === 0 || Boolean(transition.previousDueAt && transition.previousDueAt <= snapshot.createdAt);
 }
 
+export interface DayGoalMetInput {
+  goalEnabled: boolean;
+  mode: 'words' | 'minutes' | null;
+  /** Whether `ensureDayGoalSnapshot` has frozen this day's targets yet. */
+  hasWordsSnapshot: boolean;
+  status: 'active' | 'nothing_due' | null;
+  introducedWords: number;
+  reviewedWords: number;
+  resolvedNewTarget: number | null;
+  resolvedReviewTarget: number | null;
+  answeredWords: number;
+  activeMs: number;
+  minuteItemBudget: number;
+  minuteBudgetMs: number;
+}
+
+/**
+ * Whether a local day counts as earned.
+ *
+ * Words mode asks for the new words the day promised, and for the repeats that
+ * were actually owed. `resolvedReviewTarget` is already
+ * `min(budget left after new words, repeats genuinely due)`, so a learner with
+ * nothing to repeat has a target of zero and earns the day on new words alone —
+ * while a learner sitting on a backlog has to work through the share of it the
+ * day was sized for. Neither number moves after the snapshot, so a goal or
+ * pacing change cannot retroactively earn or un-earn a day.
+ *
+ * Minutes mode keeps the older rule it was built with: the session length, or
+ * the clock as the safety net for someone who has not got that many words.
+ */
+export function isDayGoalMet(input: DayGoalMetInput): boolean {
+  if (!input.goalEnabled) return false;
+  if (input.mode === 'words') {
+    // Targets are null until the snapshot exists; treating that as zero would
+    // earn the day without any study at all.
+    if (!input.hasWordsSnapshot || input.status === 'nothing_due') return false;
+    return input.introducedWords >= (input.resolvedNewTarget ?? 0) &&
+      input.reviewedWords >= (input.resolvedReviewTarget ?? 0);
+  }
+  return input.answeredWords >= input.minuteItemBudget || input.activeMs >= input.minuteBudgetMs;
+}
+
 export async function recomputeUserDayStat(userId: string, dayKey: string, timezone: string): Promise<void> {
   const [existingRows, goal, activity, reviewRows] = await Promise.all([
     db.select().from(userDayStats).where(and(eq(userDayStats.userId, userId), eq(userDayStats.dayKey, dayKey))).limit(1),
@@ -142,9 +184,20 @@ export async function recomputeUserDayStat(userId: string, dayKey: string, timez
   // goal change must not resize a day that already has a stats row.
   const minuteItemBudget = sessionItemCapFromWordGoal(existing?.goalWords ?? goal?.wordsPerDay ?? 0);
   const minuteBudgetMs = (existing?.goalMinutes ?? goal?.minutesPerDay ?? 0) * 60_000;
-  const met = hasStudyGoal(goal) && goal !== null && (isWords
-    ? hasWordsSnapshot && existing?.goalStatus !== 'nothing_due' && introducedWords >= (existing.resolvedNewTarget ?? 0) && reviewedWords >= (existing.resolvedReviewTarget ?? 0)
-    : answeredWords >= minuteItemBudget || activeMs >= minuteBudgetMs);
+  const met = isDayGoalMet({
+    goalEnabled: hasStudyGoal(goal) && goal !== null,
+    mode: isWords ? 'words' : 'minutes',
+    hasWordsSnapshot,
+    status: existing?.goalStatus === 'nothing_due' ? 'nothing_due' : 'active',
+    introducedWords,
+    reviewedWords,
+    resolvedNewTarget: existing?.resolvedNewTarget ?? null,
+    resolvedReviewTarget: existing?.resolvedReviewTarget ?? null,
+    answeredWords,
+    activeMs,
+    minuteItemBudget,
+    minuteBudgetMs,
+  });
   const firstActivityAt = review.first_activity_at ? new Date(String(review.first_activity_at)) : null;
   const lastActivityAt = review.last_activity_at ? new Date(String(review.last_activity_at)) : null;
   await db.insert(userDayStats).values({

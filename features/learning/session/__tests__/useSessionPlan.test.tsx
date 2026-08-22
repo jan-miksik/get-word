@@ -6,7 +6,7 @@ import { useSessionPlan } from '../useSessionPlan';
 
 const scope = { dayKey: '2026-08-20', scopeKey: 'pair:cs:vi|categories:all', goalVersionId: 'goal-1' };
 const goal = {
-  id: 'goal-1', effectiveFromDay: scope.dayKey, enabled: true, mode: 'minutes' as const, daysPerWeek: 4,
+  id: 'goal-1', effectiveFromDay: scope.dayKey, enabled: true, mode: 'minutes' as const, daysPerWeek: 4, weekdays: null,
   minutesPerDay: 10, wordsPerDay: 5, newWordsPerDay: null, preset: 'medium' as const,
   pacing: { revealMode: 'scratch' as const, minigameFrequency: 'off' as const, fineTune: { version: 3 as const, stages: [] } },
 };

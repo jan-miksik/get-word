@@ -16,12 +16,13 @@ const mockGetMeta = vi.fn(async () => null as {
   lastContentRevision?: string | null;
 } | null);
 const mockPutMeta = vi.fn<(_patch: unknown) => Promise<boolean>>(async () => true);
+const mockMarkServerSnapshotApplied = vi.fn();
 
 vi.mock('@/lib/sync', () => ({
   fetchUserData: (options?: { since?: number | string; contentRev?: string }) => mockFetchUserData(options),
   clearPendingSync: vi.fn(),
   isAuthRequiredError: vi.fn(() => false),
-  markServerSnapshotApplied: vi.fn(),
+  markServerSnapshotApplied: () => mockMarkServerSnapshotApplied(),
 }));
 
 vi.mock('@/lib/sync-coordinator', () => ({
@@ -208,6 +209,23 @@ describe('useServerSync', () => {
 
     persistence.resolve(true);
     await waitFor(() => expect(result.current.isInitialServerSyncPending).toBe(false));
+  });
+
+  it('counts a boot delta as an applied server snapshot', async () => {
+    // Preference writes are gated on a snapshot having been applied. A warm
+    // start answers with a delta and may never fetch a full payload, so the
+    // gate has to open here or a settings change is dropped for the session.
+    mockGetStoragePreference.mockReturnValue(true);
+    mockGetMeta.mockResolvedValue({
+      lastSinceCursor: '1779400000000',
+      lastContentRevision: 'v2:content-rev-1',
+    });
+    mockLoadAllDomainsFromIdb.mockResolvedValueOnce({ syncResponse, activeListId: null });
+    mockFetchUserData.mockResolvedValueOnce({ ...syncResponse, is_delta: true, unchanged: true });
+
+    renderHook(() => useServerSyncHarness());
+
+    await waitFor(() => expect(mockMarkServerSnapshotApplied).toHaveBeenCalled());
   });
 
   it('uses a full boot snapshot after returning from list editing', async () => {

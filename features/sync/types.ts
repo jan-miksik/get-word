@@ -103,6 +103,7 @@ export interface SyncResponse {
     };
     goal_reminder_enabled?: boolean;
     goal_reminder_local_minutes?: number | null;
+    goal_reminder_intro_answered?: boolean;
     goal_intro_answered?: boolean;
     review_opt_in?: boolean;
     ai_review_opt_in?: boolean;

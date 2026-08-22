@@ -402,7 +402,7 @@ export function VirtualizedWordList({
           if (item.type === 'minigame') {
             return (
               <div
-                key={item.config.id}
+                key={`${item.stageIndex}-${item.config.id}`}
                 data-index={virtualRow.index}
                 className="absolute top-0 left-0 right-0"
                 style={{
@@ -420,7 +420,7 @@ export function VirtualizedWordList({
 
           return (
             <div
-              key={item.word.id}
+              key={`${item.stageIndex}-${item.word.id}`}
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
               className="absolute top-0 left-0 right-0"

@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
     reminder: {
       enabled: user.goalReminderEnabled,
       localMinutes: user.goalReminderLocalMinutes ?? 19 * 60,
+      onboardingAnswered: user.goalReminderIntroAnswered,
     },
     days: days.map((row) => ({
       dayKey: row.dayKey, activeMs: row.activeMs, answeredWords: row.answeredWords,

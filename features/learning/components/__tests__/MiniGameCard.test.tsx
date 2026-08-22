@@ -94,7 +94,9 @@ describe('MiniGameCard', () => {
 
   it('renders MatchingPairsGame for matching type', async () => {
     render(<MiniGameCard config={config('matching')} role="knownLanguage" onDismiss={vi.fn()} />);
-    expect(await screen.findByText('🔗 Match')).toBeInTheDocument();
+    // Frameless in the stream, so the round carries the same quiet heading the
+    // assembly card does rather than the bordered pill.
+    expect(await screen.findByText('Match')).toBeInTheDocument();
   });
 
   it('renders TiltChoiceGame for tiltChoice type', async () => {
@@ -180,8 +182,8 @@ describe('MiniGameCard', () => {
     const correctAnswer = sourceLang === 'cz' ? 'con chó' : 'pes';
     fireEvent.click(await screen.findByText(correctAnswer));
     expect(onResult).toHaveBeenCalledWith(1);
-    // Overlay appears, clicking it dismisses the card
-    fireEvent.click(screen.getByText(/tap to continue/i));
+    // The shared continue button dismisses the completed game.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onDismiss).toHaveBeenCalled();
   });
 
@@ -228,6 +230,20 @@ describe('MiniGameCard', () => {
     await waitFor(() => {
       expect(screen.getByText('🎯 Choice')).toBeInTheDocument();
     });
+  });
+
+  it('keeps the stage badge and the sound toggle side by side in one top lane', async () => {
+    render(<MiniGameCard config={config('multipleChoice')} role="knownLanguage" onDismiss={vi.fn()} />);
+
+    const badge = await screen.findByRole('img', { name: 'New' });
+    const toggle = screen.getByRole('button', { name: /sound (on|off)/i });
+
+    // Laid out in flow inside the same lane, so neither can be pinned on top of
+    // the other the way two independent absolute corners were.
+    expect(toggle.parentElement).toBe(badge.parentElement);
+    expect(badge.parentElement?.className).toContain('flex');
+    expect(toggle.className).not.toContain('absolute');
+    expect(badge.className).not.toContain('absolute');
   });
 
   it('renders directly in audio mode when availability was prewarmed in cache', async () => {

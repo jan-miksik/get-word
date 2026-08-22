@@ -13,6 +13,7 @@ import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ProgressData } from '@/features/sync/contracts';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
 import { BubbleChoiceGame } from '@/features/learning/components/games/BubbleChoiceGame';
+import { MultipleChoiceGame } from '@/features/learning/components/games/MultipleChoiceGame';
 import { SessionRail } from '@/features/learning/components/SessionRail';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
@@ -189,9 +190,9 @@ function PreviewStudy({
     max: 3,
   });
 
-  // Dev-only harness switches: `?preview=bubbles` and `?preview=session` render
-  // the two surfaces that are otherwise only reachable mid-session in the real
-  // app, which makes them impossible to iterate on visually.
+  // Dev-only harness switches render surfaces that are otherwise only
+  // reachable mid-session in the real app, which makes them hard to iterate on
+  // visually. `session-done` mirrors a completed goal with optional reviews.
   const previewSurface = useSearchParams().get('preview');
   const [breatherStep, setBreatherStep] = useState(0);
   const previewBlocks = useMemo<SessionBlockProgress[]>(() => ([
@@ -363,16 +364,25 @@ function PreviewStudy({
         <main className="learning-card-main flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" aria-live="polite">
           <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             <SessionRail flow={previewFlow} />
-            {previewSurface === 'session' ? (
+            {previewSurface === 'session' || previewSurface === 'session-done' ? (
               <div className="relative h-full">
                 <SessionBreatherCard
-                  breather={{
-                    kind: 'between',
-                    finished: previewBlocks[0],
-                    next: previewBlocks[1],
-                    flow: previewFlow,
-                  }}
+                  breather={previewSurface === 'session-done'
+                    ? {
+                        kind: 'complete',
+                        flow: resolveSessionFlow([
+                          { ...previewBlocks[0], done: 6, liveRemaining: 0 },
+                        ]),
+                      }
+                    : {
+                        kind: 'between',
+                        finished: previewBlocks[0],
+                        next: previewBlocks[1],
+                        flow: previewFlow,
+                      }}
                   onContinue={() => setBreatherStep((step) => (step + 1) % 3)}
+                  extraReviewCount={previewSurface === 'session-done' ? 39 : 0}
+                  onContinueExtra={previewSurface === 'session-done' ? () => undefined : undefined}
                 />
               </div>
             ) : previewSurface === 'bubbles' ? (
@@ -385,6 +395,14 @@ function PreviewStudy({
                   onComplete={() => setTypingRound((round) => round + 1)}
                 />
               </div>
+            ) : previewSurface === 'choice' ? (
+              <MultipleChoiceGame
+                words={PREVIEW_WORDS}
+                role={role}
+                level={2}
+                stageIndex={4}
+                onResult={(points) => setGameScore((score) => Math.max(0, score + points))}
+              />
             ) : currentWord ? (
               // Stands in for the card deck's own `data-tour` anchor so the
               // feature tour can be exercised here; see `featureTourSteps.ts`.

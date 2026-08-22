@@ -66,6 +66,25 @@ export function useLearningOnboardingActions({
     return true;
   }
 
+  /**
+   * Finish the language step on its own. The pair (and the completed-onboarding
+   * mark it carries) is saved here rather than at the end of the flow, so the
+   * steps that follow — level, goal, reminders — know which language they are
+   * about, and so closing the tab mid-flow resumes where it stopped.
+   */
+  async function saveLanguagePair() {
+    if (!canContinue || workingId !== null) return;
+    setWorkingId('language-pair');
+    setError(null);
+    try {
+      await savePreferences();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save learning languages');
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
   async function subscribeToList(list: MatchedWordList) {
     setWorkingId(list.id);
     // Show the loader overlay while the list is prepared so the streamlined
@@ -349,6 +368,7 @@ export function useLearningOnboardingActions({
     generationStatus,
     error,
     subscribeToList,
+    saveLanguagePair,
     selectMatchedList,
     completeWithWordChat,
     forkList,

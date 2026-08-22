@@ -202,6 +202,14 @@ export function useServerSync({
     const freshServerData = reconcileServerProgress(overlaidServerData);
     if (serverData.is_delta) {
       await applyServerDelta(freshServerData);
+      // A delta still carries the whole user block, so it is as much of a
+      // server snapshot as a full payload where preferences are concerned.
+      // Leaving it unmarked was how a warm start — cache first, then a delta
+      // or an "unchanged" answer, and never a full snapshot — kept preference
+      // writes gated off for the entire session: the panel showed the new
+      // choice, nothing was enqueued, and the next delta's user block put the
+      // stored value back.
+      markServerSnapshotApplied();
     } else {
       await applyServerData(freshServerData, { clearPending: false });
     }

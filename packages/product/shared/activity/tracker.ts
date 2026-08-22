@@ -96,6 +96,12 @@ export interface ActivityTracker {
     accruing: boolean;
     sessionId: string | null;
     activeMs: number;
+    /**
+     * Time since the last `settle()` that the next one will credit. Display
+     * only: it is deliberately not part of `activeMs`, which stays the
+     * accounted figure a checkpoint or a segment may be built from.
+     */
+    uncreditedMs: number;
     surface: ActivitySurface;
   };
 }
@@ -350,6 +356,29 @@ export function createActivityTracker(ports: ActivityTrackerPorts): ActivityTrac
     writeCheckpoint();
   }
 
+  /**
+   * What `settle()` would credit if it ran right now, without mutating
+   * anything.
+   *
+   * The tracker settles on a five-second tick, which is the right cadence for
+   * measurement but wrong for a clock the learner is watching: between ticks
+   * the display stood still, and then jumped five seconds. Mirroring the credit
+   * rule here — same clock-anomaly guard, same idle horizon, same segment
+   * budget — lets the UI show the value the next tick will arrive at, so the
+   * seconds run continuously and never overshoot what is actually recorded.
+   */
+  function uncreditedMs(): number {
+    if (!open) return 0;
+    const monoDelta = ports.monotonicNow() - lastMono;
+    const wallDelta = ports.wallNow() - lastWall;
+    if (monoDelta <= 0 || wallDelta <= 0 || wallDelta > monoDelta + CLOCK_SLIP_TOLERANCE_MS) return 0;
+    const remainingUntilIdle = Math.max(0, lastInteractionWall + IDLE_TIMEOUT_MS - lastAccountedWall);
+    return Math.max(
+      0,
+      Math.min(monoDelta, wallDelta, remainingUntilIdle, MAX_SEGMENT_MS - open.activeMs),
+    );
+  }
+
   function ensureOpen(nowWall: number): void {
     if (open || !isAccruing(nowWall)) return;
     openSegment(nowWall);
@@ -451,6 +480,7 @@ export function createActivityTracker(ports: ActivityTrackerPorts): ActivityTrac
         accruing: isAccruing(ports.wallNow()),
         sessionId,
         activeMs: open?.activeMs ?? 0,
+        uncreditedMs: uncreditedMs(),
         surface,
       };
     },

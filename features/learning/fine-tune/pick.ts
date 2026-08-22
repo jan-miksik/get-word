@@ -1,7 +1,11 @@
 import type { NormalizedWord } from '@/lib/words';
 import { splitGraphemes } from '@/lib/answer-normalization';
 import type { LearningRole } from '@/features/learning/state/learningRole';
-import type { SimilarityBand } from '@/features/learning/minigames/similarity';
+import {
+  bandAtLeast,
+  similarityBandForTerms,
+  type SimilarityBand,
+} from '@/features/learning/minigames/similarity';
 import { stageConfigAt } from './config';
 import {
   MIN_IN_BAND_OPTIONS,
@@ -132,10 +136,69 @@ function feasibleAssemblyVariants(
   });
 }
 
+const LETTER_FAMILIES = [
+  'aáàảãạăắằẳẵặâấầẩẫậ',
+  'cč',
+  'dďđ',
+  'eéěèẻẽẹêếềểễệ',
+  'iíìỉĩị',
+  'nň',
+  'oóòỏõọôốồổỗộơớờởỡợ',
+  'rř',
+  'sš',
+  'tť',
+  'uúůùủũụưứừửữự',
+  'yýỳỷỹỵ',
+  'zž',
+] as const;
+
 function fallbackExtraParts(answer: string, unit: 'letters' | 'words'): string[] {
-  if (unit === 'words') return ['…', '…'];
+  if (unit === 'words') return ['…', '?', '—', '+', '•', '×'];
   const used = new Set(answer.toLocaleLowerCase());
-  return [...'abcdefghijklmnopqrstuvwxyz'].filter((letter) => !used.has(letter)).slice(0, 3);
+  return [...'abcdefghijklmnopqrstuvwxyz'].filter((letter) => !used.has(letter));
+}
+
+function confusableLetters(correct: string[]): string[] {
+  const correctSet = new Set(correct.map((part) => part.toLocaleLowerCase()));
+  const output: string[] = [];
+  for (const part of correctSet) {
+    const family = LETTER_FAMILIES.find((candidate) => candidate.includes(part));
+    if (!family) continue;
+    for (const candidate of splitGraphemes(family)) {
+      if (!correctSet.has(candidate)) output.push(candidate);
+    }
+  }
+  return output;
+}
+
+function lettersAreConfusable(left: string, right: string): boolean {
+  const normalizedLeft = left.toLocaleLowerCase();
+  const normalizedRight = right.toLocaleLowerCase();
+  if (normalizedLeft === normalizedRight) return true;
+  return LETTER_FAMILIES.some(
+    (family) => family.includes(normalizedLeft) && family.includes(normalizedRight),
+  );
+}
+
+function uniqueParts(parts: string[], excluded: Set<string>): string[] {
+  const seen = new Set(excluded);
+  const output: string[] = [];
+  for (const part of parts) {
+    const key = part.toLocaleLowerCase();
+    if (!part || seen.has(key)) continue;
+    seen.add(key);
+    output.push(part);
+  }
+  return output;
+}
+
+function takeRandom(parts: string[], count: number, random: () => number): string[] {
+  const available = [...parts];
+  const output: string[] = [];
+  while (available.length > 0 && output.length < count) {
+    output.push(available.splice(Math.floor(random() * available.length), 1)[0]);
+  }
+  return output;
 }
 
 function resolveAssemblyParts({
@@ -150,25 +213,62 @@ function resolveAssemblyParts({
   role: LearningRole;
   variant: AssemblyVariant;
   random: () => number;
-}): { answerParts: string[]; distractorParts: string[] } {
-  const { unit, distractors } = parseAssemblyVariant(variant);
+}): { answerParts: string[]; distractorParts: string[]; effectiveBand: SimilarityBand } {
+  const { unit, band } = parseAssemblyVariant(variant);
   const correct = answerParts(learningAnswerForRole(target, role), unit);
-  if (!distractors) return { answerParts: correct, distractorParts: [] };
+  if (band === 'I') {
+    return { answerParts: correct, distractorParts: [], effectiveBand: 'I' };
+  }
 
   const correctKeys = new Set(correct.map((part) => part.toLocaleLowerCase()));
-  const candidates = pool
+  const poolParts = pool
     .filter((word) => word.id !== target.id)
     .flatMap((word) => answerParts(learningAnswerForRole(word, role), unit))
     .filter((part) => !correctKeys.has(part.toLocaleLowerCase()));
-  const needed = Math.min(3, Math.max(1, Math.ceil(correct.length / 3)));
-  const extras: string[] = [];
-  while (candidates.length > 0 && extras.length < needed) {
-    extras.push(candidates.splice(Math.floor(random() * candidates.length), 1)[0]);
-  }
-  return {
-    answerParts: correct,
-    distractorParts: extras.length > 0 ? extras : fallbackExtraParts(correct.join(''), unit).slice(0, needed),
+  const generatedSimilar = unit === 'letters' ? confusableLetters(correct) : [];
+  const candidates = uniqueParts(
+    [...generatedSimilar, ...poolParts, ...fallbackExtraParts(correct.join(''), unit)],
+    correctKeys,
+  );
+  const needed = Math.min(6, Math.max(3, Math.ceil(correct.length * 0.3)));
+  const isSimilarEnough = (candidate: string, attempt: SimilarityBand): boolean =>
+    correct.some((part) =>
+      unit === 'letters'
+        ? lettersAreConfusable(candidate, part)
+        : bandAtLeast(similarityBandForTerms(candidate, part), attempt),
+    );
+
+  const resolveAt = (attempt: SimilarityBand): string[] | null => {
+    if (attempt === 'I') return takeRandom(candidates, needed, random);
+    const ratio = attempt === 'III' ? 0.8 : 0.2;
+    const similarNeeded = Math.ceil(needed * ratio);
+    const similar = candidates.filter((candidate) => isSimilarEnough(candidate, attempt));
+    if (similar.length < similarNeeded) return null;
+    const chosenSimilar = takeRandom(similar, similarNeeded, random);
+    const chosenSet = new Set(chosenSimilar.map((part) => part.toLocaleLowerCase()));
+    const remaining = candidates.filter((part) => !chosenSet.has(part.toLocaleLowerCase()));
+    const dissimilar = remaining.filter((candidate) => !isSimilarEnough(candidate, attempt));
+    const filler = takeRandom(dissimilar, needed - chosenSimilar.length, random);
+    if (filler.length < needed - chosenSimilar.length) {
+      const fillerSet = new Set(filler.map((part) => part.toLocaleLowerCase()));
+      filler.push(...takeRandom(
+        remaining.filter((part) => !fillerSet.has(part.toLocaleLowerCase())),
+        needed - chosenSimilar.length - filler.length,
+        random,
+      ));
+    }
+    return [...chosenSimilar, ...filler];
   };
+
+  const attempts: SimilarityBand[] = band === 'III' ? ['III', 'II', 'I'] : ['II', 'I'];
+  for (const attempt of attempts) {
+    const distractorParts = resolveAt(attempt);
+    if (distractorParts && distractorParts.length > 0) {
+      return { answerParts: correct, distractorParts, effectiveBand: attempt };
+    }
+  }
+
+  return { answerParts: correct, distractorParts: [], effectiveBand: 'I' };
 }
 
 export interface PickExerciseInput {
@@ -254,26 +354,11 @@ export function pickExerciseForWord({
   };
 }
 
-/**
- * Matching variants for a stage, searching *upward* when the stage itself
- * configures none.
- *
- * The direction matters. A round is drawn from the words just above it in the
- * stream — words the learner has seen moments ago — so a stage-0 neighbourhood
- * still deserves an interlude, and it borrows the gentlest round configured
- * above it. Searching downward would do the opposite and resurrect matching for
- * learners whose settings deliberately drop it at the long intervals, so it is
- * upward only: past the last configured stage, matching simply stops.
- */
 function matchVariantsForStage(
   config: FineTuneConfig,
   stageIndex: number,
 ): MatchVariant[] {
-  for (let stage = Math.max(0, stageIndex); stage < config.stages.length; stage += 1) {
-    const variants = stageConfigAt(config, stage).match.variants;
-    if (variants.length > 0) return variants;
-  }
-  return [];
+  return stageConfigAt(config, stageIndex).match.variants;
 }
 
 export interface ResolvedMatchRound {

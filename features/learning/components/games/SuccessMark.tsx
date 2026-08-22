@@ -6,9 +6,6 @@ import {
   FALLBACK_SKIN,
   pickRandom,
   SUCCESS_MARK_ANIMATIONS,
-  SUCCESS_MARK_SKINS,
-  useSuccessMarkAnimationChoice,
-  useSuccessMarkSkinChoice,
   type SuccessMarkAnimation,
   type SuccessMarkSkin,
 } from './successMarkVariant';
@@ -28,16 +25,16 @@ import {
  * classes, and the badge keeps `relative` for its own rings.
  */
 
-type Size = 'default' | 'large';
+/**
+ * One size everywhere. There used to be a second, smaller badge for the cards
+ * inside the stream and a hero one for the "round finished" panels, which meant
+ * the same reward changed size depending on which exercise the learner happened
+ * to get. The larger of the two won.
+ */
+const BADGE_SIZE = 'h-20 w-20';
 
-const sizeClasses: Record<Size, string> = {
-  default: 'h-14 w-14',
-  /** For the full-screen "round finished" panels, where the badge is the hero. */
-  large: 'h-20 w-20',
-};
-
-/** Height reserved by `SuccessMarkSlot`; matches the default badge exactly. */
-const SLOT_HEIGHT_CLASS = 'h-14';
+/** Height reserved by `SuccessMarkSlot`; matches the badge exactly. */
+const SLOT_HEIGHT = 'h-20';
 
 type SkinStyle = {
   /** Fill, ink colour and shadow. */
@@ -158,14 +155,12 @@ const ANIMATION_STYLES: Record<SuccessMarkAnimation, AnimationStyle> = {
 
 export function SuccessMark({
   label,
-  size = 'default',
   animation,
   skin,
   className = '',
 }: {
   /** Empty when a heading right next to the badge already says it. */
   label: string;
-  size?: Size;
   /** Pin the entrance instead of following the picker. Only the dev harness does. */
   animation?: SuccessMarkAnimation;
   /** Pin the look instead of following the picker. Only the dev harness does. */
@@ -173,18 +168,13 @@ export function SuccessMark({
   /** Extra classes for the badge. Never position classes — see the note above. */
   className?: string;
 }) {
-  const animationChoice = useSuccessMarkAnimationChoice();
-  const skinChoice = useSuccessMarkSkinChoice();
-  // Rolled once per mount, so a badge never changes under the learner mid-
-  // animation, and every completed card gets its own combination.
-  const [rolled] = useState(() => ({
-    animation: pickRandom(SUCCESS_MARK_ANIMATIONS),
-    skin: pickRandom(SUCCESS_MARK_SKINS),
-  }));
+  // Roll once per mount, so a badge never changes under the learner mid-
+  // animation. The skin is deliberately not random: every real success mark
+  // is solid. `skin` exists solely for the isolated development gallery.
+  const [rolledAnimation] = useState(() => pickRandom(SUCCESS_MARK_ANIMATIONS));
 
-  const resolvedAnimation =
-    animation ?? (animationChoice === 'random' ? rolled.animation : animationChoice);
-  const resolvedSkin = skin ?? (skinChoice === 'random' ? rolled.skin : skinChoice);
+  const resolvedAnimation = animation ?? rolledAnimation;
+  const resolvedSkin = skin ?? FALLBACK_SKIN;
 
   const motion = ANIMATION_STYLES[resolvedAnimation] ?? ANIMATION_STYLES[FALLBACK_ANIMATION];
   const look = SKIN_STYLES[resolvedSkin] ?? SKIN_STYLES[FALLBACK_SKIN];
@@ -195,7 +185,7 @@ export function SuccessMark({
       aria-label={label || undefined}
       aria-hidden={label ? undefined : 'true'}
       data-success-mark={`${resolvedAnimation}/${resolvedSkin}`}
-      className={`relative inline-flex shrink-0 items-center justify-center rounded-full ${look.surface} ${motion.drawsOwnRing ? '' : look.border} ${sizeClasses[size]} ${motion.badge} ${className}`}
+      className={`relative inline-flex shrink-0 items-center justify-center rounded-full ${look.surface} ${motion.drawsOwnRing ? '' : look.border} ${BADGE_SIZE} ${motion.badge} ${className}`}
     >
       {motion.rings.map((ring, index) => (
         <span
@@ -250,22 +240,34 @@ export function SuccessMarkSlot({
   show: boolean;
   label: string;
   /**
-   * Identifies the card this badge belongs to — normally the word's id. It is
-   * the React key of the badge, so a new card always mounts a new badge and
-   * therefore rolls a new combination. Cards happen to be keyed by word id
-   * today, which would remount the badge anyway; passing it explicitly means
-   * the per-card roll survives a card that ever stops being remounted.
+   * Identifies the card this badge belongs to — normally the word's id. Part of
+   * the badge's React key, so moving to another card always mounts a new badge.
    */
   rollKey?: string;
   className?: string;
 }) {
+  // A badge rolls its animation when it mounts, so it must actually mount every
+  // time it appears. Relying on the card around it being remounted per word was
+  // enough in the study stream but not everywhere: a card that resets for a new
+  // round without unmounting kept the badge — and its animation — alive, which
+  // is why the same entrance kept showing up. Counting reveals here makes the
+  // roll depend on the badge appearing, not on anything above it.
+  const [wasShown, setWasShown] = useState(show);
+  const [reveals, setReveals] = useState(0);
+  if (show !== wasShown) {
+    // Adjusting state during render: React re-runs this component before it
+    // commits, so the badge mounts once, already carrying its final key.
+    setWasShown(show);
+    if (show) setReveals((count) => count + 1);
+  }
+
   return (
     <div
-      className={`pointer-events-none flex w-full shrink-0 items-center justify-center ${SLOT_HEIGHT_CLASS} ${className}`}
+      className={`pointer-events-none flex w-full shrink-0 items-center justify-center ${SLOT_HEIGHT} ${className}`}
       role={show ? 'status' : undefined}
       aria-hidden={show ? undefined : true}
     >
-      {show ? <SuccessMark key={rollKey} label={label} /> : null}
+      {show ? <SuccessMark key={`${rollKey ?? ''}:${reveals}`} label={label} /> : null}
     </div>
   );
 }

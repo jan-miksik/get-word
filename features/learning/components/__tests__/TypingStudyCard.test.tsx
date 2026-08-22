@@ -493,6 +493,17 @@ describe('TypingStudyCard', () => {
     expect(screen.getAllByRole('textbox')[1]).toHaveValue('con ch');
   });
 
+  it('never scaffolds down to punctuation as the only thing left to type', () => {
+    // Without the guard a 90% scaffold on "con chó?" reveals every letter and
+    // asks the learner to supply the question mark, which tests nothing.
+    renderCard({
+      variant: '90:90',
+      prefillPunctuation: false,
+      word: makeWord('punct', 'pes', 'con chó?'),
+    });
+    expect(input()).toHaveValue('con ch');
+  });
+
   it('does not prefill or check the free-text alternative before confirmation', () => {
     renderCard({
       variant: '90:90',

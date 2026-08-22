@@ -436,7 +436,11 @@ export function useWordChat({
   // study pair's source side is a property of the list, not a statement about
   // what they read comfortably.
   const chatLanguage = uiLanguage || languageFrom;
-  const addressRegisterApplies = hasRegisterDistinction(chatLanguage);
+  // The app addresses everyone informally, everywhere, so the chat no longer
+  // asks — neither in its opening questions nor in its settings. The stored
+  // preference and the server field stay in place; nothing reads them for the
+  // chat's own tone any more.
+  const addressRegisterApplies = false;
   const salutationGenderApplies = hasGenderedSalutation(chatLanguage);
   // Who this batch of phrases is addressed to. Nothing to do with the chat's
   // own tone (`addressRegister` above): this is a property of the words being
@@ -452,7 +456,7 @@ export function useWordChat({
       (!addressRegisterApplies || addressRegister) &&
       (!salutationGenderApplies || salutationGender),
   );
-  const effectiveAddressRegister: WordChatAddressRegister = addressRegister ?? 'formal';
+  const effectiveAddressRegister: WordChatAddressRegister = 'casual';
   const effectiveLanguageLevel: WordChatLanguageLevel = currentLanguageLevel ?? 'A0';
 
   // Restore an interrupted session once, on mount.

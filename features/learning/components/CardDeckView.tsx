@@ -71,6 +71,26 @@ function getStreamItemKey(item: StreamItem): string {
   return '_isMinigame' in item ? `minigame-${item.id}` : `word-${item.id}`;
 }
 
+/**
+ * A word can legitimately appear in two blocks of the same day: the closing
+ * same-day repeat block asks again for the words the new block just introduced.
+ * Keyed by word id alone those two appearances were one card — the second was
+ * skipped as "already completed", React reused the first one's subtree (an
+ * assembly round returned with its tiles still chosen, so one more tap finished
+ * it), and every key lookup resolved to the earlier block, which is what made
+ * the rail draw the wrong block. The block key is what tells them apart.
+ */
+function deckEntryKey(groupKey: string, item: StreamItem): string {
+  return `${groupKey}|${getStreamItemKey(item)}`;
+}
+
+/** One card as the deck walks it: the item, its identity, and where it sits. */
+interface DeckEntry {
+  item: StreamItem;
+  key: string;
+  blockIndex: number;
+}
+
 export interface CardDeckSwipeActions {
   markKnown: (wordId: string) => void;
   markUnknown: (wordId: string) => void;
@@ -136,17 +156,26 @@ export function CardDeckView({
     })),
     [groupedWords, streamGroups],
   );
-  const itemGroups = useMemo(() => normalizedGroups.map((group) => group.items), [normalizedGroups]);
-  const items: StreamItem[] = useMemo(() => itemGroups.flat(), [itemGroups]);
+  const entries = useMemo<DeckEntry[]>(
+    () => normalizedGroups.flatMap((group) =>
+      group.items.map((item) => ({
+        item,
+        key: deckEntryKey(group.key, item),
+        blockIndex: group.blockIndex,
+      })),
+    ),
+    [normalizedGroups],
+  );
+  const items = useMemo<StreamItem[]>(() => entries.map((entry) => entry.item), [entries]);
 
   // Keep a snapshot of the last successfully rendered item so we can still
   // show it after items[] shrinks (words are removed from the queue once marked).
-  const [lastItem, setLastItem] = useState<StreamItem | null>(null);
-  const lastItemRef = useRef<StreamItem | null>(null);
+  const [lastEntry, setLastEntry] = useState<DeckEntry | null>(null);
+  const lastEntryRef = useRef<DeckEntry | null>(null);
   // Lock the card being animated out so its content doesn't swap mid-animation
-  // if the underlying item list changes after the word is marked.
-  const [lockedItem, setLockedItem] = useState<StreamItem | null>(null);
-  const [lockedBlockIndex, setLockedBlockIndex] = useState(0);
+  // if the underlying item list changes after the word is marked. The entry
+  // carries its own block index, so the locked card keeps its rail too.
+  const [lockedEntry, setLockedEntry] = useState<DeckEntry | null>(null);
   const pendingAfterExitRef = useRef<(() => void) | null>(null);
   // True while an exit animation is in flight. Guards against re-entrant advance
   // calls (double taps) and lets the fallback timer know there's something to
@@ -161,18 +190,16 @@ export function CardDeckView({
   // Store latest values in refs so the advance callback always reads fresh state,
   // even when called from a stale closure captured during an earlier render.
   const currentIndexRef = useRef(currentIndex);
-  const itemsRef = useRef(items);
-  const itemGroupsRef = useRef(itemGroups);
+  const entriesRef = useRef(entries);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
-    itemsRef.current = items;
-    itemGroupsRef.current = itemGroups;
-  }, [currentIndex, itemGroups, items]);
+    entriesRef.current = entries;
+  }, [currentIndex, entries]);
 
-  const updateLastItem = useCallback((item: StreamItem | null) => {
-    lastItemRef.current = item;
-    setLastItem(item);
+  const updateLastEntry = useCallback((entry: DeckEntry | null) => {
+    lastEntryRef.current = entry;
+    setLastEntry(entry);
   }, []);
 
   useEffect(() => {
@@ -180,28 +207,28 @@ export function CardDeckView({
     // even if the live queue removes it immediately after its review is saved.
     if (showDoneOverlay) return;
 
-    const availableKeys = new Set(items.map(getStreamItemKey));
+    const availableKeys = new Set(entries.map((entry) => entry.key));
     for (const key of completedItemKeysRef.current) {
       if (!availableKeys.has(key)) completedItemKeysRef.current.delete(key);
     }
 
     if (isExitingRef.current) return;
-    const visibleKey = lastItemRef.current ? getStreamItemKey(lastItemRef.current) : null;
+    const visibleKey = lastEntryRef.current?.key ?? null;
     const visibleIndex = visibleKey
-      ? items.findIndex((candidate) => getStreamItemKey(candidate) === visibleKey)
+      ? entries.findIndex((candidate) => candidate.key === visibleKey)
       : -1;
     if (visibleIndex >= 0 && !completedItemKeysRef.current.has(visibleKey!)) {
       setCurrentIndex(visibleIndex);
       return;
     }
 
-    const nextIndex = items.findIndex(
-      (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+    const nextIndex = entries.findIndex(
+      (candidate) => !completedItemKeysRef.current.has(candidate.key),
     );
-    setCurrentIndex(nextIndex >= 0 ? nextIndex : items.length);
-    updateLastItem(nextIndex >= 0 ? items[nextIndex] : null);
+    setCurrentIndex(nextIndex >= 0 ? nextIndex : entries.length);
+    updateLastEntry(nextIndex >= 0 ? entries[nextIndex] : null);
     setShowDoneOverlay(false);
-  }, [items, showDoneOverlay, updateLastItem]);
+  }, [entries, showDoneOverlay, updateLastEntry]);
 
   // Clear any pending fallback timer on unmount.
   useEffect(() => () => {
@@ -243,20 +270,20 @@ export function CardDeckView({
       exitFallbackTimerRef.current = null;
     }
     setExitAnim(null);
-    setLockedItem(null);
+    setLockedEntry(null);
     // Clear before invoking so a throwing callback can't stay armed for a
     // later finishExit.
     const afterExit = pendingAfterExitRef.current;
     pendingAfterExitRef.current = null;
     afterExit?.();
-    const currentItems = itemsRef.current;
-    const nextIndex = currentItems.findIndex(
-      (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+    const currentEntries = entriesRef.current;
+    const nextIndex = currentEntries.findIndex(
+      (candidate) => !completedItemKeysRef.current.has(candidate.key),
     );
-    setCurrentIndex(nextIndex >= 0 ? nextIndex : currentItems.length);
-    updateLastItem(nextIndex >= 0 ? currentItems[nextIndex] : null);
+    setCurrentIndex(nextIndex >= 0 ? nextIndex : currentEntries.length);
+    updateLastEntry(nextIndex >= 0 ? currentEntries[nextIndex] : null);
     setEnterAnim(randomEnterAnim());
-  }, [updateLastItem]);
+  }, [updateLastEntry]);
 
   // Starts an exit animation and arms the fallback timer that recovers the deck
   // if `animationend` never arrives.
@@ -288,51 +315,41 @@ export function CardDeckView({
     exitAnim?: string;
   }): 'exit' | 'overlay' | 'skipped' | 'ignored' => {
     const idx = currentIndexRef.current;
-    const currentItems = itemsRef.current;
-    const last = currentItems.length > 0 ? currentItems.length - 1 : -1;
+    const currentEntries = entriesRef.current;
+    const last = currentEntries.length > 0 ? currentEntries.length - 1 : -1;
     const skip = opts?.skipAnimation ?? false;
     // Ignore taps while an exit animation is already running — otherwise a second
     // tap overwrites the pending callback and can re-pick the same animation
     // class (which React won't restart), stalling the deck.
     if (isExitingRef.current && !skip && process.env.NODE_ENV !== 'test') return 'ignored';
     if (opts?.afterExit) pendingAfterExitRef.current = opts.afterExit;
-    const currentItem = currentItems[idx] ?? lastItemRef.current;
-    const isMinigame = currentItem ? '_isMinigame' in currentItem : false;
+    const currentEntry = currentEntries[idx] ?? lastEntryRef.current;
+    const isMinigame = currentEntry ? '_isMinigame' in currentEntry.item : false;
 
-    if (currentItem) completedItemKeysRef.current.add(getStreamItemKey(currentItem));
+    if (currentEntry) completedItemKeysRef.current.add(currentEntry.key);
 
-    if (currentItem && !isMinigame) {
-      onWordCardCompleted?.(currentItem as NormalizedWord);
+    if (currentEntry && !isMinigame) {
+      onWordCardCompleted?.(currentEntry.item as NormalizedWord);
     }
 
     if (process.env.NODE_ENV === 'test' || skip) {
       const afterExit = pendingAfterExitRef.current;
       pendingAfterExitRef.current = null;
       afterExit?.();
-      const nextIndex = currentItems.findIndex(
-        (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+      const nextIndex = currentEntries.findIndex(
+        (candidate) => !completedItemKeysRef.current.has(candidate.key),
       );
-      setCurrentIndex(nextIndex >= 0 ? nextIndex : currentItems.length);
-      updateLastItem(nextIndex >= 0 ? currentItems[nextIndex] : null);
+      setCurrentIndex(nextIndex >= 0 ? nextIndex : currentEntries.length);
+      updateLastEntry(nextIndex >= 0 ? currentEntries[nextIndex] : null);
       return 'skipped';
     }
 
-    if (currentItem) {
-      setLockedItem(currentItem);
-      let lockedBlock = 0;
-      let count = 0;
-      const grouped = itemGroupsRef.current;
-      for (let g = 0; g < grouped.length; g++) {
-        count += grouped[g].length;
-        if (idx < count) { lockedBlock = normalizedGroups[g]?.blockIndex ?? g; break; }
-      }
-      setLockedBlockIndex(lockedBlock);
-    }
+    if (currentEntry) setLockedEntry(currentEntry);
 
-    const hasAnotherItem = currentItems.some(
-      (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+    const hasAnotherEntry = currentEntries.some(
+      (candidate) => !completedItemKeysRef.current.has(candidate.key),
     );
-    if (last >= 0 && !hasAnotherItem) {
+    if (last >= 0 && !hasAnotherEntry) {
       if (!isMinigame) {
         setShowDoneOverlay(true);
         const afterExit = pendingAfterExitRef.current;
@@ -344,7 +361,7 @@ export function CardDeckView({
 
     beginExit(opts?.exitAnim);
     return 'exit';
-  }, [onWordCardCompleted, beginExit, normalizedGroups, updateLastItem]);
+  }, [onWordCardCompleted, beginExit, updateLastEntry]);
 
   const handleMiniGameComplete = useCallback(() => {
     advance({ skipAnimation: true });
@@ -367,8 +384,8 @@ export function CardDeckView({
   // item from the same refs used by deck advancement, so a mid-drag rerender
   // cannot retarget the commit.
   const getCurrentSwipeWordId = useCallback(() => {
-    const currentItems = itemsRef.current;
-    const currentItem = currentItems[currentIndexRef.current] ?? lastItemRef.current;
+    const currentEntries = entriesRef.current;
+    const currentItem = (currentEntries[currentIndexRef.current] ?? lastEntryRef.current)?.item;
     if (!currentItem || '_isMinigame' in currentItem) return null;
     if (isSwipeBlockedForWord?.(currentItem.id)) return null;
     return currentItem.id;
@@ -408,16 +425,15 @@ export function CardDeckView({
     setEnterAnim(null);
   }, []);
 
-  const pinnedItemIndex = !exitAnim && lastItem
-    ? items.findIndex(
-        (candidate) => getStreamItemKey(candidate) === getStreamItemKey(lastItem),
-      )
+  const pinnedItemIndex = !exitAnim && lastEntry
+    ? entries.findIndex((candidate) => candidate.key === lastEntry.key)
     : -1;
   const effectiveCurrentIndex = pinnedItemIndex >= 0 ? pinnedItemIndex : currentIndex;
-  const isDone = items.length === 0 || effectiveCurrentIndex >= items.length;
-  const item = exitAnim
-    ? lockedItem
-    : items[effectiveCurrentIndex] ?? lastItem;
+  const isDone = entries.length === 0 || effectiveCurrentIndex >= entries.length;
+  const entry = exitAnim
+    ? lockedEntry
+    : entries[effectiveCurrentIndex] ?? lastEntry;
+  const item = entry?.item ?? null;
 
   useEffect(() => {
     currentIndexRef.current = effectiveCurrentIndex;
@@ -448,7 +464,7 @@ export function CardDeckView({
     );
   }
 
-  if (!item) {
+  if (!entry || !item) {
     return (
       <div className="flex h-full items-center justify-center">
         {emptyState ?? (
@@ -460,20 +476,11 @@ export function CardDeckView({
     );
   }
 
-  // Determine the block index from which group currentIndex falls into.
-  let blockIndex = 0;
-  if (exitAnim && lockedItem) {
-    blockIndex = lockedBlockIndex;
-  } else {
-    let count = 0;
-    for (let g = 0; g < itemGroups.length; g++) {
-      count += itemGroups[g].length;
-      if (effectiveCurrentIndex < count) { blockIndex = normalizedGroups[g]?.blockIndex ?? g; break; }
-    }
-  }
+  // The entry already knows which block it came from, locked card included.
+  const blockIndex = entry.blockIndex;
 
   const isMinigame = '_isMinigame' in item;
-  const itemKey = getStreamItemKey(item);
+  const itemKey = entry.key;
   const isExiting = Boolean(exitAnim);
   const swipeActive = swipeConfigured && !isMinigame;
   const horizontalSwipeActive = swipeActive && allowHorizontalSwipe;

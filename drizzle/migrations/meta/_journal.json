@@ -477,6 +477,20 @@
       "when": 1787270400000,
       "tag": "0067_study_goal_words_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1787356800000,
+      "tag": "0068_study_goal_words_ceiling",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1787443200000,
+      "tag": "0069_study_goal_weekdays_and_reminder_intro",
+      "breakpoints": true
     }
   ]
 }

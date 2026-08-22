@@ -3,6 +3,8 @@ import type { SessionBlockProgress } from './dayProgress';
 export interface SessionFlowState {
   /** Index into the plan's blocks, or -1 once every block is finished. */
   index: number;
+  /** The whole day's plan, in order — what the day rail draws. */
+  blocks: readonly SessionBlockProgress[];
   block: SessionBlockProgress | null;
   /** The block after the current one, for the breather's "up next". */
   next: SessionBlockProgress | null;
@@ -18,6 +20,7 @@ export interface SessionFlowState {
 
 const EMPTY: SessionFlowState = {
   index: -1,
+  blocks: [],
   block: null,
   next: null,
   blockNumber: 0,
@@ -46,10 +49,11 @@ export function resolveSessionFlow(blocks: readonly SessionBlockProgress[]): Ses
   const index = blocks.findIndex((block) => block.done < block.total && block.liveRemaining > 0);
 
   if (index === -1) {
-    return { ...EMPTY, blockCount: blocks.length, dayDone, dayTotal, dayPending, complete: true };
+    return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending, complete: true };
   }
   return {
     index,
+    blocks,
     block: blocks[index],
     next: blocks[index + 1] ?? null,
     blockNumber: index + 1,

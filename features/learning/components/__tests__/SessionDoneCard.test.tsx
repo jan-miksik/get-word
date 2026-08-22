@@ -31,6 +31,19 @@ describe('SessionDoneCard', () => {
     expect(onOpenWordChat).toHaveBeenCalledTimes(1);
   });
 
+  it('never claims nothing is due while the plan\'s leftover repeats are waiting', () => {
+    const onStudyExtra = vi.fn();
+    renderCard({ settlingCount: 127, dueNowCount: 36, onStudyExtra, onToggleShowNotReady: vi.fn() });
+
+    expect(screen.queryByText(/nothing due right now/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/done for today/i)).toBeInTheDocument();
+    expect(screen.getByText(/36 words are ready for a repeat right now/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /repeat 36 more/i }));
+
+    expect(onStudyExtra).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps its own headline out of the way when the caller has a better one', () => {
     renderCard({ title: 'No words match your current filters.' });
 

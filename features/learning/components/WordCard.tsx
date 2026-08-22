@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
-import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { NormalizedWord, STAGES, shouldMinimizeStudyNoteForStage } from '@/lib/words';
 import type { ProgressData } from '@/features/sync/contracts';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
@@ -11,7 +10,11 @@ import type { LearningRole } from '@/features/learning/state/learningRole';
 import { RevealHint } from './word-card/RevealHint';
 import { LanguageRow } from './word-card/LanguageRow';
 import { CustomStagePopover } from './word-card/CustomStagePopover';
+import { FullyKnownOffer, TOP_STAGE_INDEX, isTopStage } from './word-card/FullyKnownOffer';
 import { CommentBlock } from './word-card/CommentBlock';
+import { StageBadge } from './StageBadge';
+import { CardTopControls } from './CardTopControls';
+import { useCardAudio } from './card-audio/useCardAudio';
 import {
   formatNextReviewHint,
   getLearningAudioSrc,
@@ -81,7 +84,7 @@ export const WordCard = memo(function WordCard({
   const [hookValue, setHookValue] = useState(memoryHook);
   const hookInputRef = useRef<HTMLInputElement>(null);
   const hookDisplayRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { audioRef, play } = useCardAudio();
   const [slowPlayback, setSlowPlayback] = useState(false);
 
   useEffect(() => {
@@ -139,7 +142,7 @@ export const WordCard = memo(function WordCard({
   };
 
   const playAudio = (src: string | string[]) => {
-    void playUserInitiatedAudio(audioRef, src).then(({ ok, rate }) => {
+    void play(src).then(({ ok, rate }) => {
       const isSlow = ok && rate < 1;
       setSlowPlayback(isSlow);
       if (!isSlow) return;
@@ -211,6 +214,14 @@ export const WordCard = memo(function WordCard({
     'mastered';
   const hasCustomStageActions = Boolean(onCustomStage || onReallyKnown);
   const useMobileCustomActionOnly = mobileCustomActionOnly && hasCustomStageActions;
+  // At 60 days the next "OK" would only book another 60 days, so the retire
+  // option is surfaced on the card itself rather than buried in the popover.
+  const showFullyKnownOffer =
+    hasCustomStageActions && isTopStage(stageIndex) && Boolean(progress.nextDueAt);
+  const retireWord = () => {
+    if (onCustomStage) onCustomStage(TOP_STAGE_INDEX, { noRepeat: true });
+    else onReallyKnown?.();
+  };
 
   const orderedDisplayCategories = useMemo(() => {
     const displayCategories = word.category?.filter(
@@ -237,10 +248,15 @@ export const WordCard = memo(function WordCard({
   // In edit mode, always show category badges; otherwise use the setting
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
   const forgotHint = formatNextReviewHint(STAGES[Math.max(clampedStageIndex - 1, 0)]?.intervalMs ?? 0, t);
-  const okayHint = formatNextReviewHint(
-    STAGES[Math.min(clampedStageIndex + 1, STAGES.length - 1)]?.intervalMs ?? 0,
-    t,
-  );
+  // A retired word keeps its retirement when answered right, so promising it a
+  // repeat in 60 days would be a lie.
+  const isRetired = isTopStage(stageIndex) && !progress.nextDueAt;
+  const okayHint = isRetired
+    ? t('card.staysFullyKnown')
+    : formatNextReviewHint(
+        STAGES[Math.min(clampedStageIndex + 1, STAGES.length - 1)]?.intervalMs ?? 0,
+        t,
+      );
   // While editing the memory hook, keep the answer covered so the "tap to
   // reveal" hint stays visible — the user can still tap to reveal on demand
   // rather than having the answer spoiled automatically.
@@ -259,10 +275,13 @@ export const WordCard = memo(function WordCard({
   const cardTextSizeClass = getWordTextSize(cardMaxTextLen);
   return (
     <article
-      className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''} ${editingHook ? 'word-card--editing-hook' : ''}`}
+      className={`phrase-card relative ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''} ${editingHook ? 'word-card--editing-hook' : ''}`}
       data-word-id={word.id}
       data-stage-group={stageGroup}
     >
+      <CardTopControls>
+        <StageBadge stageIndex={stageIndex} />
+      </CardTopControls>
       {/* Category badges */}
       {shouldShowCategoryBadges && orderedDisplayCategories.length > 0 && (
         <div className="word-categories">
@@ -381,58 +400,69 @@ export const WordCard = memo(function WordCard({
             )}
           </button>
         )}
-        <div
-          className={[
-            'card-actions-row',
-            hasCustomStageActions ? 'card-actions-row--three' : 'card-actions-row--two',
-            useMobileCustomActionOnly ? 'card-actions-row--mobile-custom-only' : '',
-          ].join(' ')}
-        >
-          <button
-            type="button"
-            className="srs-btn srs-btn--forgot !relative !opacity-80 max-md:!pb-0"
-            onClick={onUnknown}
-            title={`${forgotHint} · ${unknownPresses} ${t('card.forgotten')}`}
-          >
-            {unknownPresses > 0 && (
-              <span
-                aria-label={`${unknownPresses} ${t('card.forgotten')}`}
-                className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#2A2218] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
-              >
-                {unknownPresses}
-              </span>
-            )}
-            <span className="srs-btn-copy">
-              <span className="srs-btn-label">{t('card.forgotten')}</span>
-              <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{forgotHint}</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            className="srs-btn srs-btn--okay !relative"
-            onClick={onKnown}
-            title={`${okayHint} · ${knownPresses} ${t('card.known')}`}
-          >
-            {knownPresses > 0 && (
-              <span
-                aria-label={`${knownPresses} ${t('card.known')}`}
-                className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
-              >
-                {knownPresses}
-              </span>
-            )}
-            <span className="srs-btn-copy">
-              <span className="srs-btn-label">{t('card.ok')}</span>
-              <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{okayHint}</span>
-            </span>
-          </button>
-          {hasCustomStageActions && (
-            <CustomStagePopover
-              clampedStageIndex={clampedStageIndex}
-              onCustomStage={onCustomStage}
-              onReallyKnown={onReallyKnown}
+        {/* The offer stacks above the action row. Fullscreen turns
+            `.card-actions` into a flex row, so the two need their own column
+            wrapper or the bar would sit beside the buttons. */}
+        <div className="flex w-full min-w-0 flex-col items-center gap-2">
+          {showFullyKnownOffer && (
+            <FullyKnownOffer
+              onRetire={retireWord}
+              className={useMobileCustomActionOnly ? 'max-md:hidden' : ''}
             />
           )}
+          <div
+            className={[
+              'card-actions-row',
+              hasCustomStageActions ? 'card-actions-row--three' : 'card-actions-row--two',
+              useMobileCustomActionOnly ? 'card-actions-row--mobile-custom-only' : '',
+            ].join(' ')}
+          >
+            <button
+              type="button"
+              className="srs-btn srs-btn--forgot !relative !opacity-80 max-md:!pb-0"
+              onClick={onUnknown}
+              title={`${forgotHint} · ${unknownPresses} ${t('card.forgotten')}`}
+            >
+              {unknownPresses > 0 && (
+                <span
+                  aria-label={`${unknownPresses} ${t('card.forgotten')}`}
+                  className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#2A2218] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                >
+                  {unknownPresses}
+                </span>
+              )}
+              <span className="srs-btn-copy">
+                <span className="srs-btn-label">{t('card.forgotten')}</span>
+                <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{forgotHint}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="srs-btn srs-btn--okay !relative"
+              onClick={onKnown}
+              title={`${okayHint} · ${knownPresses} ${t('card.known')}`}
+            >
+              {knownPresses > 0 && (
+                <span
+                  aria-label={`${knownPresses} ${t('card.known')}`}
+                  className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                >
+                  {knownPresses}
+                </span>
+              )}
+              <span className="srs-btn-copy">
+                <span className="srs-btn-label">{t('card.ok')}</span>
+                <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{okayHint}</span>
+              </span>
+            </button>
+            {hasCustomStageActions && (
+              <CustomStagePopover
+                clampedStageIndex={clampedStageIndex}
+                onCustomStage={onCustomStage}
+                onReallyKnown={onReallyKnown}
+              />
+            )}
+          </div>
         </div>
       </div>
     </article>

@@ -243,8 +243,14 @@ function applyPendingReviewEvent(
         : Math.max(currentStageIndex - 1, 0);
   const occurredAt = new Date(event.client_created_at).toISOString();
   const stage = STAGES[nextStageIndex];
+  // Same rule as the other two folds: a word retired as "fully known" (top
+  // stage, no due date) stays retired unless the event says it was forgotten.
+  const staysRetired =
+    event.action !== 'unknown' &&
+    currentStageIndex === STAGES.length - 1 &&
+    !existing.nextDueAt;
   const nextDueAt =
-    stage.intervalMs > 0
+    !staysRetired && stage.intervalMs > 0
       ? new Date(event.client_created_at + stage.intervalMs).toISOString()
       : null;
 

@@ -46,12 +46,17 @@ import { useBackgroundTargetAudioRepair } from '@/features/learning/hooks/useBac
 import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list-selection';
 import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
+import { useStudyCountdown } from '@/features/learning/goals/useStudyCountdown';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
 import { type StudyGoalVersion, type StudyPacing } from '@/packages/domain/goals/goal';
 import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
 import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
-import { StudyCountdown } from '@/features/learning/components/goals/StudyCountdown';
 import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
+import { StudyReminderOnboarding } from '@/features/learning/onboarding/StudyReminderOnboarding';
+import { resolveLearningOnboardingStep } from '@/features/learning/onboarding/flow';
+import { LanguageLevelOnboarding } from '@/features/learning/onboarding/LanguageLevelOnboarding';
+import { useLanguageLevelStep } from '@/features/learning/onboarding/useLanguageLevelStep';
+import { unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
 import { syncUserData } from '@/lib/sync';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
@@ -164,8 +169,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     revealMode,
     memoryHooksEnabled,
     memoryHooksIntroAnswered,
-    goalIntroAnswered,
-    setGoalIntroAnswered,
     memoryHookDisableFromStage,
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
@@ -300,6 +303,29 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     pacing: goalPacing,
     onSaved: refreshGoalSummary,
   });
+  const [isSavingReminderOnboarding, setIsSavingReminderOnboarding] = useState(false);
+  const completeReminderOnboarding = useCallback(async ({
+    enabled,
+    localMinutes,
+  }: {
+    enabled: boolean;
+    localMinutes: number;
+  }) => {
+    if (isSavingReminderOnboarding) return;
+    setIsSavingReminderOnboarding(true);
+    try {
+      await syncUserData({
+        goal_reminder_enabled: enabled,
+        goal_reminder_local_minutes: localMinutes,
+        goal_reminder_intro_answered: true,
+      }, { emitEvent: false });
+      if (!enabled) await unsubscribeFromStudyWebPush();
+      await refreshGoalSummary();
+      window.dispatchEvent(new Event('get-word:reschedule-reminders'));
+    } finally {
+      setIsSavingReminderOnboarding(false);
+    }
+  }, [isSavingReminderOnboarding, refreshGoalSummary]);
   useGoalReminders(goalSummary);
   const appReady =
     isHydrated &&
@@ -387,6 +413,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     setDismissedGames,
     settlingWords,
     streamGroups,
+    dueNowCount,
     session,
     sessionBlockProgress,
     progressStats,
@@ -609,12 +636,23 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       .then(() => refreshGoalSummary());
   }, [refreshGoalSummary, sessionFlow.complete]);
   const { breather, dismiss: dismissBreather } = useSessionBreather(sessionFlow, sessionBlockProgress);
+  // Only one of the two countdowns is ever live: the strip runs while work
+  // remains, this one only once the day is closed. They never both tick.
+  const dayResult = useStudyCountdown(
+    goalDay,
+    (goalSummary?.goal.active as StudyGoalVersion | null | undefined) ?? null,
+    Boolean(goalSummary?.goal.active?.enabled) && sessionFlow.complete,
+  );
   const sessionBreatherCard = breather ? (
     <SessionBreatherCard
       breather={breather}
       onContinue={dismissBreather}
       shortfall={session.dailyPlan?.shortfall ?? 0}
-      extraReviewCount={session.dailyPlan?.deferredDueCount ?? 0}
+      // Live, not the plan's own count: words fall due during a session, so the
+      // number frozen at planning time can already understate what is waiting —
+      // and it has to agree with the Upcoming panel, which counts them live.
+      extraReviewCount={continueAnyway ? 0 : dueNowCount}
+      result={dayResult}
       onAddWords={() => {
         dismissBreather();
         navigateSurface('chat');
@@ -634,19 +672,34 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       learningLanguageTo &&
       subscribedLists.length === 0
   );
-  const needsLanguageOnboarding = Boolean(
-    forceOnboarding ||
-      hasNoSelectedWordList ||
-      !onboardingCompletedAt ||
-      !learningLanguageFrom ||
-      !learningLanguageTo
-  );
-  const needsStudyGoal = Boolean(
-      !needsLanguageOnboarding &&
-      goalSummary !== null &&
-      !goalSummary.goal.active?.enabled &&
-      !goalIntroAnswered,
-  );
+  // Only someone without a list to study is still being set up, and only they
+  // are asked for their level — so the request that answers it never runs for
+  // the ordinary app open.
+  const languageLevelStep = useLanguageLevelStep({
+    enabled: hasNoSelectedWordList,
+    languageFrom: learningLanguageFrom ?? null,
+    languageTo: learningLanguageTo ?? null,
+  });
+  const onboardingStep = resolveLearningOnboardingStep({
+    forceLanguage: forceOnboarding,
+    hasNoSelectedWordList,
+    onboardingCompleted: Boolean(onboardingCompletedAt),
+    hasLanguagePair: Boolean(learningLanguageFrom && learningLanguageTo),
+    languageLevelLoaded: languageLevelStep.loaded,
+    hasLanguageLevel: languageLevelStep.level !== null,
+    goalSummaryLoaded: goalSummary !== null,
+    hasActiveGoal: Boolean(goalSummary?.goal.active?.enabled),
+    reminderOnboardingAnswered: goalSummary?.reminder.onboardingAnswered ?? false,
+  });
+  const needsLanguageOnboarding = onboardingStep === 'language';
+  const needsLanguageLevel = onboardingStep === 'level';
+  const needsStudyGoal = onboardingStep === 'goal';
+  const needsReminderOnboarding = onboardingStep === 'reminder';
+  const needsFirstWords = onboardingStep === 'words';
+  // Everything from the languages to the first list is one run of setup, and
+  // the progress bar belongs to that run only — not to an existing learner who
+  // reopened a screen from the menu.
+  const isSettingUp = hasNoSelectedWordList || !onboardingCompletedAt;
   const landingPairFrom = landingLanguagePair?.from ?? null;
   const landingPairTo = landingLanguagePair?.to ?? null;
   const hasCompleteLandingPair = Boolean(
@@ -654,7 +707,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       landingPairTo &&
       landingPairFrom !== landingPairTo
   );
-  const shouldOpenWordChatFromLandingPair = Boolean(
+  const shouldAdoptLandingPair = Boolean(
     needsLanguageOnboarding &&
       hasCompleteLandingPair &&
       landingLanguagePair?.wantsOwnList !== true &&
@@ -664,12 +717,47 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const onboardingInitialFrom = learningLanguageFrom ?? landingPairFrom;
   const onboardingInitialTo = learningLanguageTo ?? landingPairTo;
 
-  // The landing-page hand-off fires only once: as soon as we act on it, flag the
-  // stored pair consumed so a later refresh lands on the normal pre-filled
-  // language screen instead of jumping the learner back into the chat.
+  /**
+   * Save the languages and move on, which is what finishing the first step of
+   * setup means. Shared by the Continue button, the landing-page hand-off, and
+   * the last step, where the chat has just created the learner's first list.
+   */
+  const completeLanguagePair = useCallback(async (from: string, to: string) => {
+    setIsOnboardingHandoffPending(true);
+    try {
+      await setLearningLanguages(from, to);
+      // Apply the snapshot directly instead of only dispatching a background
+      // refresh event: clearing the loader must mean the new words are already
+      // in React state.
+      await refreshFullSnapshot();
+      if (forceOnboarding) {
+        setForceOnboarding(false);
+        // Drop the `?onboarding=1` param so a refresh doesn't replay it.
+        const url = new URL(window.location.href);
+        url.searchParams.delete('onboarding');
+        url.searchParams.delete('wordChat');
+        window.history.replaceState(window.history.state, '', url.toString());
+      }
+      if (forceWordChat) replaceSurface('chat');
+    } finally {
+      setIsOnboardingHandoffPending(false);
+    }
+  }, [forceOnboarding, forceWordChat, refreshFullSnapshot, replaceSurface, setLearningLanguages]);
+
+  // The landing-page hand-off fires only once: the learner already answered the
+  // language question there, so adopt the pair and let setup carry on at the
+  // next step instead of asking again. Flagging it consumed keeps a later
+  // refresh on the ordinary pre-filled screen.
+  const adoptedLandingPairRef = useRef(false);
   useEffect(() => {
-    if (shouldOpenWordChatFromLandingPair) markLandingLanguagePairConsumed();
-  }, [shouldOpenWordChatFromLandingPair]);
+    if (!shouldAdoptLandingPair || adoptedLandingPairRef.current) return;
+    adoptedLandingPairRef.current = true;
+    markLandingLanguagePairConsumed();
+    if (!landingPairFrom || !landingPairTo) return;
+    // Deferred only to keep the save out of the effect body; the ref above
+    // already guarantees it runs once.
+    window.setTimeout(() => void completeLanguagePair(landingPairFrom, landingPairTo), 0);
+  }, [completeLanguagePair, landingPairFrom, landingPairTo, shouldAdoptLandingPair]);
 
   useEffect(() => {
     if (needsLanguageOnboarding || typeof window === 'undefined') return;
@@ -701,58 +789,63 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
           <LoadingScreen />
         ) : needsLanguageOnboarding ? (
           <LearningLanguageOnboarding
+            phase="languages"
+            showProgress={isSettingUp}
             initialFrom={onboardingInitialFrom}
             initialTo={onboardingInitialTo}
             accountEmail={displayEmail}
             onSignOut={signOut}
-            // Someone who already chose their languages on the landing page has
-            // answered the only question this screen asks, so skip straight to
-            // the word chat instead of showing the pickers again. It is the same
-            // destination as pressing Continue — the landing page just gets
-            // there in one step.
-            autoOpenWordChat={shouldOpenWordChatFromLandingPair || forceWordChat}
+            autoOpenWordChat={forceWordChat}
             // Only someone who is already set up can walk away from this screen;
             // for everyone else it is the required first step.
             onExit={
-              hasNoSelectedWordList || !onboardingCompletedAt
+              isSettingUp
                 ? undefined
                 : () => {
                     setForceWordChat(false);
                     setForceOnboarding(false);
                   }
             }
-            onComplete={async (from, to) => {
-              setIsOnboardingHandoffPending(true);
-              try {
-                await setLearningLanguages(from, to);
-                // Apply the snapshot directly instead of only dispatching a
-                // background refresh event: clearing the loader must mean the
-                // new words are already in React state.
-                await refreshFullSnapshot();
-                if (forceOnboarding) {
-                  setForceOnboarding(false);
-                  // Drop the `?onboarding=1` param so a refresh doesn't replay it.
-                  const url = new URL(window.location.href);
-                  url.searchParams.delete('onboarding');
-                  url.searchParams.delete('wordChat');
-                  window.history.replaceState(window.history.state, '', url.toString());
-                }
-                if (forceWordChat) replaceSurface('chat');
-              } finally {
-                setIsOnboardingHandoffPending(false);
-              }
-            }}
+            onComplete={completeLanguagePair}
             onSelectList={setActiveListId}
+          />
+        ) : onboardingStep === 'loading' ? (
+          <LoadingScreen />
+        ) : needsLanguageLevel ? (
+          <LanguageLevelOnboarding
+            targetLanguage={learningLanguageTo}
+            initialLevel={languageLevelStep.level}
+            pending={languageLevelStep.saving}
+            onSubmit={(level) => void languageLevelStep.save(level)}
           />
         ) : needsStudyGoal ? (
           <StudyGoalSetupCard
             pacing={goalPacing}
             pending={isSavingStudyGoal}
+            showProgress={isSettingUp}
             onSave={(value) => void saveStudyGoal(value)}
-            onSkip={() => void (async () => {
-              await syncUserData({ goal_intro_answered: true }, { emitEvent: false });
-              setGoalIntroAnswered(true);
-            })()}
+          />
+        ) : needsReminderOnboarding ? (
+          <StudyReminderOnboarding
+            initialMinutes={goalSummary?.reminder.localMinutes ?? 19 * 60}
+            pending={isSavingReminderOnboarding}
+            showProgress={isSettingUp}
+            onComplete={(value) => void completeReminderOnboarding(value)}
+          />
+        ) : needsFirstWords ? (
+          // The last step: the chat now knows the languages, the level, and how
+          // much study the learner signed up for, so it can propose a first list
+          // that fits instead of asking for all of that itself.
+          <LearningLanguageOnboarding
+            phase="words"
+            showProgress
+            autoOpenWordChat
+            initialFrom={onboardingInitialFrom}
+            initialTo={onboardingInitialTo}
+            accountEmail={displayEmail}
+            onSignOut={signOut}
+            onComplete={completeLanguagePair}
+            onSelectList={setActiveListId}
           />
         ) : (
           <>
@@ -833,7 +926,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               phrasesScrollElement={phrasesScrollElement}
               filteredWords={filteredWords}
               interstitialCard={interstitialCard}
-              goalCountdown={<StudyCountdown day={goalDay} enabled={Boolean(goalSummary?.goal.active?.enabled)} />}
               onDeckWordCardCompleted={(word) => {
                 setCompletedDeckWordCards((count) => count + 1);
                 setPendingAnsweredIds((previous) => new Set(previous).add(word.id));
@@ -848,6 +940,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               renderMiniGame={renderMiniGame}
               showNotReady={showNotReady}
               settlingCount={settlingWords.length}
+              // The closing card must not claim "nothing due" while the plan's
+              // leftovers are still due; it offers them instead, on the same
+              // opt-in as the breather's extra-review button.
+              dueNowCount={continueAnyway ? 0 : dueNowCount}
+              onStudyExtra={() => setContinueAnyway(true)}
               onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
             />
           </>

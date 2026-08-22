@@ -499,3 +499,43 @@ describe('the interval invariant', () => {
     }
   });
 });
+
+describe('uncredited display time', () => {
+  it('reports the un-settled window so a clock can run between ticks', () => {
+    const h = harness();
+    beginActive(h);
+
+    h.advance(1_200);
+    expect(h.tracker.peek().activeMs).toBe(0);
+    expect(h.tracker.peek().uncreditedMs).toBe(1_200);
+
+    // Settling moves the same milliseconds across; the sum never jumps.
+    h.tracker.tick();
+    expect(h.tracker.peek().activeMs).toBe(1_200);
+    expect(h.tracker.peek().uncreditedMs).toBe(0);
+  });
+
+  it('stops at the idle horizon rather than running on', () => {
+    const h = harness();
+    beginActive(h);
+
+    h.advance(IDLE_TIMEOUT_MS + 20_000);
+    expect(h.tracker.peek().uncreditedMs).toBe(IDLE_TIMEOUT_MS);
+  });
+
+  it('credits nothing while the clocks disagree', () => {
+    const h = harness();
+    beginActive(h);
+
+    h.advance(2_000);
+    h.slip(CLOCK_SLIP_TOLERANCE_MS + 1_000);
+    expect(h.tracker.peek().uncreditedMs).toBe(0);
+  });
+
+  it('is zero with no open segment', () => {
+    const h = harness();
+    h.advance(4_000);
+    expect(h.tracker.peek().open).toBe(false);
+    expect(h.tracker.peek().uncreditedMs).toBe(0);
+  });
+});

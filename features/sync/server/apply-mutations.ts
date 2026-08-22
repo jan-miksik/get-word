@@ -61,6 +61,7 @@ export async function applySyncMutations(input: {
     study_goal_base_revision,
     goal_reminder_enabled,
     goal_reminder_local_minutes,
+    goal_reminder_intro_answered,
     goal_intro_answered,
     review_opt_in,
     ai_review_opt_in,
@@ -129,6 +130,7 @@ export async function applySyncMutations(input: {
     (learning_fine_tune !== undefined && study_goal === undefined) ||
     goal_reminder_enabled !== undefined ||
     goal_reminder_local_minutes !== undefined ||
+    goal_reminder_intro_answered !== undefined ||
     goal_intro_answered !== undefined ||
     settings_language !== undefined ||
     language_from !== undefined ||
@@ -149,6 +151,7 @@ export async function applySyncMutations(input: {
       learning_fine_tune: study_goal === undefined ? learning_fine_tune : undefined,
       goal_reminder_enabled,
       goal_reminder_local_minutes,
+      goal_reminder_intro_answered,
       goal_intro_answered,
       review_opt_in,
       ai_review_opt_in,

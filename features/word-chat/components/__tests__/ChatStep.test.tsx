@@ -325,7 +325,11 @@ describe('ChatStep', () => {
     expect(screen.getByPlaceholderText('Tell me about your situation…')).not.toHaveFocus();
   });
 
-  it('uses formal Czech intro copy after the learner chooses vykání', () => {
+  // The app addresses everyone informally now and the hook hard-wires
+  // `addressRegisterApplies` to false, so nothing reaches this path in
+  // production. The component keeps it, and this covers it, only so that
+  // turning the question back on cannot silently lose the formal wording.
+  it('still has formal Czech intro copy behind the opt-in prop', () => {
     renderChatStep({
       uiLanguage: 'cs',
       addressRegister: 'formal',

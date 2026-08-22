@@ -6,8 +6,14 @@ import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
-import { getWordTextBySide, knownSideForRole } from './types';
+import { getWordAudioSrcsBySide, getWordTextBySide, knownSideForRole, learningSideForRole } from './types';
+import { CardAudioButton } from '../card-audio/CardAudioButton';
+import { useCardAudio } from '../card-audio/useCardAudio';
 import { SuccessMarkSlot } from './SuccessMark';
+import { StageBadge } from '../StageBadge';
+import { CardTopControls } from '../CardTopControls';
+import { ContinueButton } from '../ContinueButton';
+import type { SimilarityBand } from '@/features/learning/minigames/similarity';
 
 export type AssemblyOutcome = 'known' | 'unknown';
 
@@ -31,6 +37,8 @@ export function WordAssemblyGame({
   variant,
   answerParts,
   distractorParts,
+  difficultyBand,
+  stageIndex,
   onOutcome,
 }: {
   word: NormalizedWord;
@@ -38,9 +46,12 @@ export function WordAssemblyGame({
   variant: string;
   answerParts: string[];
   distractorParts: string[];
+  difficultyBand?: SimilarityBand;
+  stageIndex?: number;
   onOutcome: (outcome: AssemblyOutcome) => void;
 }) {
   const { t } = useI18n();
+  const { play } = useCardAudio();
   const [chosen, setChosen] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<AssemblyOutcome | null>(null);
   const tiles = useMemo<Tile[]>(() => seededShuffle([
@@ -48,6 +59,9 @@ export function WordAssemblyGame({
     ...distractorParts.map((value, index) => ({ id: `extra-${index}`, value, correctIndex: null })),
   ], `${word.id}:${variant}`), [answerParts, distractorParts, variant, word.id]);
   const selectedTiles = chosen.map((id) => tiles.find((tile) => tile.id === id)).filter(Boolean) as Tile[];
+  // The target phrase, which is what the learner was assembling — the same clip
+  // the reveal and typing cards offer once their answer is out in the open.
+  const answerAudioSrcs = getWordAudioSrcsBySide(word, learningSideForRole(role));
 
   const choose = (tile: Tile) => {
     if (outcome || chosen.includes(tile.id)) return;
@@ -65,6 +79,9 @@ export function WordAssemblyGame({
 
   return (
     <article className="study-ink-scope relative mx-auto flex w-full max-w-2xl flex-col items-center gap-5 px-3 py-6 text-center">
+      <CardTopControls>
+        <StageBadge stageIndex={stageIndex} difficultyBand={difficultyBand} />
+      </CardTopControls>
       <SuccessMarkSlot show={outcome === 'known'} label={t('game.correct')} rollKey={word.id} />
       <p className="m-0 text-xs font-bold uppercase tracking-[0.12em] text-text-soft">
         {t('game.assemble')}
@@ -101,17 +118,22 @@ export function WordAssemblyGame({
         </button>
       )}
       {outcome && (
-        <div className={outcome === 'known' ? 'text-sm font-bold text-emerald-700' : 'text-sm font-bold text-rose-700'}>
-          {outcome === 'known'
-            ? null
-            : `✗ ${answerParts.join(variant.startsWith('letters') ? '' : ' ')}`}
-          <button
-            type="button"
-            className="ml-4 rounded-xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-5 py-2 text-sm font-bold text-[#F4EFE2]"
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {outcome === 'unknown' && (
+            <span {...noTranslateProps('text-sm font-bold text-rose-700')}>
+              {`✗ ${answerParts.join(variant.startsWith('letters') ? '' : ' ')}`}
+            </span>
+          )}
+          {/* Hearing the phrase you just built is the point of building it, so
+              the answer stays playable until the card is dismissed. */}
+          {answerAudioSrcs.length > 0 && (
+            <CardAudioButton onPlay={() => void play(answerAudioSrcs)} />
+          )}
+          <ContinueButton
+            variant="solid"
+            className="max-w-[22rem]"
             onClick={() => onOutcome(outcome)}
-          >
-            →
-          </button>
+          />
         </div>
       )}
     </article>

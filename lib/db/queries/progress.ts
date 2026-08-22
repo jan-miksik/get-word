@@ -376,9 +376,16 @@ export async function applyReviewEventToProgress(
   }
 
   const intervalMs = STAGES[stageIndex]?.intervalMs ?? 0;
-  const nextDueAt = intervalMs > 0
-    ? new Date(occurredAt.getTime() + intervalMs)
-    : null;
+  // Mirror of the client fold: a word retired as "fully known" (top stage, no
+  // due date) stays retired when answered right again. Only an "unknown" puts
+  // it back into the rotation.
+  const staysRetired =
+    action !== "unknown" &&
+    currentStageIndex === STAGES.length - 1 &&
+    !current?.nextDueAt;
+  const nextDueAt = staysRetired || intervalMs <= 0
+    ? null
+    : new Date(occurredAt.getTime() + intervalMs);
 
   const values = {
     userId,

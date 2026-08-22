@@ -1,11 +1,22 @@
 import type { NormalizedWord } from '@/lib/words';
 
-import { buildSimilarPairs, hasAtLeastOneSimilarPair } from './similarity';
+import {
+  buildSimilarPairs,
+  hasAtLeastOneSimilarPair,
+  type SimilarityBand,
+} from './similarity';
 import { isAuthoredSentence } from '@/lib/formatting-polish';
 import { hasDistinctVisibleAnswers, sharesLearningScope } from './word-pool';
-import { DEFAULT_FINE_TUNE_CONFIG } from '@/features/learning/fine-tune/config';
+import {
+  DEFAULT_FINE_TUNE_CONFIG,
+  stageConfigAt,
+} from '@/features/learning/fine-tune/config';
 import { pickMatchRound } from '@/features/learning/fine-tune/pick';
-import { resolveVariantDistractors } from '@/features/learning/fine-tune/distractors';
+import {
+  canBuildVariant,
+  resolveVariantDistractors,
+} from '@/features/learning/fine-tune/distractors';
+import { parseMatchVariant } from '@/features/learning/fine-tune/types';
 import type {
   GameAnchor,
   GameDifficultyLevel,
@@ -16,15 +27,15 @@ import type {
 // Multiple choice and typing are study cards now, not interludes: scheduling
 // them between cards as well would grade the same word twice, since the anchor
 // pool is drawn from words the learner has just answered. Matching stays, and
-// stays score-only — one round covers 4–6 words, so no single word's stage can
+// stays score-only — one round covers 2–6 words, so no single word's stage can
 // be attributed to the result.
 const GAME_TYPES: GameType[] = ['matching'];
 const MIN_POOL_SIZE: Record<GameType, number> = {
   multipleChoice: 4,
   typing: 4,
-  matching: 4,
+  matching: 2,
   tiltChoice: 2,
-  bubbleChoice: 6,
+  bubbleChoice: 4,
   similarWordsPrompt: 1,
 };
 // The tilt card renders the prompt on the seesaw plank and both answers in the
@@ -273,7 +284,7 @@ export function computeGameAnchors(
     pool: NormalizedWord[],
     anchor: NormalizedWord,
     rand: () => number,
-  ): { words: NormalizedWord[]; level: GameDifficultyLevel } | null => {
+  ): { words: NormalizedWord[]; level: GameDifficultyLevel; difficultyBand: SimilarityBand } | null => {
     const stage = options?.getStageIndex?.(anchor.id) ?? 0;
     const requestedBand = stage >= 5 ? 'III' : stage >= 3 ? 'II' : 'I';
     // A bubble field wants to look like a field, not like a four-option quiz.
@@ -296,7 +307,30 @@ export function computeGameAnchors(
       : resolved.effectiveBand === 'II'
         ? 2
         : 1;
-    return { words: [anchor, ...resolved.distractors], level };
+    return {
+      words: [anchor, ...resolved.distractors],
+      level,
+      difficultyBand: resolved.effectiveBand,
+    };
+  };
+
+  const canPlayMatching = (
+    pool: NormalizedWord[],
+    anchor: NormalizedWord,
+  ): boolean => {
+    const roundStage = pool.reduce(
+      (highest, word) => Math.max(highest, options?.getStageIndex?.(word.id) ?? 0),
+      0,
+    );
+    const variants = stageConfigAt(
+      options?.fineTuneConfig ?? DEFAULT_FINE_TUNE_CONFIG,
+      roundStage,
+    ).match.variants;
+    return variants.some((variant) => canBuildVariant({
+      target: anchor,
+      pool,
+      count: parseMatchVariant(variant).pairs - 1,
+    }));
   };
 
   let lastSignature: string | null = null;
@@ -309,6 +343,7 @@ export function computeGameAnchors(
     const candidatesForPool = availableGameTypes.filter(
       (type) =>
         pool.length >= MIN_POOL_SIZE[type] &&
+        (type !== 'matching' || canPlayMatching(pool, originalWords[anchorIndex])) &&
         (type !== 'similarWordsPrompt'
           || (!hasAtLeastOneSimilarPair(pool) && isSimilarWordsCandidate(originalWords[anchorIndex]))),
     );
@@ -329,6 +364,7 @@ export function computeGameAnchors(
     let attempt = 0;
     let chosen: NormalizedWord[] | null = null;
     let chosenLevel: GameDifficultyLevel = 1;
+    let chosenDifficultyBand: SimilarityBand | undefined;
     let signature = '';
 
     while (attempt < 4) {
@@ -350,6 +386,7 @@ export function computeGameAnchors(
         if (!bubbleCandidate) break;
         chosen = bubbleCandidate.words;
         chosenLevel = bubbleCandidate.level;
+        chosenDifficultyBand = bubbleCandidate.difficultyBand;
         signature = signatureOf(chosen);
         if (signature !== lastSignature) break;
         chosen = null;
@@ -368,7 +405,7 @@ export function computeGameAnchors(
         // Pair count and distractor similarity come from the stage of the word
         // the round is anchored to, so matching gets harder alongside everything
         // else — even though its result never moves a stage.
-        // A round covers 4–6 words, so its difficulty follows the most advanced
+        // A round covers 2–6 words, so its difficulty follows the most advanced
         // word in it rather than the anchor alone. A round made purely of
         // brand-new words gets no matching at all, which is what the default
         // preset asks for: matching is review practice, not an introduction.
@@ -386,6 +423,7 @@ export function computeGameAnchors(
         if (!round) break;
         chosen = round.words;
         chosenLevel = round.effectiveBand === 'I' ? 1 : 2;
+        chosenDifficultyBand = round.effectiveBand;
         signature = signatureOf(chosen);
         if (signature !== lastSignature) break;
         chosen = null;
@@ -438,6 +476,7 @@ export function computeGameAnchors(
         chosen = fallback.words;
         signature = signatureOf(fallback.words);
         chosenLevel = fallback.level;
+        chosenDifficultyBand = fallback.difficultyBand;
       } else if (gameType === 'similarWordsPrompt') {
         chosen = [originalWords[anchorIndex]];
         signature = `similar-words:${chosen[0].id}`;
@@ -456,6 +495,8 @@ export function computeGameAnchors(
       id: anchorId,
       gameType,
       level: chosenLevel,
+      difficultyBand: chosenDifficultyBand,
+      stageIndex: options?.getStageIndex?.(chosen[0].id) ?? 0,
       words: chosen,
       anchorOriginalIndex: anchorIndex,
     });

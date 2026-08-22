@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, type ReactNode } from 'react';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import type { NormalizedWord } from '@/lib/words';
 import {
@@ -24,6 +24,8 @@ import { getTypingTargetLanguageLabel } from './target-language-label';
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { SuccessMarkSlot } from './SuccessMark';
+import { StageBadge } from '../StageBadge';
+import { CardTopControls } from '../CardTopControls';
 
 // Case/accent-insensitive single-character compare for per-slot feedback.
 // Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
@@ -44,6 +46,9 @@ interface Props {
   sourceLang?: WordSide;
   promptMode?: PromptMode;
   soundEnabled?: boolean;
+  /** Card-level controls (the sound toggle) that share the card's top lane. */
+  topControls?: ReactNode;
+  stageIndex?: number;
   onResult?: (delta: number) => void;
 }
 
@@ -53,6 +58,8 @@ export function TypingChallengeGame({
   sourceLang,
   promptMode = 'text',
   soundEnabled = false,
+  topControls,
+  stageIndex,
   onResult,
 }: Props) {
   const { language, t } = useI18n();
@@ -179,6 +186,10 @@ export function TypingChallengeGame({
 
   return (
     <article className="phrase-card game-card game-card--typing">
+      <CardTopControls>
+        <StageBadge stageIndex={stageIndex} />
+        {topControls}
+      </CardTopControls>
       <SuccessMarkSlot show={result === 'exact'} label={t('game.perfect')} rollKey={questionWord.id} />
       <div className="game-badge">{`⌨️ ${t('game.typeIn', { language: targetLanguageLabel })}`}</div>
       {effectivePromptMode === 'audio' ? (

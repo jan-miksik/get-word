@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { planSession } from '../plan';
 
 const word = (id: string) => ({ id, cz: id, vi: id, en: '', category: [] });
-const goal = { id: 'g', effectiveFromDay: '2026-08-19', enabled: true, mode: 'minutes' as const, daysPerWeek: 4, minutesPerDay: 10, wordsPerDay: 5, newWordsPerDay: null, preset: 'medium' as const, pacing: { revealMode: 'scratch' as const, minigameFrequency: 'off' as const, fineTune: { version: 3 as const, stages: [] } } };
+const goal = { id: 'g', effectiveFromDay: '2026-08-19', enabled: true, mode: 'minutes' as const, daysPerWeek: 4, weekdays: null, minutesPerDay: 10, wordsPerDay: 5, newWordsPerDay: null, preset: 'medium' as const, pacing: { revealMode: 'scratch' as const, minigameFrequency: 'off' as const, fineTune: { version: 3 as const, stages: [] } } };
 
 describe('planSession', () => {
   it('never exposes more distinct words than the word goal', () => {

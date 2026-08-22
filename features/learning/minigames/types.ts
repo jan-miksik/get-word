@@ -1,23 +1,27 @@
 import type { NormalizedWord } from '@/lib/words';
-import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
+import type { FineTuneConfig, SimilarityBand } from '@/features/learning/fine-tune/types';
 
 export type GameType = 'multipleChoice' | 'typing' | 'matching' | 'tiltChoice' | 'bubbleChoice' | 'similarWordsPrompt';
 export type GameDifficultyLevel = 1 | 2 | 3;
 export type MinigameFrequencyRange = { min: number; max: number } | 'off';
 
-export const DEFAULT_MINIGAME_FREQUENCY = { min: 2, max: 5 } satisfies Exclude<
+export const DEFAULT_MINIGAME_FREQUENCY = { min: 2, max: 3 } satisfies Exclude<
   MinigameFrequencyRange,
   'off'
 >;
 
 export const MINIGAME_FREQUENCY_MIN = 0;
-export const MINIGAME_FREQUENCY_MAX = 10;
+/** Keep study methods, especially typing, broken up by a quiz at least every three cards. */
+export const MINIGAME_FREQUENCY_MAX = 3;
 
 export interface MiniGameConfig {
   _isMinigame: true;
   id: string;
   gameType: GameType;
   level?: GameDifficultyLevel;
+  difficultyBand?: SimilarityBand;
+  /** SRS stage of the word used as this round's prompt. */
+  stageIndex?: number;
   words: NormalizedWord[];
   anchorOriginalIndex?: number;
 }
@@ -41,6 +45,9 @@ export interface GameAnchor {
   id: string;
   gameType: GameType;
   level?: GameDifficultyLevel;
+  difficultyBand?: SimilarityBand;
+  /** SRS stage of the word used as this round's prompt. */
+  stageIndex?: number;
   words: NormalizedWord[];
   anchorOriginalIndex: number;
 }

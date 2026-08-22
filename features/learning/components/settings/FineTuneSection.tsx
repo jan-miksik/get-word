@@ -26,7 +26,7 @@ import {
   type StageConfig,
 } from '@/features/learning/fine-tune/types';
 import {
-  PRESET_IDS,
+  DEFAULT_PRESET,
   activeMethods,
   detectPreset,
   methodShares,
@@ -65,10 +65,12 @@ const TYPING_LABEL_KEY = {
 } as const;
 
 const ASSEMBLY_LABEL_KEY = {
-  'letters:exact': 'settings.fineTuneAssemblyLettersExact',
-  'letters:extra': 'settings.fineTuneAssemblyLettersExtra',
-  'words:exact': 'settings.fineTuneAssemblyWordsExact',
-  'words:extra': 'settings.fineTuneAssemblyWordsExtra',
+  'letters:I': 'settings.fineTuneAssemblyLettersI',
+  'letters:II': 'settings.fineTuneAssemblyLettersII',
+  'letters:III': 'settings.fineTuneAssemblyLettersIII',
+  'words:I': 'settings.fineTuneAssemblyWordsI',
+  'words:II': 'settings.fineTuneAssemblyWordsII',
+  'words:III': 'settings.fineTuneAssemblyWordsIII',
 } as const;
 
 // Coarse on purpose: sliders that renormalise against each other are unusable
@@ -92,6 +94,7 @@ export function FineTuneSection() {
   // can leave this undefined, and a settings panel must not take the app down.
   const config = normalizeFineTuneConfig(learningFineTune as FineTuneConfig | undefined);
   const preset = detectPreset(config);
+  const isDefault = preset === DEFAULT_PRESET;
 
   const updateStage = (stageIndex: number, next: StageConfig) => {
     setLearningFineTune({
@@ -109,30 +112,28 @@ export function FineTuneSection() {
         aria-label={t('settings.fineTunePreset')}
         className="inline-flex w-full gap-1 rounded-xl border border-border-subtle bg-background-elevated p-1"
       >
-        {PRESET_IDS.map((id) => {
-          const selected = preset === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => setLearningFineTune(presetConfig(id))}
-              className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
-                selected
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-text-soft hover:bg-background-elevated/40 hover:text-text'
-              }`}
-            >
-              {t(PRESET_LABEL_KEY[id])}
-            </button>
-          );
-        })}
-        {preset === 'custom' && (
-          <span className="flex-1 rounded-lg bg-accent px-2 py-2 text-center text-xs font-medium text-white shadow-sm">
-            {t('settings.fineTunePresetCustom')}
-          </span>
-        )}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={isDefault}
+          onClick={() => setLearningFineTune(presetConfig(DEFAULT_PRESET))}
+          className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
+            isDefault
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-soft hover:bg-background-elevated/40 hover:text-text'
+          }`}
+        >
+          {t(PRESET_LABEL_KEY[DEFAULT_PRESET])}
+        </button>
+        <span
+          role="radio"
+          aria-checked={!isDefault}
+          className={`flex-1 rounded-lg px-2 py-2 text-center text-xs font-medium ${
+            !isDefault ? 'bg-accent text-white shadow-sm' : 'text-text-soft'
+          }`}
+        >
+          {t('settings.fineTunePresetCustom')}
+        </span>
       </div>
 
       <ul className="m-0 flex list-none flex-col gap-1 p-0">

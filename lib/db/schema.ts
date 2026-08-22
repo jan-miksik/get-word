@@ -351,6 +351,7 @@ export const users = pgTable("users", {
   goalRevision: integer("goal_revision").notNull().default(0),
   goalReminderEnabled: boolean("goal_reminder_enabled").notNull().default(true),
   goalReminderLocalMinutes: integer("goal_reminder_local_minutes"),
+  goalReminderIntroAnswered: boolean("goal_reminder_intro_answered").notNull().default(false),
   goalIntroAnswered: boolean("goal_intro_answered").notNull().default(false),
   studyPacingSeededAt: timestamp("study_pacing_seeded_at", { withTimezone: true }),
   timezone: text("timezone"),
@@ -751,6 +752,7 @@ export const userStudyGoalVersions = pgTable(
     enabled: boolean("enabled").notNull().default(true),
     goalMode: text("goal_mode").notNull().default("minutes"),
     goalDaysPerWeek: integer("goal_days_per_week").notNull(),
+    goalWeekdays: integer("goal_weekdays").array(),
     goalMinutesPerDay: integer("goal_minutes_per_day"),
     goalNewWordsPerDay: integer("goal_new_words_per_day"),
     /** Deprecated derived value retained only for pre-words-mode history. */

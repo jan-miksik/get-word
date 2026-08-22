@@ -8,6 +8,7 @@ import { useI18n } from '@/components/I18nProvider';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 import { SupportButton, SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
 import { OnboardingGenerationOverlay } from './OnboardingGenerationOverlay';
+import { OnboardingProgress } from './OnboardingProgress';
 import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
 import { OnboardingLanguageSwitcher } from './OnboardingLanguageSwitcher';
 import { useLearningOnboardingActions } from './useLearningOnboardingActions';
@@ -26,6 +27,17 @@ export {
 type Props = {
   initialFrom?: string | null;
   initialTo?: string | null;
+  /**
+   * Which of the two jobs this screen is doing. `languages` is the first step of
+   * onboarding and finishes as soon as the pair is saved; `words` is the last
+   * one, where the chat builds the learner's first list.
+   */
+  phase?: 'languages' | 'words';
+  /**
+   * Show the five-step onboarding bar. Off for someone who reopened this screen
+   * from the menu to change languages — they are not being onboarded.
+   */
+  showProgress?: boolean;
   /** Skip the pickers and open the word chat straight away (landing-page hand-off). */
   autoOpenWordChat?: boolean;
   accountEmail?: string;
@@ -43,6 +55,8 @@ type Props = {
 export function LearningLanguageOnboarding({
   initialFrom,
   initialTo,
+  phase = 'words',
+  showProgress = false,
   autoOpenWordChat = false,
   accountEmail,
   onSignOut,
@@ -78,6 +92,7 @@ export function LearningLanguageOnboarding({
     generationStatus,
     error,
     selectMatchedList,
+    saveLanguagePair,
     completeWithWordChat,
     forkList,
     goToListsForExisting,
@@ -123,6 +138,13 @@ export function LearningLanguageOnboarding({
   // conversation if the LLM is down.
   function handleContinue() {
     if (!canContinue || loadingMatches || matchesLoadFailed || workingId !== null) return;
+    // In the first step, choosing the languages *is* the step. The chat that
+    // builds the first list comes back as the last step, once the goal and the
+    // reminder choice are in.
+    if (phase === 'languages') {
+      void saveLanguagePair();
+      return;
+    }
     setWordChatOpen(true);
   }
 
@@ -174,7 +196,7 @@ export function LearningLanguageOnboarding({
   return (
     <div
       className={[
-        'onboarding-screen min-h-screen flex items-start justify-center py-8 sm:py-14',
+        'onboarding-screen min-h-screen flex items-start justify-center bg-[#F4EFE2]! py-8 sm:py-14',
         wordChatOpen ? 'px-1 sm:px-4' : 'px-4',
       ].join(' ')}
     >
@@ -183,10 +205,13 @@ export function LearningLanguageOnboarding({
       {generationStatus ? <OnboardingGenerationOverlay status={generationStatus} /> : null}
       <section
         className={[
-          'onboarding-card relative z-10 w-full max-w-3xl sm:p-7',
+          'onboarding-card relative z-10 w-full max-w-3xl border-[#DED2BD]! bg-[#FFF8E8]! shadow-[0_20px_60px_rgba(73,58,37,0.13)]! sm:p-7',
           wordChatOpen ? 'p-4' : 'p-5',
         ].join(' ')}
       >
+        {showProgress ? (
+          <OnboardingProgress step={wordChatOpen ? 'words' : 'language'} />
+        ) : null}
         {!wordChatOpen ? (
         <div className="mb-4 flex items-center justify-between gap-3">
           {accountEmail && onSignOut ? (

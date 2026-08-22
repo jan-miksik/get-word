@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { isAppKeyboardOpen } from '@/hooks/useVisualViewportHeight';
 import { STAGES, type NormalizedWord } from '@/lib/words';
 import type { ProgressData } from '@/features/sync/contracts';
@@ -9,7 +8,11 @@ import {
   getAcceptedAnswerCandidates,
   requiresExplicitTypingCheck,
 } from '@/features/learning/minigames';
-import { PREFILL_CHAR_RE, splitGraphemes } from '@/lib/answer-normalization';
+import {
+  areOrthographicVariants,
+  PREFILL_CHAR_RE,
+  splitGraphemes,
+} from '@/lib/answer-normalization';
 import {
   flipSide,
   getWordAcceptedAnswersBySide,
@@ -21,6 +24,7 @@ import {
   type WordSide,
 } from './games/types';
 import { CustomStagePopover } from './word-card/CustomStagePopover';
+import { FullyKnownOffer, TOP_STAGE_INDEX, isTopStage } from './word-card/FullyKnownOffer';
 import { formatNextReviewHint, getWordTextSize } from './word-card/helpers';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
@@ -33,6 +37,9 @@ import {
 import { TypingMemoryHook } from './typing-study/TypingMemoryHook';
 import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
 import { SuccessMark } from './games/SuccessMark';
+import { StageBadge } from './StageBadge';
+import { CardTopControls } from './CardTopControls';
+import { useCardAudio } from './card-audio/useCardAudio';
 
 import {
   evaluateTypingAnswer,
@@ -76,16 +83,13 @@ const isMobileLayout = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(max-width: 767px)').matches === true;
 
-// Case/accent-insensitive single-character compare for per-slot feedback.
-// Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
-const normalizeChar = (ch: string) =>
-  ch.normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase().replace(/đ/g, 'd');
-
-// Three-state slot verdict, mirroring matchAnswer: exact (case-insensitive)
-// → correct, accent-only difference → close, anything else → bad.
+// Three-state slot verdict, mirroring the answer grader: exact
+// (case-insensitive) → correct, same base letter in different dress → close,
+// a different letter → bad. Sharing `areOrthographicVariants` with the grader
+// keeps the slot colours and the verdict from drifting apart.
 const slotState = (typed: string, expected: string): 'correct' | 'close' | 'bad' => {
   if (typed.toLowerCase() === expected.toLowerCase()) return 'correct';
-  if (normalizeChar(typed) === normalizeChar(expected)) return 'close';
+  if (typed !== '' && areOrthographicVariants(typed, expected)) return 'close';
   return 'bad';
 };
 
@@ -139,11 +143,14 @@ export function TypingStudyCard({
   const baseEditableIndices = baseSlots.map((_, idx) => idx).filter((idx) => !baseFixedFlags[idx]);
   // A space is free even if punctuation prefill is switched off. It remains in
   // the input to preserve mask alignment, but must not let a 90% scaffold show
-  // every actual letter.
-  const baseScaffoldCount = baseEditableIndices.filter((idx) => baseSlots[idx] !== ' ').length;
+  // every actual letter — so the scaffold is measured on the slots the learner
+  // actually has to type, in the order the prefill reveals them.
+  const baseScaffoldSlots = baseEditableIndices
+    .map((idx) => baseSlots[idx])
+    .filter((character) => character !== ' ');
   const requestedScaffold = typingScaffold({
     ...parseTypingVariant(variant),
-    editableCount: baseScaffoldCount,
+    editableSlots: baseScaffoldSlots,
   });
   const scaffold = useFreeAnswerInput
     ? { prefillCount: 0, hintCap: 0, hintBudget: 0 }
@@ -184,7 +191,7 @@ export function TypingStudyCard({
   const hintPressStartedAtRef = useRef(Number.NEGATIVE_INFINITY);
   const hintTouchActiveRef = useRef(false);
   const compactContinueRef = useRef<HTMLButtonElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play, playAuto } = useCardAudio();
   const audioPressStartedAtRef = useRef(Number.NEGATIVE_INFINITY);
   const audioTouchActiveRef = useRef(false);
   const isComposingRef = useRef(false);
@@ -276,23 +283,13 @@ export function TypingStudyCard({
     return () => observer.disconnect();
   }, [isFocused, result]);
 
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
   // Move focus to the continue control so Enter/Space advances.
   useEffect(() => {
     if (!result) return;
     compactContinueRef.current?.focus();
   }, [result]);
 
-  const playClip = (audioSrc: string | string[] | null) =>
-    playUserInitiatedAudio(audioRef, audioSrc);
+  const playClip = (audioSrc: string | string[] | null) => play(audioSrc);
 
   const replayPrompt = () => {
     void playClip(promptAudioSrcs);
@@ -357,10 +354,7 @@ export function TypingStudyCard({
       refocusTypingInput();
       if (event.timeStamp - audioPressStartedAtRef.current < 250) return;
       audioPressStartedAtRef.current = event.timeStamp;
-      void playUserInitiatedAudio(
-        audioRef,
-        getWordAudioSrcsBySide(word, foreignSide),
-      );
+      void play(getWordAudioSrcsBySide(word, foreignSide));
     };
     const handleTouchEnd = (event: TouchEvent) => {
       if (!audioTouchActiveRef.current) return;
@@ -381,7 +375,7 @@ export function TypingStudyCard({
       button.removeEventListener('touchend', handleTouchEnd);
       button.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [foreignSide, isFocused, result, word]);
+  }, [foreignSide, isFocused, play, result, word]);
 
   const typedChars = splitGraphemes(value);
   const minimumAnswerLengthForCheck = Math.max(
@@ -409,17 +403,12 @@ export function TypingStudyCard({
     if (typed.length === 0 || editableCount === 0) return;
     const merged =
       useFreeAnswerInput || typed.length > editableCount ? nextValue : buildMergedAnswer(typed);
-    const nextResult = evaluateTypingAnswer(
-      merged,
-      answerCandidates,
-      hintsRef.current,
-      !useFreeAnswerInput,
-    );
+    const nextResult = evaluateTypingAnswer(merged, answerCandidates, hintsRef.current);
     // A checked card no longer needs the keyboard. Blur synchronously so mobile
     // browsers start closing it before the result layout is painted.
     inputRef.current?.blur();
     setResult(nextResult);
-    if (playAudioAfterCheck) void playClip(promptAudioSrcs);
+    if (playAudioAfterCheck) void playAuto(promptAudioSrcs);
     // Score lands the moment the answer is checked; only the SR stage waits
     // for the continue tap.
     if (nextResult.points > 0) onScore?.(nextResult.points);
@@ -628,7 +617,18 @@ export function TypingStudyCard({
       : result?.outcome === 'unknown'
         ? Math.max(clampedStageIndex - 1, 0)
         : clampedStageIndex;
-  const continueHint = formatNextReviewHint(STAGES[nextStageIndex]?.intervalMs ?? 0, t);
+  const isRetired = isTopStage(clampedStageIndex) && !progress.nextDueAt;
+  const continueHint =
+    isRetired && result?.outcome !== 'unknown'
+      ? t('card.staysFullyKnown')
+      : formatNextReviewHint(STAGES[nextStageIndex]?.intervalMs ?? 0, t);
+  // A clean answer at the top of the ladder earns the retire offer; anything
+  // hinted or wrong still has something to prove.
+  const showFullyKnownOffer =
+    Boolean(onCustomStage) &&
+    result?.outcome === 'known' &&
+    isTopStage(clampedStageIndex) &&
+    Boolean(progress.nextDueAt);
 
   const showTypingAudio = hasAudioSource && !usesAudioPrompt;
   // Which slot the caret sits in (fixed slots are skipped by mapping the caret
@@ -745,6 +745,9 @@ export function TypingStudyCard({
       data-word-id={word.id}
       data-stage-group={stageGroup}
     >
+      <CardTopControls>
+        <StageBadge stageIndex={stageIndex} />
+      </CardTopControls>
       {/* min-h-0 + overflow-y-auto: with the keyboard open this box is ~25px
           shorter than its content, and without them the overflow spilled out
           under `.card-actions` — the memory-hook row ended up behind the
@@ -821,6 +824,13 @@ export function TypingStudyCard({
           />
         )}
       </div>
+
+      {showFullyKnownOffer && (
+        <FullyKnownOffer
+          onRetire={() => handleCustomStage(TOP_STAGE_INDEX, { noRepeat: true })}
+          className="mx-auto mt-4 !w-full !max-w-md"
+        />
+      )}
 
       <div className="card-actions relative mt-6 md:[@media(max-height:800px)]:!mt-2">
         {showTypingAudio && (

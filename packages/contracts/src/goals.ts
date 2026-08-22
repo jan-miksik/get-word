@@ -6,6 +6,7 @@ const GoalVersionSchema = z.object({
   enabled: z.boolean(),
   mode: z.enum(['words', 'minutes']),
   daysPerWeek: z.number().int(),
+  weekdays: z.array(z.number().int().min(1).max(7)).nullable().default(null),
   minutesPerDay: z.number().int(),
   wordsPerDay: z.number().int(),
   newWordsPerDay: z.number().int().nullable(),
@@ -22,7 +23,11 @@ export const GoalSummarySchema = z.object({
     pending: GoalVersionSchema.nullable(),
     revision: z.number().int(),
   }),
-  reminder: z.object({ enabled: z.boolean(), localMinutes: z.number().int().min(0).max(1439) }),
+  reminder: z.object({
+    enabled: z.boolean(),
+    localMinutes: z.number().int().min(0).max(1439),
+    onboardingAnswered: z.boolean().default(true),
+  }),
   days: z.array(z.object({
     dayKey: z.string(), activeMs: z.number().int(), answeredWords: z.number().int(),
     goalDaysPerWeek: z.number().int().nullable(), goalMinutes: z.number().int().nullable(),

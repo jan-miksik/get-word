@@ -317,6 +317,49 @@ describe('LearningLanguageOnboarding', () => {
     expect(await screen.findByText('Could not load lists')).toBeInTheDocument();
   });
 
+  it('finishes the language step by saving the pair, without opening the chat', async () => {
+    const onComplete = vi.fn().mockResolvedValue(undefined);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/languages') {
+        return jsonResponse({
+          languages: [
+            { code: 'en', name: 'English', ttsAvailable: true, preferredVoice: null },
+            { code: 'vi', name: 'Vietnamese', ttsAvailable: true, preferredVoice: null },
+          ],
+        });
+      }
+      if (url.startsWith('/api/lists/matches?from=en&to=vi')) {
+        return jsonResponse({ lists: [], recommendedList: null, recommendedReason: null });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <LearningLanguageOnboarding
+        phase="languages"
+        showProgress
+        initialFrom="en"
+        initialTo="vi"
+        onComplete={onComplete}
+        onSelectList={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('progressbar', { name: /setup progress/i }))
+      .toHaveAttribute('aria-valuenow', '1');
+
+    const continueButton = await screen.findByRole('button', { name: /Continue/i });
+    await waitFor(() => expect(continueButton).toBeEnabled());
+    fireEvent.click(continueButton);
+
+    // The chat that builds the first list is the last step now, so this one
+    // ends as soon as the pair is saved.
+    await waitFor(() => expect(onComplete).toHaveBeenCalledWith('en', 'vi'));
+    expect(screen.queryByPlaceholderText('Tell me about your situation…')).not.toBeInTheDocument();
+  });
+
   it('opens the word chat without the ready-made shortcut for a recommended list', async () => {
     const recommendedList = {
       id: 'recommended-en-vi',

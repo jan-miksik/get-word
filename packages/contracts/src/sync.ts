@@ -91,14 +91,24 @@ const StudyGoalMutationSchema = z.object({
   enabled: z.boolean(),
   mode: z.enum(['words', 'minutes']).default('minutes'),
   goal_days_per_week: z.number().int().min(1).max(7),
-  goal_minutes_per_day: z.number().int().min(1).max(240).optional(),
-  goal_new_words_per_day: z.number().int().min(1).max(30).optional(),
+  goal_weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7).optional(),
+  goal_minutes_per_day: z.number().int().min(1).max(480).optional(),
+  goal_new_words_per_day: z.number().int().min(1).max(1000).optional(),
   goal_preset: z.enum(['light', 'medium', 'intense', 'custom']),
   reveal_mode: z.enum(['scratch', 'press']),
   minigame_frequency: GoalMinigameFrequencySchema,
   timezone: IanaTimezoneSchema.optional(),
   learning_fine_tune: z.unknown(),
 }).superRefine((value, context) => {
+  if (value.goal_weekdays) {
+    const unique = new Set(value.goal_weekdays);
+    if (unique.size !== value.goal_weekdays.length) {
+      context.addIssue({ code: 'custom', path: ['goal_weekdays'], message: 'Goal weekdays must be unique' });
+    }
+    if (unique.size !== value.goal_days_per_week) {
+      context.addIssue({ code: 'custom', path: ['goal_days_per_week'], message: 'Days per week must match goal weekdays' });
+    }
+  }
   if (value.mode === 'minutes' && value.goal_minutes_per_day === undefined) {
     context.addIssue({ code: 'custom', path: ['goal_minutes_per_day'], message: 'Minutes goal requires minutes' });
   }
@@ -123,6 +133,7 @@ const SyncMutationPayloadSchema = z.object({
   study_goal_base_revision: z.number().int().nonnegative().optional(),
   goal_reminder_enabled: z.boolean().optional(),
   goal_reminder_local_minutes: z.number().int().min(0).max(1439).nullable().optional(),
+  goal_reminder_intro_answered: z.boolean().optional(),
   goal_intro_answered: z.boolean().optional(),
   // Quality-review consents. Two separate switches on purpose: an editor
   // reading the pair and a third-party LLM receiving it are different asks.

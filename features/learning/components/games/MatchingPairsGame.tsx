@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { playUserInitiatedAudio } from '@/lib/audio-playback';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import {
   flipSide,
@@ -15,25 +14,38 @@ import {
   type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
+import { CardTopControls } from '../CardTopControls';
+import { useCardAudio } from '../card-audio/useCardAudio';
 import { SuccessMarkSlot } from './SuccessMark';
-import { noTranslateProps } from '@/lib/i18n/no-translate';
+import { StudyOptionButton, type StudyOptionMatchColor } from './StudyOptionButton';
 import { shuffleGameItems } from '@/features/learning/minigames';
+import type { SimilarityBand } from '@/features/learning/minigames/similarity';
 
 interface Props {
-  /** One button pair per word; 4 or 6 of them depending on the variant. */
+  /** One button pair per word; 2–6 depending on the variant. */
   words: NormalizedWord[];
   role: LearningRole;
   sourceLang?: WordSide;
   promptMode?: PromptMode;
   soundEnabled?: boolean;
   level?: 1 | 2;
+  /** Accepted for the shared minigame prop shape; the round has no difficulty tell of its own. */
+  difficultyBand?: SimilarityBand;
+  /**
+   * Accepted so the shared minigame props stay one shape, and deliberately not
+   * shown: a matching round is a whole board of words at different stages, so a
+   * single stage badge would be describing one of them at random.
+   */
+  stageIndex?: number;
   onResult?: (delta: number) => void;
+  /** Card-level controls (the sound toggle) that share the card's top lane. */
+  topControls?: ReactNode;
   /** Drop the outer card frame so the round reads as part of the study flow. */
   frameless?: boolean;
 }
 
 type MatchState = 'idle' | 'selected' | 'matched' | 'wrong';
-type MatchColor = 1 | 2 | 3 | 4 | 5 | 6;
+type MatchColor = StudyOptionMatchColor;
 const MATCH_COLOR_COUNT = 6;
 
 export function MatchingPairsGame({
@@ -44,6 +56,7 @@ export function MatchingPairsGame({
   soundEnabled = false,
   level = 1,
   onResult,
+  topControls,
   frameless = false,
 }: Props) {
   const { t } = useI18n();
@@ -61,7 +74,7 @@ export function MatchingPairsGame({
   const [matchColors, setMatchColors] = useState<Map<string, MatchColor>>(() => new Map());
   const [wrongPair, setWrongPair] = useState<[string, string] | null>(null);
   const [hasAudioPlaybackError, setHasAudioPlaybackError] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play, playAuto } = useCardAudio();
 
   const requestedPromptSide: WordSide = sourceLang ?? knownSideForRole(role);
   const learningSide: WordSide = learningSideForRole(role);
@@ -99,19 +112,10 @@ export function MatchingPairsGame({
     }
   }, [isComplete, level, onResult]);
 
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
   const attempt = (lId: string, rId: string) => {
     if (lId === rId) {
       if (soundEnabled) {
-        void playClip(learningAudioByWordId.get(lId) ?? []);
+        void playAuto(learningAudioByWordId.get(lId) ?? []);
       }
       setMatchColors(prev => {
         if (prev.has(lId)) return prev;
@@ -133,14 +137,8 @@ export function MatchingPairsGame({
     }
   };
 
-  const playClip = async (
-    audioSrc: string | string[] | null,
-  ): Promise<{ ok: boolean; interrupted: boolean }> => {
-    return playUserInitiatedAudio(audioRef, audioSrc);
-  };
-
   const playPrompt = async (id: string) => {
-    const result = await playClip(audioByWordId.get(id) ?? null);
+    const result = await play(audioByWordId.get(id) ?? null);
     if (result.ok || result.interrupted) return;
     setHasAudioPlaybackError(true);
   };
@@ -176,33 +174,36 @@ export function MatchingPairsGame({
     return 'idle';
   };
 
-  const getMatchColorClass = (id: string, state: MatchState) => {
-    if (state !== 'matched') return '';
-    const color = matchColors.get(id);
-    return color ? ` game-match-btn--c${color}` : '';
-  };
-
   return (
     <article
       className={`phrase-card game-card game-card--matching${frameless ? ' game-card--bare' : ''}`}
     >
+      <CardTopControls>{topControls}</CardTopControls>
       <SuccessMarkSlot show={isComplete} label={t('game.allMatched')} rollKey={words[0]?.id} />
-      <div className="game-badge">🔗 {t('game.match')}</div>
+      {frameless ? (
+        // Same quiet heading the assembly round uses. The bordered pill only
+        // makes sense inside a bordered card.
+        <p className="m-0 text-center text-xs font-bold uppercase tracking-[0.12em] text-[#6B5E48]">
+          {t('game.match')}
+        </p>
+      ) : (
+        <div className="game-badge">🔗 {t('game.match')}</div>
+      )}
 
-      <div className="game-match-grid">
-        <div className="game-match-col">
-          {words.map(w => {
+      <div className="mx-auto mt-4 grid w-full max-w-3xl grid-cols-2 gap-3 sm:mt-8 sm:gap-4">
+        <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+          {words.map((w, index) => {
             const state = getLeftState(w.id);
             return (
-              <button
+              <StudyOptionButton
                 key={w.id}
-                type="button"
-                {...noTranslateProps(
-                  `game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`,
-                )}
+                state={state}
+                size="sm"
+                matchColor={state === 'matched' ? matchColors.get(w.id) : undefined}
+                enterIndex={index}
                 onClick={() => handleLeft(w.id)}
                 disabled={matched.has(w.id) || !!wrongPair}
-                aria-label={
+                ariaLabel={
                   effectivePromptMode === 'audio'
                     ? t('game.playPrompt', { number: promptNumberById.get(w.id) ?? '' }).trim()
                     : undefined
@@ -211,35 +212,34 @@ export function MatchingPairsGame({
                 {effectivePromptMode === 'audio'
                   ? `🔊`
                   : getWordTextBySide(w, textModePromptSide)}
-              </button>
+              </StudyOptionButton>
             );
           })}
         </div>
-        <div className="game-match-col">
-          {rightOrder.map(w => {
+        <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+          {rightOrder.map((w, index) => {
             const state = getRightState(w.id);
             return (
-              <button
+              <StudyOptionButton
                 key={w.id}
-                type="button"
-                {...noTranslateProps(
-                  `game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`,
-                )}
+                state={state}
+                size="sm"
+                matchColor={state === 'matched' ? matchColors.get(w.id) : undefined}
+                enterIndex={index}
                 onClick={() => handleRight(w.id)}
                 disabled={matched.has(w.id) || !!wrongPair}
               >
                 {getWordTextBySide(w, textModeAnswerSide)}
-              </button>
+              </StudyOptionButton>
             );
           })}
         </div>
       </div>
 
-      {isComplete ? (
-        <div className="game-feedback game-feedback--exact">{t('game.allMatched')}</div>
-      ) : (
-        <div className="min-h-[44px]" aria-hidden="true" />
-      )}
+      {/* The success mark above already says the round is over; a second
+          "all matched" line underneath only repeated it. The reserved height
+          stays so finishing a round does not shift the board. */}
+      <div className="min-h-[44px]" aria-hidden="true" />
     </article>
   );
 }

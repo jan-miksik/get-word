@@ -107,8 +107,11 @@ export function getBestKnownDayActiveMs(dayKey: string): number {
   const open = state?.tracker.peek();
   // An open segment only belongs to the current local day for display. Closed
   // segments carry their own source timezone and are registered in onSegment.
+  // `uncreditedMs` is the part of the open segment the next five-second tick
+  // will credit; including it is what lets a displayed clock advance every
+  // second instead of standing still and then jumping.
   const openLocal = open?.open && localDayKeyAt(Date.now(), currentIanaTimezone()) === dayKey
-    ? open.activeMs
+    ? open.activeMs + open.uncreditedMs
     : 0;
   return Math.max(0, Math.round(seed + closedLocal + openLocal));
 }

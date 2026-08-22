@@ -7,11 +7,14 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react';
 
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { SuccessMarkSlot } from './SuccessMark';
+import { StageBadge } from '../StageBadge';
+import { CardTopControls } from '../CardTopControls';
 import { useDeviceTilt } from '@/features/learning/hooks/useDeviceTilt';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import type { NormalizedWord } from '@/lib/words';
@@ -51,7 +54,10 @@ interface Props {
   sourceLang?: WordSide;
   promptMode?: PromptMode;
   soundEnabled?: boolean;
+  /** Card-level controls (the sound toggle) that share the card's top lane. */
+  topControls?: ReactNode;
   level?: 1 | 2;
+  stageIndex?: number;
   onResult?: (delta: number) => void;
   isActive?: boolean;
 }
@@ -73,7 +79,9 @@ export function TiltChoiceGame({
   sourceLang,
   promptMode = 'text',
   soundEnabled = false,
+  topControls,
   level = 1,
+  stageIndex,
   onResult,
   isActive = true,
 }: Props) {
@@ -374,6 +382,10 @@ export function TiltChoiceGame({
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
     >
+      <CardTopControls>
+        <StageBadge stageIndex={stageIndex} />
+        {topControls}
+      </CardTopControls>
       <SuccessMarkSlot
         show={Boolean(selected && options.find((option) => option.id === selected)?.isCorrect)}
         label={t('game.correct')}

@@ -91,6 +91,7 @@ type SyncUserShape = {
   studyNotesEnabled?: boolean | null;
   studyNoteMinimizeFromStage?: number | null;
   learningFineTune?: unknown;
+  goalReminderIntroAnswered?: boolean | null;
   goalIntroAnswered?: boolean | null;
   reviewOptIn?: boolean | null;
   aiReviewOptIn?: boolean | null;
@@ -187,6 +188,7 @@ function buildSyncUser(user: SyncUserShape) {
     // Null until the learner touches the settings; the client fills in the
     // default preset rather than the server baking one into every response.
     learning_fine_tune: user.learningFineTune ?? null,
+    goal_reminder_intro_answered: user.goalReminderIntroAnswered ?? false,
     goal_intro_answered: user.goalIntroAnswered ?? false,
     // Defaults mirror the DB: editor review on, third-party AI review off.
     review_opt_in: user.reviewOptIn ?? true,

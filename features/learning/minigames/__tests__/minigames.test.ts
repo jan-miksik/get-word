@@ -78,7 +78,7 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'exact',
       matchedAnswer: 'dobře',
       isAlternative: true,
-      nearestExactDistance: 0,
+      nearestLetterDistance: 0,
     });
   });
 
@@ -91,7 +91,7 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'exact',
       matchedAnswer: 'dobré',
       isAlternative: true,
-      nearestExactDistance: 0,
+      nearestLetterDistance: 0,
     });
   });
 
@@ -104,7 +104,8 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'close',
       matchedAnswer: 'dobrý',
       isAlternative: false,
-      nearestExactDistance: 1,
+      // "dobry" writes the same letters as "dobrý"; only the mark differs.
+      nearestLetterDistance: 0,
     });
   });
 
@@ -117,7 +118,7 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'close',
       matchedAnswer: 'dobrá',
       isAlternative: true,
-      nearestExactDistance: 1,
+      nearestLetterDistance: 0,
     });
     const wrong = matchAnswerAgainstCandidates(
       'dobrx',
@@ -355,9 +356,11 @@ describe('injectMinigames', () => {
     // Both sides must be unrelated: a band is the more confusable of the two,
     // and "over half the letters shared" is enough to reach band II, so words
     // sharing a stem on either side would not make this pool distinct.
-    const cz = ['pes', 'stul', 'kolo', 'mesto', 'ryba', 'chleb', 'zahrada', 'oblak', 'kniha', 'vlak', 'jablko', 'hodiny'];
-    const vi = ['cho', 'ban', 'xedap', 'thanhpho', 'ca', 'banhmi', 'khuvuon', 'may', 'sach', 'tauhoa', 'quatao', 'donghoo'];
-    const distinctPool = cz.map((word, index) => makeWord(`d${index}`, word, vi[index]));
+    const distinctPool = Array.from({ length: 12 }, (_, index) => {
+      const term = String.fromCharCode(97 + index).repeat(8);
+      return makeWord(`d${index}`, term, term);
+    });
+    expect(hasAtLeastOneSimilarPair(distinctPool)).toBe(false);
 
     const result = injectMinigames(distinctPool, distinctPool, 17, {
       minInterval: 1,
@@ -714,5 +717,67 @@ describe('computeGameAnchors tiltChoice opt-in', () => {
       );
       expect(normalized[0]).not.toBe(normalized[1]);
     }
+  });
+});
+
+describe('computeGameAnchors bubbleChoice levels', () => {
+  const onlyBubbles = {
+    includeGameTypes: ['bubbleChoice'] as const,
+    excludeGameTypes: ['matching'] as const,
+    minInterval: 2,
+    maxInterval: 2,
+  };
+
+  it('uses all three similarity levels as the repetition stage advances', () => {
+    const words = Array.from({ length: 20 }, (_, index) =>
+      makeWord(
+        `bubble-${index}`,
+        `known${String.fromCharCode(97 + index)}`,
+        `aaaaa${String.fromCharCode(97 + index)}`,
+      ),
+    );
+
+    const levels = ([0, 3, 5] as const).map((stage) => {
+      const anchors = computeGameAnchorsRaw(words, [], 17, {
+        ...onlyBubbles,
+        getStageIndex: () => stage,
+      });
+      expect(anchors.length).toBeGreaterThan(0);
+      expect(anchors.every((anchor) => anchor.gameType === 'bubbleChoice')).toBe(true);
+      return {
+        scores: new Set(anchors.map((anchor) => anchor.level)),
+        bands: new Set(anchors.map((anchor) => anchor.difficultyBand)),
+      };
+    });
+
+    expect(levels[0]).toEqual({ scores: new Set([1]), bands: new Set(['I']) });
+    expect(levels[1]).toEqual({ scores: new Set([2]), bands: new Set(['II']) });
+    expect(levels[2]).toEqual({ scores: new Set([3]), bands: new Set(['III']) });
+  });
+
+  it('can insert bubbles after three cards even when matching is unavailable', () => {
+    const words = Array.from({ length: 16 }, (_, index) =>
+      makeWord(`late-${index}`, `known-${index}`, `learning-${index}`),
+    );
+    const stream = injectMinigamesRaw(words, [], 23, {
+      includeGameTypes: ['bubbleChoice'],
+      minInterval: 3,
+      maxInterval: 3,
+      getStageIndex: () => 7,
+    });
+
+    let cardsSinceQuiz = 0;
+    let quizzes = 0;
+    for (const item of stream) {
+      if ('_isMinigame' in item) {
+        expect(item.gameType).toBe('bubbleChoice');
+        expect(cardsSinceQuiz).toBeLessThanOrEqual(3);
+        cardsSinceQuiz = 0;
+        quizzes += 1;
+      } else {
+        cardsSinceQuiz += 1;
+      }
+    }
+    expect(quizzes).toBeGreaterThan(0);
   });
 });

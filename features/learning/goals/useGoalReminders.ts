@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import type { GoalSummary } from '@/packages/contracts/src/goals';
-import { isoWeekStart } from '@/packages/domain/goals/week';
+import { isoWeekday, isoWeekStart } from '@/packages/domain/goals/week';
 import { rescheduleReminders } from '@/lib/notifications/runtime';
 import { syncGrantedStudyWebPush } from './web-push';
 
@@ -14,7 +14,7 @@ function goalForDay(summary: GoalSummary, dayKey: string) {
 export function useGoalReminders(summary: GoalSummary | null) {
   useEffect(() => {
     if (!summary) return;
-    if (summary.reminder.enabled && summary.goal.active?.enabled) {
+    if (summary.reminder.onboardingAnswered && summary.reminder.enabled && summary.goal.active?.enabled) {
       void syncGrantedStudyWebPush();
     }
     const reschedule = () => {
@@ -26,7 +26,8 @@ export function useGoalReminders(summary: GoalSummary | null) {
         body: 'A short study session is ready.',
         day: (dayKey) => {
           const goal = goalForDay(summary, dayKey);
-          if (!goal || !summary.reminder.enabled) return null;
+          if (!goal || !summary.reminder.onboardingAnswered || !summary.reminder.enabled) return null;
+          if (goal.weekdays && !goal.weekdays.includes(isoWeekday(dayKey))) return null;
           const week = isoWeekStart(dayKey);
           const metDaysThisWeek = rows.filter((row) => isoWeekStart(row.dayKey) === week && row.met).length;
           return {

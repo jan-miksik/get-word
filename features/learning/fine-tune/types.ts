@@ -1,3 +1,4 @@
+import { PREFILL_CHAR_RE } from '@/lib/answer-normalization';
 import type { SimilarityBand } from '@/features/learning/minigames/similarity';
 import type { NormalizedWord } from '@/lib/words';
 
@@ -7,7 +8,7 @@ export type { SimilarityBand };
  * The three methods that count as a review: answering one of them moves the
  * word's spaced-repetition stage up or down.
  *
- * Matching is deliberately NOT here. One matching round tests 4–8 words at
+ * Matching is deliberately NOT here. One matching round tests 2–6 words at
  * once, so a single result cannot be attributed to one word; it stays a
  * practice-only interlude with its own frequency, outside this pool.
  */
@@ -52,17 +53,43 @@ export function parseTypingVariant(variant: TypingVariant): {
   };
 }
 
+/**
+ * How many of the answer's blank slots may be pre-filled.
+ *
+ * Two limits, both about leaving a real exercise behind. One slot always stays
+ * empty, and the last *letter* always stays empty: revealing everything up to a
+ * trailing `.` / `?` / `...` would leave punctuation as the whole challenge,
+ * which is a keyboard drill, not a writing one. Punctuation inside a longer
+ * blank (`word?` with `d?` still to type) is untouched by this.
+ *
+ * `slots` are the editable graphemes in reveal order — the ones the learner has
+ * to type, spaces excluded, since a space is handed over for free.
+ */
+function maxRevealableSlots(slots: readonly string[]): number {
+  const lastLetterIndex = slots.reduce(
+    (last, slot, index) => (PREFILL_CHAR_RE.test(slot) ? last : index),
+    -1,
+  );
+  const oneShortOfEverything = Math.max(0, slots.length - 1);
+  // An answer made of nothing but punctuation has no letter to protect; it
+  // falls back to the plain "leave one slot" rule.
+  if (lastLetterIndex === -1) return oneShortOfEverything;
+  return Math.min(oneShortOfEverything, lastLetterIndex);
+}
+
 /** Calculate the frozen scaffold for one answer, always leaving one slot to type. */
 export function typingScaffold({
   prefillPct,
   hintCapPct,
-  editableCount,
+  editableSlots,
 }: {
   prefillPct: number;
   hintCapPct: number;
-  editableCount: number;
+  /** Editable graphemes in reveal order, spaces excluded. */
+  editableSlots: readonly string[];
 }): { prefillCount: number; hintCap: number; hintBudget: number } {
-  const maxReveal = Math.max(0, editableCount - 1);
+  const editableCount = editableSlots.length;
+  const maxReveal = maxRevealableSlots(editableSlots);
   const prefillCount = Math.min(Math.max(0, Math.floor(editableCount * prefillPct / 100)), maxReveal);
   const hintCap = hintCapPct > prefillPct
     ? Math.min(Math.max(1, Math.ceil(editableCount * hintCapPct / 100)), maxReveal)
@@ -71,24 +98,26 @@ export function typingScaffold({
 }
 
 export type ChoiceOptionCount = 2 | 3 | 4 | 5 | 6 | 7 | 8;
-export type MatchPairCount = 4 | 6;
-export type AssemblyVariant = 'letters:exact' | 'letters:extra' | 'words:exact' | 'words:extra';
+export type MatchPairCount = 2 | 3 | 4 | 5 | 6;
+export type AssemblyVariant = `${'letters' | 'words'}:${SimilarityBand}`;
 
 export const CHOICE_OPTION_COUNTS = [2, 3, 4, 5, 6, 7, 8] as const;
-export const MATCH_PAIR_COUNTS = [4, 6] as const;
+export const MATCH_PAIR_COUNTS = [2, 3, 4, 5, 6] as const;
 export const ASSEMBLY_VARIANTS = [
-  'letters:exact',
-  'letters:extra',
-  'words:exact',
-  'words:extra',
+  'letters:I',
+  'letters:II',
+  'letters:III',
+  'words:I',
+  'words:II',
+  'words:III',
 ] as const satisfies readonly AssemblyVariant[];
 
 export function parseAssemblyVariant(variant: AssemblyVariant): {
   unit: 'letters' | 'words';
-  distractors: boolean;
+  band: SimilarityBand;
 } {
-  const [unit, difficulty] = variant.split(':') as ['letters' | 'words', 'exact' | 'extra'];
-  return { unit, distractors: difficulty === 'extra' };
+  const [unit, band] = variant.split(':') as ['letters' | 'words', SimilarityBand];
+  return { unit, band };
 }
 
 /** `'4:II'` — four options, distractors that look fairly alike. */
@@ -164,6 +193,7 @@ export type ResolvedExercise =
   | {
       method: 'assembly';
       variant: AssemblyVariant;
+      effectiveBand: SimilarityBand;
       /** The answer-side units, in their required order. */
       answerParts: string[];
       /** Additional selectable units for the harder variant. */

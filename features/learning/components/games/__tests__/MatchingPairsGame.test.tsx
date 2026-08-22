@@ -63,12 +63,12 @@ describe('MatchingPairsGame', () => {
     expect(screen.getByText('pes')).toBeInTheDocument();
   });
 
-  it('matching a correct pair marks both buttons with matched class', () => {
+  it('matching a correct pair settles both buttons', () => {
     render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con chó'));
-    expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--matched');
-    expect(screen.getByText('con chó').closest('button')).toHaveClass('game-match-btn--matched');
+    expect(screen.getByText('pes').closest('button')).toHaveAttribute('data-option-state', 'matched');
+    expect(screen.getByText('con chó').closest('button')).toHaveAttribute('data-option-state', 'matched');
   });
 
   it('assigns 4 different colors to matched pairs (in match order)', () => {
@@ -76,23 +76,23 @@ describe('MatchingPairsGame', () => {
 
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con chó'));
-    expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--c1');
-    expect(screen.getByText('con chó').closest('button')).toHaveClass('game-match-btn--c1');
+    expect(screen.getByText('pes').closest('button')).toHaveAttribute('data-match-color', '1');
+    expect(screen.getByText('con chó').closest('button')).toHaveAttribute('data-match-color', '1');
 
     fireEvent.click(screen.getByText('kočka'));
     fireEvent.click(screen.getByText('con mèo'));
-    expect(screen.getByText('kočka').closest('button')).toHaveClass('game-match-btn--c2');
-    expect(screen.getByText('con mèo').closest('button')).toHaveClass('game-match-btn--c2');
+    expect(screen.getByText('kočka').closest('button')).toHaveAttribute('data-match-color', '2');
+    expect(screen.getByText('con mèo').closest('button')).toHaveAttribute('data-match-color', '2');
 
     fireEvent.click(screen.getByText('auto'));
     fireEvent.click(screen.getByText('xe hơi'));
-    expect(screen.getByText('auto').closest('button')).toHaveClass('game-match-btn--c3');
-    expect(screen.getByText('xe hơi').closest('button')).toHaveClass('game-match-btn--c3');
+    expect(screen.getByText('auto').closest('button')).toHaveAttribute('data-match-color', '3');
+    expect(screen.getByText('xe hơi').closest('button')).toHaveAttribute('data-match-color', '3');
 
     fireEvent.click(screen.getByText('voda'));
     fireEvent.click(screen.getByText('nước'));
-    expect(screen.getByText('voda').closest('button')).toHaveClass('game-match-btn--c4');
-    expect(screen.getByText('nước').closest('button')).toHaveClass('game-match-btn--c4');
+    expect(screen.getByText('voda').closest('button')).toHaveAttribute('data-match-color', '4');
+    expect(screen.getByText('nước').closest('button')).toHaveAttribute('data-match-color', '4');
   });
 
   it('selecting a wrong pair flashes wrong class then resets after timeout', async () => {
@@ -100,9 +100,9 @@ describe('MatchingPairsGame', () => {
     render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con mèo')); // wrong pair
-    expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--wrong');
+    expect(screen.getByText('pes').closest('button')).toHaveAttribute('data-option-state', 'wrong');
     await act(async () => { vi.advanceTimersByTime(700); });
-    expect(screen.getByText('pes').closest('button')).not.toHaveClass('game-match-btn--wrong');
+    expect(screen.getByText('pes').closest('button')).not.toHaveAttribute('data-option-state', 'wrong');
     vi.useRealTimers();
   });
 

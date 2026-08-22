@@ -221,6 +221,12 @@ export function useLearningPageState({
   // word they have never studied is not something to review, so only priority
   // words that are genuinely due count here.
   const readyCount = plannedPriorityWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0).length + plannedDueWords.length;
+  // Repeats that are due *right now* across the whole stream, whatever today's
+  // plan happened to take from it. Answering a word moves it out of the due
+  // bucket, so once the plan is walked this is exactly the backlog the Upcoming
+  // panel lists — which is why the closing card quotes this number instead of
+  // reading an emptied plan as "nothing due".
+  const dueNowCount = priorityDueCount + dueWords.length;
 
   const learnedPool = useMemo(
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
@@ -245,10 +251,14 @@ export function useLearningPageState({
     wordsResetKey,
     // The bubble game is a review interlude in the normal rotation. Temporary
     // QA mode adds tilt while keeping bubbles available for SR coverage.
+    // similarWordsPrompt is parked: asking the learner to generate neighbours
+    // mid-stream is the wrong moment for it. Thin distractor pools will instead
+    // be filled deterministically from a frequency list of the target language,
+    // without interrupting the round.
     excludeGameTypes: tiltGameEnabled ? ['multipleChoice', 'typing', 'matching'] : [],
     includeGameTypes: tiltGameEnabled
-      ? ['tiltChoice', 'bubbleChoice', 'similarWordsPrompt']
-      : ['bubbleChoice', 'similarWordsPrompt'],
+      ? ['tiltChoice', 'bubbleChoice']
+      : ['bubbleChoice'],
     getStageIndex,
     fineTuneConfig,
     progressPlanRevision,
@@ -285,6 +295,7 @@ export function useLearningPageState({
     dismissedGames,
     setDismissedGames,
     dueWords: plannedDueWords,
+    dueNowCount,
     session,
     settlingWords,
     streamGroups,

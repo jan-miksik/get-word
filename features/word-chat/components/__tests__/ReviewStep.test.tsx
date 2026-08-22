@@ -154,6 +154,47 @@ describe('ReviewStep', () => {
     expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
   });
 
+  it('holds the save while a clip is still being made, but not for a failed one', () => {
+    const props = {
+      listName: 'My words',
+      categoryName: 'Coffee',
+      warningsByKnown: {},
+      translationDiagnostics: null,
+      isPublic: false,
+      busy: false,
+      onUpdate: vi.fn(),
+      onRemove: vi.fn(),
+      onEnsureAudio: vi.fn(),
+      onBack: vi.fn(),
+      onSave: vi.fn(),
+    };
+    const item = {
+      kind: 'word' as const,
+      textKnown: 'káva',
+      textTarget: 'coffee',
+      audioStatus: 'pending' as const,
+      audioAssetId: null,
+      audioHash: null,
+    };
+    const { rerender } = render(
+      <I18nProvider language="en">
+        <ReviewStep {...props} items={[item]} />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Preparing audio…' })).toBeDisabled();
+
+    // A clip that failed is not coming back, and the words are still worth
+    // keeping, so the save must not stay disabled waiting for it.
+    rerender(
+      <I18nProvider language="en">
+        <ReviewStep {...props} items={[{ ...item, audioStatus: 'failed' }]} />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: /save to my words/i })).toBeEnabled();
+  });
+
   it('copies the whole set as source/translation pairs', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { clipboard: { writeText } });

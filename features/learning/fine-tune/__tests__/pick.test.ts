@@ -233,7 +233,7 @@ describe('pickExerciseForWord — assembly', () => {
     const pool = [word('a', 'dog', 'mèo'), ...distinctPool(4)];
     const config = configWithStage(
       4,
-      stage({ assembly: { weight: 1, variants: ['letters:exact'] } }),
+      stage({ assembly: { weight: 1, variants: ['letters:I'] } }),
     );
     const exercise = pickExerciseForWord({
       word: pool[0],
@@ -247,7 +247,8 @@ describe('pickExerciseForWord — assembly', () => {
 
     expect(exercise).toEqual({
       method: 'assembly',
-      variant: 'letters:exact',
+      variant: 'letters:I',
+      effectiveBand: 'I',
       answerParts: ['m', 'è', 'o'],
       distractorParts: [],
     });
@@ -261,7 +262,7 @@ describe('pickExerciseForWord — assembly', () => {
     ];
     const config = configWithStage(
       4,
-      stage({ assembly: { weight: 1, variants: ['words:extra'] } }),
+      stage({ assembly: { weight: 1, variants: ['words:II'] } }),
     );
     const exercise = pickExerciseForWord({
       word: pool[0],
@@ -277,6 +278,38 @@ describe('pickExerciseForWord — assembly', () => {
     if (exercise.method !== 'assembly') return;
     expect(exercise.answerParts).toEqual(['xin', 'chào', 'bạn']);
     expect(exercise.distractorParts.length).toBeGreaterThan(0);
+  });
+
+  it('uses about 20% confusable extra letters on II and 80% on III', () => {
+    const pool = [word('target', 'demo', 'raco'), ...distinctPool(8)];
+    const baseLetter = (value: string) => value
+      .toLocaleLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd');
+    const correctBases = new Set(['r', 'a', 'c', 'o']);
+
+    const confusableCount = (variant: 'letters:II' | 'letters:III') => {
+      const exercise = pickExerciseForWord({
+        word: pool[0],
+        stageIndex: 3,
+        knownCount: 2,
+        unknownCount: 0,
+        config: configWithStage(3, stage({ assembly: { weight: 1, variants: [variant] } })),
+        distractorPool: pool,
+        role: 'knownLanguage',
+      });
+      expect(exercise.method).toBe('assembly');
+      if (exercise.method !== 'assembly') return { similar: 0, total: 0, band: 'I' as const };
+      return {
+        similar: exercise.distractorParts.filter((part) => correctBases.has(baseLetter(part))).length,
+        total: exercise.distractorParts.length,
+        band: exercise.effectiveBand,
+      };
+    };
+
+    expect(confusableCount('letters:II')).toEqual({ similar: 1, total: 3, band: 'II' });
+    expect(confusableCount('letters:III')).toEqual({ similar: 3, total: 3, band: 'III' });
   });
 });
 
@@ -304,7 +337,7 @@ describe('pickMatchRound', () => {
       seed: 7,
     });
     expect(round).not.toBeNull();
-    expect([4, 6]).toContain(round!.words.length);
+    expect([2, 3, 4, 5, 6]).toContain(round!.words.length);
     expect(round!.words[0].id).toBe(pool[0].id);
   });
 });

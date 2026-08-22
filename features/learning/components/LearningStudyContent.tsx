@@ -51,7 +51,6 @@ interface LearningStudyContentProps {
   phrasesScrollElement: HTMLElement | null;
   filteredWords: NormalizedWord[];
   interstitialCard?: React.ReactNode;
-  goalCountdown?: React.ReactNode;
   onDeckWordCardCompleted?: (word: NormalizedWord) => void;
   deckSwipeActions?: CardDeckSwipeActions;
   deckHorizontalSwipeEnabled?: boolean;
@@ -72,6 +71,10 @@ interface LearningStudyContentProps {
   renderMiniGame: (config: MiniGameConfig, isActive: boolean) => React.ReactNode;
   showNotReady: boolean;
   settlingCount: number;
+  /** Repeats due right now that today's plan did not take. */
+  dueNowCount?: number;
+  /** Lifts the day's cap so those repeats join the stream. */
+  onStudyExtra?: () => void;
   onToggleShowNotReady: () => void;
 }
 
@@ -100,7 +103,6 @@ export function LearningStudyContent({
   phrasesScrollElement,
   filteredWords,
   interstitialCard,
-  goalCountdown,
   onDeckWordCardCompleted,
   deckSwipeActions,
   deckHorizontalSwipeEnabled = true,
@@ -113,6 +115,8 @@ export function LearningStudyContent({
   renderMiniGame,
   showNotReady,
   settlingCount,
+  dueNowCount = 0,
+  onStudyExtra,
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
   const { t, language: uiLanguage } = useI18n();
@@ -161,6 +165,8 @@ export function LearningStudyContent({
     <SessionDoneCard
       title={title}
       settlingCount={settlingCount}
+      dueNowCount={dueNowCount}
+      onStudyExtra={onStudyExtra}
       showNotReady={showNotReady}
       onToggleShowNotReady={onToggleShowNotReady}
       onOpenWordChat={onOpenWordChat}
@@ -191,7 +197,6 @@ export function LearningStudyContent({
         className="app-workspace-main relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
         aria-live="polite"
       >
-        {activeSurface === 'study' ? goalCountdown : null}
         {sessionFlow && activeSurface === 'study' ? <SessionRail flow={sessionFlow} /> : null}
         <AppSurfacePanel
           surface="study"

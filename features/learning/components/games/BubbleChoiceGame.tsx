@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { useI18n } from '@/components/I18nProvider';
-import { SuccessMark } from './SuccessMark';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
-import { getWordTextBySide, knownSideForRole, learningSideForRole } from './types';
+import type { SimilarityBand } from '@/features/learning/minigames/similarity';
+import { getWordAudioSrcsBySide, getWordTextBySide, knownSideForRole, learningSideForRole } from './types';
+import { CardTopControls } from '../CardTopControls';
+import { useCardAudio } from '../card-audio/useCardAudio';
 import {
   createBubbleBodies,
   pushBubblesFrom,
@@ -67,6 +69,8 @@ export function BubbleChoiceGame({
   words,
   role,
   level = 1,
+  soundEnabled = false,
+  topControls,
   onScore,
   onReviewOutcome,
   onComplete,
@@ -74,11 +78,26 @@ export function BubbleChoiceGame({
   words: NormalizedWord[];
   role: LearningRole;
   level?: 1 | 2 | 3;
+  /**
+   * Both accepted for the shared minigame prop shape and deliberately unused:
+   * a field holds a dozen words at once, so one badge could only ever describe
+   * one of them.
+   */
+  difficultyBand?: SimilarityBand;
+  stageIndex?: number;
+  /**
+   * Reads the same card sound setting as every other minigame, so a popped
+   * bubble speaks its word exactly when the learner has asked it to.
+   */
+  soundEnabled?: boolean;
+  /** Card-level controls (the sound toggle) that share the card's top lane. */
+  topControls?: ReactNode;
   onScore: (delta: number) => void;
   onReviewOutcome?: (wordId: string, outcome: Outcome) => void;
   onComplete: () => void;
 }) {
   const { t } = useI18n();
+  const { playAuto } = useCardAudio();
   // Solved words leave the field for good: a correct answer must not reshuffle
   // the words the learner has already read, it must remove one of them.
   const [solvedIds, setSolvedIds] = useState<string[]>([]);
@@ -220,6 +239,17 @@ export function BubbleChoiceGame({
     return () => cancelAnimationFrame(frame);
   }, [placed, writeTransforms]);
 
+  // A cleared field has nothing left to say: rather than parking the learner on
+  // a "well done" screen, the round hands straight over to the next card once
+  // the last burst has played out. The ref keeps the inline `onComplete` of the
+  // call sites from firing it twice.
+  const completed = useRef(false);
+  useEffect(() => {
+    if (!complete || completed.current) return;
+    completed.current = true;
+    onComplete();
+  }, [complete, onComplete]);
+
   const select = (word: NormalizedWord) => {
     if (!current || complete || word.id === burstingId) return;
     const body = bodies.current.find(candidate => candidate.id === word.id);
@@ -255,6 +285,11 @@ export function BubbleChoiceGame({
       onReviewOutcome?.(current.id, 'known');
     }
     onScore(level);
+    if (soundEnabled) {
+      // The bubble that just burst IS the answer, so it is its own audio: the
+      // learning-side clip of the word the learner picked.
+      void playAuto(getWordAudioSrcsBySide(word, learningSideForRole(role)));
+    }
     if (body) {
       body.frozen = true;
       pushBubblesFrom(bodies.current, { x: body.x, y: body.y }, POP_SHOCKWAVE);
@@ -268,22 +303,9 @@ export function BubbleChoiceGame({
     later(() => setBurstingId((value) => (value === word.id ? null : value)), BURST_MS);
   };
 
-  if (complete) {
-    return (
-      <article className="flex h-full min-h-80 flex-col items-center justify-center gap-4 p-6 text-center">
-        <SuccessMark label="" size="large" />
-        <p className="m-0 text-2xl font-extrabold" style={{ color: 'var(--rail-new)' }}>
-          {t('game.bubbleDone')}
-        </p>
-        <button type="button" onClick={onComplete} className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white">
-          {t('card.continue')} →
-        </button>
-      </article>
-    );
-  }
-
   return (
     <article className={`relative flex h-full min-h-[26rem] w-full flex-col ${shake ? 'bubble-field-shake' : ''}`}>
+      <CardTopControls>{topControls}</CardTopControls>
       <div
         ref={fieldRef}
         className={`bubble-field relative min-h-0 flex-1 overflow-hidden ${placed ? 'is-placed' : ''}`}

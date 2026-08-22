@@ -24,7 +24,7 @@ const STAGE_COUNT = STAGES.length;
 
 export const PRESET_IDS = ['calm', 'balanced', 'demanding'] as const;
 export type PresetId = (typeof PRESET_IDS)[number];
-const DEFAULT_PRESET: PresetId = 'balanced';
+export const DEFAULT_PRESET: PresetId = 'balanced';
 
 const method = <V extends string>(weight: number, variants: V[]): MethodConfig<V> => ({
   weight,
@@ -37,18 +37,19 @@ const NO_TYPING = method<TypingVariant>(1, []);
 const NO_ASSEMBLY = method<AssemblyVariant>(1, []);
 
 /**
- * The "balanced" ladder, and the single table the other presets are derived
- * from — there is deliberately no second hand-written list to keep in sync.
+ * The default ladder. It follows the exercise progression shown in Learning
+ * settings; the older calm/demanding presets remain readable for stored data,
+ * but are intentionally not offered in the UI for now.
  *
  * Reveal holds half the weight while a word is still settling and disappears
- * from 14 days on: passively uncovering an answer is the weakest memory signal
+ * from 7 days on: passively uncovering an answer is the weakest memory signal
  * we have, and long intervals are exactly where recall matters. Typing grows
  * the other way and ends up alone at 60 days, because writing a word with no
  * scaffolding is the strongest evidence that it really stuck.
  *
- * 3 days and 7 days share their weights on purpose. The step up between them
- * comes from the allowed variants getting harder (`4:II` → `4:III`, `5:I` →
- * `5:II`), not from reshuffling how often each method appears.
+ * Quiz-only matching rounds sit outside the review-method weights. They are
+ * listed here because their size and similarity still progress with the same
+ * repetition stages.
  */
 export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
   // 0 — now / forgotten
@@ -64,55 +65,59 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
     reveal: method<RevealVariant>(2, ['foreign']),
     choice: method<ChoiceVariant>(2, ['2:I']),
     typing: NO_TYPING,
-    assembly: NO_ASSEMBLY,
-    match: { variants: ['4:I'] },
+    assembly: method<AssemblyVariant>(1, ['letters:I', 'words:I']),
+    match: { variants: ['2:I', '3:I', '4:I'] },
   },
   // 2 — 1 day
   {
     reveal: method<RevealVariant>(2, ['foreign']),
     choice: method<ChoiceVariant>(2, ['2:II', '3:I', '4:I']),
     typing: method<TypingVariant>(1, ['90:90']),
-    assembly: method<AssemblyVariant>(1, ['letters:exact', 'words:exact']),
-    match: { variants: ['4:II', '6:I'] },
+    assembly: method<AssemblyVariant>(1, ['letters:II', 'words:II']),
+    match: { variants: ['2:II', '3:II', '4:II', '5:I', '6:I'] },
   },
   // 3 — 3 days
   {
     reveal: method<RevealVariant>(2, ['known']),
-    choice: method<ChoiceVariant>(1, ['2:III', '3:II', '4:II', '5:I', '6:I', '7:I', '8:I']),
+    choice: method<ChoiceVariant>(1, [
+      '2:III',
+      '3:II', '4:II', '5:I', '6:I', '7:I', '8:I',
+      '3:III', '4:III', '5:II', '6:II', '7:II', '8:II',
+    ]),
     typing: method<TypingVariant>(1, ['50:90']),
-    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:exact']),
-    match: { variants: ['4:III', '6:II'] },
+    assembly: method<AssemblyVariant>(1, ['letters:III', 'words:III']),
+    match: { variants: ['2:III', '3:III', '4:III', '5:II', '6:II'] },
   },
   // 4 — 7 days
   {
-    reveal: method<RevealVariant>(2, ['known']),
-    choice: method<ChoiceVariant>(1, ['3:III', '4:III', '5:II', '6:II', '7:II', '8:II']),
+    reveal: NO_REVEAL,
+    choice: method<ChoiceVariant>(1, ['5:III', '6:III', '7:III', '8:III']),
     typing: method<TypingVariant>(1, ['20:50']),
-    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
-    match: { variants: ['6:III'] },
+    assembly: NO_ASSEMBLY,
+    match: { variants: ['4:III', '5:III', '6:III'] },
   },
   // 5 — 14 days
   {
     reveal: NO_REVEAL,
-    choice: method<ChoiceVariant>(2, ['5:III', '6:III', '7:III', '8:III']),
+    choice: NO_CHOICE,
     typing: method<TypingVariant>(2, ['0:20']),
-    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
-    match: { variants: ['6:III'] },
+    assembly: NO_ASSEMBLY,
+    match: { variants: ['5:III', '6:III'] },
   },
   // 6 — 30 days
   {
     reveal: NO_REVEAL,
-    choice: method<ChoiceVariant>(2, ['8:III']),
+    choice: NO_CHOICE,
     typing: method<TypingVariant>(4, ['0:10']),
-    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
-    match: { variants: [] },
+    assembly: NO_ASSEMBLY,
+    match: { variants: ['6:III'] },
   },
   // 7 — 60 days
   {
     reveal: NO_REVEAL,
     choice: NO_CHOICE,
     typing: method<TypingVariant>(2, ['0:0']),
-    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
+    assembly: NO_ASSEMBLY,
     match: { variants: [] },
   },
 ];
@@ -171,21 +176,6 @@ function isMatchVariant(value: unknown): value is MatchVariant {
   return MATCH_COUNT_SET.has(Number(count)) && BAND_SET.has(band);
 }
 
-const MAX_MATCH_PAIRS = Math.max(...MATCH_PAIR_COUNTS);
-
-/**
- * Eight pairs turned out to be more board than anyone can hold at once, so the
- * ladder now stops at six. Stored eights are clamped rather than dropped: the
- * learner who picked the biggest board still gets the biggest board, and a
- * stage whose only variant was `8:III` keeps its matching instead of silently
- * losing it. Duplicates collapse in `normalizeVariants`.
- */
-function clampMatchPairs(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  const [count, band] = value.split(':');
-  return Number(count) > MAX_MATCH_PAIRS ? `${MAX_MATCH_PAIRS}:${band}` : value;
-}
-
 function isAssemblyVariant(value: unknown): value is AssemblyVariant {
   return typeof value === 'string' && ASSEMBLY_SET.has(value);
 }
@@ -221,9 +211,27 @@ function normalizeMethod<V extends string>(
   };
 }
 
-function matchVariantsOf(value: unknown): unknown {
-  const variants = (value as { variants?: unknown } | undefined)?.variants;
-  return Array.isArray(variants) ? variants.map(clampMatchPairs) : variants;
+const LEGACY_ASSEMBLY_VARIANTS: Record<string, AssemblyVariant> = {
+  'letters:exact': 'letters:I',
+  'letters:extra': 'letters:II',
+  'words:exact': 'words:I',
+  'words:extra': 'words:II',
+};
+
+function normalizeAssemblyMethod(
+  value: unknown,
+  fallback: MethodConfig<AssemblyVariant>,
+): MethodConfig<AssemblyVariant> {
+  if (!value || typeof value !== 'object') {
+    return { ...fallback, variants: [...fallback.variants] };
+  }
+  const raw = value as { weight?: unknown; variants?: unknown };
+  const variants = Array.isArray(raw.variants)
+    ? raw.variants.map((variant) =>
+        typeof variant === 'string' ? LEGACY_ASSEMBLY_VARIANTS[variant] ?? variant : variant,
+      )
+    : raw.variants;
+  return normalizeMethod({ ...raw, variants }, fallback, isAssemblyVariant);
 }
 
 function normalizeStage(
@@ -243,10 +251,10 @@ function normalizeStage(
     typing: normalizeMethod(raw.typing, fallback.typing, (candidate): candidate is TypingVariant =>
       typeof candidate === 'string' && TYPING_SET.has(candidate),
     ),
-    assembly: normalizeMethod(raw.assembly, fallback.assembly, isAssemblyVariant),
+    assembly: normalizeAssemblyMethod(raw.assembly, fallback.assembly),
     match: {
       variants: normalizeVariants(
-        matchVariantsOf(raw.match),
+        (raw.match as { variants?: unknown } | undefined)?.variants,
         isMatchVariant,
       ),
     },

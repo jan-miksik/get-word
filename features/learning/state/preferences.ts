@@ -174,6 +174,7 @@ export function usePreferences(
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
   const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
   const [goalIntroAnswered, setGoalIntroAnswered] = useState(false);
+  const [goalReminderIntroAnswered, setGoalReminderIntroAnswered] = useState(false);
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE
   );
@@ -553,6 +554,7 @@ export function usePreferences(
     setMemoryHooksEnabled(user.memory_hooks_enabled ?? true);
     setMemoryHooksIntroAnswered(user.memory_hooks_intro_answered ?? false);
     setGoalIntroAnswered(user.goal_intro_answered ?? false);
+    setGoalReminderIntroAnswered(user.goal_reminder_intro_answered ?? false);
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
@@ -816,6 +818,8 @@ export function usePreferences(
     setMemoryHooksIntroAnswered: setMemoryHooksIntroAnsweredPreference,
     goalIntroAnswered,
     setGoalIntroAnswered,
+    goalReminderIntroAnswered,
+    setGoalReminderIntroAnswered,
     learningFineTune,
     setLearningFineTune,
     memoryHookDisableFromStage,

@@ -11,10 +11,6 @@ import {
   FALLBACK_SKIN,
   SUCCESS_MARK_ANIMATIONS,
   SUCCESS_MARK_SKINS,
-  useSuccessMarkAnimationChoice,
-  useSuccessMarkSkinChoice,
-  writeAnimationChoice,
-  writeSkinChoice,
   type SuccessMarkAnimation,
   type SuccessMarkSkin,
 } from '@/features/learning/components/games/successMarkVariant';
@@ -29,8 +25,8 @@ import type { NormalizedWord } from '@/lib/words';
  * the badge's *placement* only makes sense inside a real card, because the cards
  * differ wildly in how tall and how full they are.
  *
- * Picking here writes the app-wide override, so a study session in another tab
- * switches over live (the `storage` event crosses tabs).
+ * The controls only affect this preview. Study cards always use their own
+ * per-reveal animation roll and the solid appearance.
  */
 
 const ANIMATION_NOTES: Record<SuccessMarkAnimation, string> = {
@@ -99,8 +95,8 @@ function Chip({
 }
 
 export function SuccessMarkPreviewClient() {
-  const animationChoice = useSuccessMarkAnimationChoice();
-  const skinChoice = useSuccessMarkSkinChoice();
+  const [animationChoice, setAnimationChoice] = useState<SuccessMarkAnimation | 'random'>('random');
+  const [skinChoice, setSkinChoice] = useState<SuccessMarkSkin | 'random'>('solid');
   // Remounting is what replays a CSS entrance animation; there is no way to
   // re-trigger one that has already finished on a mounted element. It also
   // re-rolls every badge that is currently set to random.
@@ -120,14 +116,14 @@ export function SuccessMarkPreviewClient() {
         <div className="sticky top-0 z-20 border-b border-black/10 bg-[#dcd1b9] px-3 py-2 text-xs">
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-20 font-bold uppercase tracking-wider">animace</span>
-            <Chip active={animationChoice === 'random'} onClick={() => { writeAnimationChoice('random'); replay(); }}>
+            <Chip active={animationChoice === 'random'} onClick={() => { setAnimationChoice('random'); replay(); }}>
               náhodně
             </Chip>
             {SUCCESS_MARK_ANIMATIONS.map((value) => (
               <Chip
                 key={value}
                 active={animationChoice === value}
-                onClick={() => { writeAnimationChoice(value); replay(); }}
+                onClick={() => { setAnimationChoice(value); replay(); }}
               >
                 {value}
               </Chip>
@@ -135,14 +131,14 @@ export function SuccessMarkPreviewClient() {
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <span className="w-20 font-bold uppercase tracking-wider">provedení</span>
-            <Chip active={skinChoice === 'random'} onClick={() => { writeSkinChoice('random'); replay(); }}>
+            <Chip active={skinChoice === 'random'} onClick={() => { setSkinChoice('random'); replay(); }}>
               náhodně
             </Chip>
             {SUCCESS_MARK_SKINS.map((value) => (
               <Chip
                 key={value}
                 active={skinChoice === value}
-                onClick={() => { writeSkinChoice(value); replay(); }}
+                onClick={() => { setSkinChoice(value); replay(); }}
               >
                 {value}
               </Chip>
@@ -151,10 +147,9 @@ export function SuccessMarkPreviewClient() {
               přehrát znovu
             </button>
           </div>
-          <p className="m-0 mt-1.5 text-[0.7rem] text-[#4a4032]">
-            Obě osy jsou zvlášť a obě jsou teď na „náhodně“ — každá dokončená kartička si
-            losuje vlastní kombinaci znovu. Volba platí i v aplikaci (localStorage).
-          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[0.7rem] text-[#4a4032]">
+            <span>Nastavení na této stránce nemění studijní kartičky ani nic neukládá.</span>
+          </div>
         </div>
 
         <Section
@@ -166,7 +161,7 @@ export function SuccessMarkPreviewClient() {
               <button
                 key={value}
                 type="button"
-                onClick={() => { writeSkinChoice(value); replay(); }}
+                onClick={() => { setSkinChoice(value); replay(); }}
                 className={`flex w-36 flex-col items-center gap-2 rounded-xl border px-2 py-4 text-center ${
                   skinChoice === value ? 'border-black/50 bg-white/60' : 'border-transparent'
                 }`}
@@ -188,7 +183,7 @@ export function SuccessMarkPreviewClient() {
               <button
                 key={value}
                 type="button"
-                onClick={() => { writeAnimationChoice(value); replay(); }}
+                onClick={() => { setAnimationChoice(value); replay(); }}
                 className={`flex w-36 flex-col items-center gap-2 rounded-xl border px-2 py-4 text-center ${
                   animationChoice === value ? 'border-black/50 bg-white/60' : 'border-transparent'
                 }`}
@@ -230,17 +225,6 @@ export function SuccessMarkPreviewClient() {
                 ))}
               </tbody>
             </table>
-          </div>
-        </Section>
-
-        <Section
-          title="velká varianta"
-          hint="Používá se tam, kde je fajfka hlavní obsah obrazovky — dokončené bublinky, uložená podobná slova."
-        >
-          <div className="flex flex-wrap gap-6">
-            {SUCCESS_MARK_SKINS.map((value) => (
-              <SuccessMark key={`${value}:lg:${take}`} label="" animation={pinnedAnimation} skin={value} size="large" />
-            ))}
           </div>
         </Section>
 

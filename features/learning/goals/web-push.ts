@@ -1,6 +1,7 @@
 'use client';
 
 import { apiFetch } from '@/features/shared/http/api-runtime';
+import { requestReminderPermission } from '@/lib/notifications/runtime';
 
 function vapidPublicKey(): string | null {
   const key = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY?.trim();
@@ -28,6 +29,7 @@ function isWebPushAvailable(): boolean {
 }
 
 export type WebPushSubscriptionResult = 'subscribed' | 'unsupported' | 'denied';
+export type StudyReminderPermissionResult = 'granted' | 'unsupported' | 'denied';
 
 /** Must be called from a direct settings interaction because browsers reject
  * notification permission prompts not initiated by a user gesture. */
@@ -51,6 +53,13 @@ export async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResu
   });
   if (!response.ok) throw new Error(`Saving push subscription failed: ${response.status}`);
   return 'subscribed';
+}
+
+/** One user-gesture entrypoint for native notification ports and browser Push. */
+export async function requestStudyReminderPermission(): Promise<StudyReminderPermissionResult> {
+  if (await requestReminderPermission()) return 'granted';
+  const webResult = await subscribeToStudyWebPush();
+  return webResult === 'subscribed' ? 'granted' : webResult;
 }
 
 /** Reconnect a previously granted browser permission when this device returns

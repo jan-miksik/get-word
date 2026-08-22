@@ -76,6 +76,18 @@ describe('MultipleChoiceGame', () => {
     expect(onResult).toHaveBeenCalledWith(2);
   });
 
+  it('shows the question word spaced-repetition stage in a compact badge', () => {
+    render(<MultipleChoiceGame words={WORDS} role="knownLanguage" stageIndex={4} />);
+
+    expect(screen.getByRole('img', { name: '7 days' })).toBeInTheDocument();
+  });
+
+  it('uses a concise New label for the first stage', () => {
+    render(<MultipleChoiceGame words={WORDS} role="knownLanguage" stageIndex={0} />);
+
+    expect(screen.getByRole('img', { name: 'New' })).toBeInTheDocument();
+  });
+
   it('does not throw when onResult is not provided', () => {
     render(<MultipleChoiceGame words={WORDS} role="knownLanguage" />);
     fireEvent.click(screen.getByText('con chó'));

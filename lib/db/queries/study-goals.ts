@@ -4,6 +4,7 @@ import {
   clampGoalDays,
   clampGoalMinutes,
   clampGoalWords,
+  normalizeGoalWeekdays,
   type GoalMode,
   type StudyGoalState,
   type StudyGoalVersion,
@@ -59,6 +60,7 @@ function toVersion(row: typeof userStudyGoalVersions.$inferSelect): StudyGoalVer
     enabled: row.enabled,
     mode,
     daysPerWeek: row.goalDaysPerWeek,
+    weekdays: normalizeGoalWeekdays(row.goalWeekdays),
     minutesPerDay: resolved.minutesPerDay,
     wordsPerDay: resolved.wordsPerDay,
     newWordsPerDay: canonicalNewWords,
@@ -144,12 +146,14 @@ export async function saveStudyGoal(
       newWordsPerDay: goalNewWords,
       pacing,
     });
+    const goalWeekdays = normalizeGoalWeekdays(mutation.goal_weekdays);
     const values = {
       userId,
       effectiveFromDay,
       enabled: mutation.enabled,
       goalMode: mode,
-      goalDaysPerWeek: clampGoalDays(mutation.goal_days_per_week),
+      goalDaysPerWeek: goalWeekdays?.length ?? clampGoalDays(mutation.goal_days_per_week),
+      goalWeekdays,
       goalMinutesPerDay: goalMinutes,
       goalNewWordsPerDay: goalNewWords,
       // Legacy display/history field. New business logic only uses the
@@ -166,6 +170,7 @@ export async function saveStudyGoal(
           enabled: values.enabled,
           goalMode: values.goalMode,
           goalDaysPerWeek: values.goalDaysPerWeek,
+          goalWeekdays: values.goalWeekdays,
           goalMinutesPerDay: values.goalMinutesPerDay,
           goalNewWordsPerDay: values.goalNewWordsPerDay,
           goalWordsPerDay: values.goalWordsPerDay,

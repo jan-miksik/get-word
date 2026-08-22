@@ -381,8 +381,10 @@ describe('useWordChat', () => {
     });
     await act(() => result.current.sendMessage('Kavárna'));
 
+    // The chat always addresses the learner informally now, whatever an older
+    // account has stored, so the turn goes out casual even after saving formal.
     expect(mocks.sendChatMessageStream.mock.calls[0][0]).toMatchObject({
-      addressRegister: 'formal',
+      addressRegister: 'casual',
       salutationGender: 'neutral',
       languageLevel: 'A1',
     });

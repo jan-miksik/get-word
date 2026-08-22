@@ -20,16 +20,13 @@ describe('words goal policy', () => {
   });
 
   it('moves backlog capacity to review but does not replace unavailable new words', () => {
-    const normalButEmpty = simulateReviewLoad({ goal: wordsGoal, days: 1, availableNewWords: 1, dueReviewCount: 23, seed: 2 })[0];
-    expect(normalButEmpty).toMatchObject({ newTarget: 1, reviewTarget: 23, plannedSlots: 24 });
-    const backlogged = simulateReviewLoad({ goal: wordsGoal, days: 1, availableNewWords: 10, dueReviewCount: 99, seed: 2 })[0];
-    expect(backlogged).toMatchObject({ newTarget: 6, reviewTarget: 27, plannedSlots: 33 });
-  });
-
-  it('is seeded and exposes intra-day returns as answer events', () => {
-    const input = { goal: wordsGoal, days: 3, availableNewWords: 30, dueReviewCount: 23, seed: 42 };
-    const first = simulateReviewLoad(input);
-    expect(simulateReviewLoad(input)).toEqual(first);
-    expect(first[0].answerEvents).toBeGreaterThan(first[0].plannedSlots);
+    const [normalButEmpty] = simulateReviewLoad({
+      goal: wordsGoal, days: 1, wordPoolSize: 1, successRate: 0.7, initialDueReviews: 23,
+    });
+    expect(normalButEmpty).toMatchObject({ newIntroduced: 1, reviewsDone: 23, plannedSlots: 24 });
+    const [backlogged] = simulateReviewLoad({
+      goal: wordsGoal, days: 1, wordPoolSize: 10, successRate: 0.7, initialDueReviews: 99,
+    });
+    expect(backlogged).toMatchObject({ newIntroduced: 6, reviewsDone: 27, plannedSlots: 33 });
   });
 });

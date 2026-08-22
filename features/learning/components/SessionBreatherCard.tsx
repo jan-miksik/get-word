@@ -1,6 +1,8 @@
 'use client';
 
 import { useI18n } from '@/components/I18nProvider';
+import type { SessionBlockKind } from '@/features/learning/session/blocks';
+import { formatDuration } from '@/features/learning/goals/useStudyCountdown';
 import type { SessionBreather } from '@/features/learning/session/useSessionBreather';
 
 /**
@@ -9,12 +11,83 @@ import type { SessionBreather } from '@/features/learning/session/useSessionBrea
  * Like its sibling interstitials this renders inside the study surface rather
  * than `.onboarding-screen`, so the `--ob-*` variables are undefined and the
  * warm ink palette is written out directly.
+ *
+ * The screen says one thing: *this kind of work is finished, that kind starts
+ * now*. It used to say it five times over — a generic "Block done" heading, a
+ * "New words: 6 done" line, a "30/41" counter, an "11 left" line and an "Up
+ * next: review (11)" line — which is a report, not a handover. Now the handover
+ * is the picture, the heading and its one supporting line are the words, and
+ * the day's standing shrinks to a single bar underneath.
  */
+function kindColor(kind: SessionBlockKind): string {
+  return kind === 'review' ? 'var(--rail-review)' : 'var(--rail-new)';
+}
+
+/**
+ * The handover, drawn as two nodes on a track: what is behind you, dimmed and
+ * ticked off, and what is in front, in full colour with its size inside it.
+ *
+ * The same vocabulary as the session rails at the edges of the study surface —
+ * same two colours, same halo on whatever is current — so the pause reads as a
+ * bigger view of the thing the learner has been watching all session.
+ */
+function Handover({ from, to, count }: { from: SessionBlockKind; to: SessionBlockKind; count: number }) {
+  const fromColor = kindColor(from);
+  const toColor = kindColor(to);
+  return (
+    <div className="flex items-center justify-center gap-3" aria-hidden>
+      <span
+        className="flex h-9 w-9 items-center justify-center rounded-full text-base font-black text-white opacity-45"
+        style={{ background: fromColor }}
+      >
+        ✓
+      </span>
+      <span
+        className="session-handover-track h-[2px] w-12 rounded-full"
+        style={{ background: `linear-gradient(to right, ${fromColor}, ${toColor})` }}
+      />
+      <span
+        className="session-handover-next flex h-14 w-14 items-center justify-center rounded-full text-xl font-black tabular-nums text-white"
+        style={{ background: toColor, boxShadow: `0 0 0 6px color-mix(in srgb, ${toColor} 18%, transparent)` }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function CompletionMark() {
+  return (
+    <div className="relative mx-auto h-24 w-28" aria-hidden>
+      <span className="absolute left-1 top-5 h-2.5 w-1.5 -rotate-[24deg] rounded-full bg-[#f0a11a]" />
+      <span className="absolute left-5 top-0 h-2 w-2 rotate-12 rounded-sm bg-[#3f8f4d]" />
+      <span className="absolute bottom-3 left-3 h-1.5 w-3 rotate-[28deg] rounded-full bg-[#d85b5b]" />
+      <span className="absolute right-2 top-3 h-3 w-1.5 rotate-[32deg] rounded-full bg-[#d85b5b]" />
+      <span className="absolute right-0 top-12 h-2.5 w-2.5 rotate-12 rounded-sm bg-[#f0a11a]" />
+      <span className="absolute bottom-1 right-5 h-1.5 w-3 -rotate-[32deg] rounded-full bg-[#3f8f4d]" />
+      <span
+        className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
+        style={{ background: 'color-mix(in srgb, var(--rail-review) 13%, transparent)' }}
+      >
+        <span
+          className="flex h-14 w-14 -rotate-3 items-center justify-center rounded-[1.15rem] text-white shadow-[0_10px_24px_rgba(30,111,168,0.28)]"
+          style={{ background: 'linear-gradient(145deg, #2684bd, var(--rail-review))' }}
+        >
+          <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="m6.5 12.5 3.4 3.4 7.6-8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export function SessionBreatherCard({
   breather,
   onContinue,
   shortfall = 0,
   extraReviewCount = 0,
+  result = null,
   onAddWords,
   onContinueExtra,
 }: {
@@ -28,6 +101,12 @@ export function SessionBreatherCard({
   shortfall?: number;
   /** Repeats deliberately left out of the day; offered, never required. */
   extraReviewCount?: number;
+  /**
+   * What the finished day actually cost. The session strip spends the day
+   * estimating this; here it is settled, which is the only moment the learner
+   * can check the estimate against the real thing.
+   */
+  result?: { activeMs: number; itemsDone: number; secondsPerItem: number } | null;
   onAddWords?: () => void;
   onContinueExtra?: () => void;
 }) {
@@ -37,108 +116,136 @@ export function SessionBreatherCard({
   const remaining = Math.max(0, flow.dayTotal - flow.dayDone);
   const complete = breather.kind === 'complete';
   const shortOfGoal = complete && shortfall > 0;
-
-  const kindColor = (kind: 'review' | 'new') =>
-    kind === 'review' ? 'var(--rail-review)' : 'var(--rail-new)';
+  const offersExtra = complete && !shortOfGoal && extraReviewCount > 0 && Boolean(onContinueExtra);
 
   return (
-    <div className="flex h-full min-h-64 items-center justify-center px-4 py-6">
-      <section className="w-full max-w-xl rounded-2xl p-6 text-center text-[#1f1a12] sm:p-8">
-        <div className="text-4xl" aria-hidden>{shortOfGoal ? '🌱' : complete ? '🎉' : '✓'}</div>
-
-        <h2 className="m-0 mt-3 text-2xl font-black leading-tight text-[#1f1a12]">
-          {shortOfGoal
-            ? t('learning.sessionDayShortTitle')
-            : complete
-              ? t('learning.sessionDayDoneTitle')
-              : t('learning.sessionBreatherTitle')}
-        </h2>
-
-        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#4a4032]">
-          {breather.kind === 'between'
-            ? t(
-                breather.finished.kind === 'review'
-                  ? 'learning.sessionBreatherBodyReview'
-                  : 'learning.sessionBreatherBodyNew',
-                { count: breather.finished.done },
-              )
-            : shortOfGoal
-              ? t('learning.sessionDayShortBody', { count: shortfall })
-              : t('learning.sessionDayDoneBody')}
-        </p>
-
-        {/* Where the day stands — the number the rail deliberately does not carry. */}
-        <div className="mx-auto mt-6 max-w-sm">
-          <div className="flex items-baseline justify-between text-xs font-bold text-[#4a4032]">
-            <span>{t('learning.sessionDayLabel')}</span>
-            <span className="tabular-nums">{flow.dayDone}/{flow.dayTotal}</span>
-          </div>
-          <div
-            className="mt-1.5 h-2 overflow-hidden rounded-full"
-            style={{ background: 'var(--rail-track)' }}
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={flow.dayTotal}
-            aria-valuenow={flow.dayDone}
-          >
-            <div
-              className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500"
-              style={{ width: `${dayPercent}%`, background: 'var(--rail-review)' }}
+    <div className="flex h-full min-h-64 items-center justify-center px-2 py-8 sm:px-4">
+      <section className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/60 bg-[linear-gradient(145deg,#fffaf0_0%,#f7f0df_60%,#edf6f8_100%)] px-6 py-8 text-center text-[#1f1a12] shadow-[0_22px_60px_rgba(42,34,24,0.12)] sm:px-10 sm:py-10">
+        {complete && !shortOfGoal ? (
+          <>
+            <span className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#1e6fa8]/10" aria-hidden />
+            <span className="pointer-events-none absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-[#3f8f4d]/10" aria-hidden />
+          </>
+        ) : null}
+        <div className="relative">
+          {breather.kind === 'between' ? (
+            <Handover
+              from={breather.finished.kind}
+              to={breather.next.kind}
+              count={breather.next.total}
             />
-          </div>
-          {!complete && remaining > 0 ? (
-            <p className="m-0 mt-2 text-xs text-[#4a4032]">
-              {t('learning.sessionDayRemaining', { count: remaining })}
+          ) : shortOfGoal ? (
+            <div className="text-4xl" aria-hidden>🌱</div>
+          ) : (
+            <CompletionMark />
+          )}
+
+          <h2 className="m-0 mt-3 text-2xl font-black leading-tight tracking-[-0.025em] text-[#1f1a12] sm:text-[1.8rem]">
+            {breather.kind === 'between'
+              ? t(
+                  breather.finished.kind === 'review'
+                    ? 'learning.sessionBreatherDoneReview'
+                    : 'learning.sessionBreatherDoneNew',
+                )
+              : shortOfGoal
+                ? t('learning.sessionDayShortTitle')
+                : t('learning.sessionDayDoneTitle')}
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-[#4a4032] sm:text-base">
+            {breather.kind === 'between'
+              ? t(
+                  breather.next.kind === 'review'
+                    ? 'learning.sessionBreatherNextUpReview'
+                    : 'learning.sessionBreatherNextUpNew',
+                )
+              : shortOfGoal
+                ? t('learning.sessionDayShortBody', { count: shortfall })
+                : t('learning.sessionDayDoneBody')}
+          </p>
+
+          {complete && !shortOfGoal && result && result.itemsDone > 0 ? (
+            <p className="m-0 mt-4 text-sm font-bold tabular-nums text-[#4a4032]">
+              {t('goal.dayResult', {
+                time: formatDuration(result.activeMs),
+                count: result.itemsDone,
+                seconds: Math.round(result.secondsPerItem),
+              })}
             </p>
           ) : null}
-        </div>
 
-        {breather.kind === 'between' ? (
-          <p className="mx-auto mt-5 flex items-center justify-center gap-2 text-sm font-bold text-[#1f1a12]">
-            <span
-              aria-hidden
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ background: kindColor(breather.next.kind) }}
-            />
-            {t(
-              breather.next.kind === 'review'
-                ? 'learning.sessionBreatherNextReview'
-                : 'learning.sessionBreatherNextNew',
-              { count: breather.next.total },
+          {/* Where the day stands — the number the rail deliberately does not
+              carry, kept to one bar and, while work remains, one line. */}
+          <div className={`mx-auto max-w-xs ${complete && !shortOfGoal ? 'sr-only' : 'mt-6'}`}>
+            <div
+              className="h-1.5 overflow-hidden rounded-full"
+              style={{ background: 'var(--rail-track)' }}
+              role="progressbar"
+              aria-label={t('learning.sessionDayLabel')}
+              aria-valuemin={0}
+              aria-valuemax={flow.dayTotal}
+              aria-valuenow={flow.dayDone}
+            >
+              <div
+                className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500"
+                style={{ width: `${dayPercent}%`, background: 'var(--rail-review)' }}
+              />
+            </div>
+            {!complete && remaining > 0 ? (
+              <p className="m-0 mt-2 text-xs tabular-nums text-[#4a4032]">
+                {t('learning.sessionDayRemaining', { count: remaining, total: flow.dayTotal })}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mx-auto mt-7 flex max-w-xs flex-col items-stretch gap-2">
+            {shortOfGoal && onAddWords ? (
+              <button
+                type="button"
+                onClick={onAddWords}
+                className="onboarding-option onboarding-option-highlight min-h-12 rounded-full px-5 py-3 text-base font-extrabold"
+              >
+                {t('learning.sessionDayAddWords')}
+              </button>
+            ) : null}
+            {/* A closed day gets one button, not a choice of two. Where repeats
+                are waiting past the plan that button is the offer to take them —
+                it says how many and that their time has come — and leaving is a
+                plain link underneath, because stopping needs no encouragement. */}
+            {offersExtra ? (
+              <button
+                type="button"
+                onClick={onContinueExtra}
+                className="onboarding-option onboarding-option-highlight min-h-16 rounded-[1.35rem] px-5 py-3 text-center shadow-[0_9px_24px_rgba(30,111,168,0.28)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <span className="block text-lg font-black leading-tight">
+                  {t('learning.sessionDayExtraAction', { count: extraReviewCount })}
+                </span>
+                <span className="mt-0.5 block text-xs font-bold opacity-80">
+                  {t('learning.sessionDayExtraHint')}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onContinue}
+                className={`onboarding-option min-h-12 rounded-full px-5 py-3 text-base font-extrabold${
+                  shortOfGoal && onAddWords ? '' : ' onboarding-option-highlight'
+                }`}
+              >
+                {complete ? t('learning.sessionDayDoneAction') : t('learning.sessionBreatherAction')}
+              </button>
             )}
-          </p>
-        ) : null}
-
-        <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2">
-          {shortOfGoal && onAddWords ? (
-            <button
-              type="button"
-              onClick={onAddWords}
-              className="onboarding-option onboarding-option-highlight rounded-xl px-5 py-3 text-base font-extrabold"
-            >
-              {t('learning.sessionDayAddWords')}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onContinue}
-            className={`onboarding-option rounded-xl px-5 py-3 text-base font-extrabold${
-              shortOfGoal && onAddWords ? '' : ' onboarding-option-highlight'
-            }`}
-          >
-            {complete ? t('learning.sessionDayDoneAction') : t('learning.sessionBreatherAction')}
-          </button>
-          {/* The repeats left over past the day's plan: an offer once the day is
-              closed, never a fourth block standing between here and done. */}
-          {complete && extraReviewCount > 0 && onContinueExtra ? (
-            <button
-              type="button"
-              onClick={onContinueExtra}
-              className="onboarding-option rounded-xl px-5 py-3 text-base font-extrabold"
-            >
-              {t('learning.sessionDayExtraAction', { count: extraReviewCount })}
-            </button>
-          ) : null}
+            {offersExtra ? (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="m-0 rounded-full bg-transparent px-4 py-2 text-sm font-bold text-[#4a4032] transition-colors hover:bg-[#2a2218]/5 hover:text-[#1f1a12]"
+              >
+                {t('learning.sessionDayDoneAction')}
+              </button>
+            ) : null}
+          </div>
         </div>
       </section>
     </div>

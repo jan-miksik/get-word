@@ -125,6 +125,7 @@ export async function updateUserPreferences(
     learning_fine_tune?: unknown;
     goal_reminder_enabled?: boolean;
     goal_reminder_local_minutes?: number | null;
+    goal_reminder_intro_answered?: boolean;
     goal_intro_answered?: boolean;
     settings_language?: string;
     language_from?: string | null;
@@ -153,6 +154,7 @@ export async function updateUserPreferences(
     learningFineTune?: FineTuneConfig;
     goalReminderEnabled?: boolean;
     goalReminderLocalMinutes?: number | null;
+    goalReminderIntroAnswered?: boolean;
     goalIntroAnswered?: boolean;
     settingsLanguage?: string;
     settingsLanguageSelectedAt?: Date;
@@ -197,6 +199,9 @@ export async function updateUserPreferences(
   if (prefs.goal_reminder_enabled !== undefined) updates.goalReminderEnabled = prefs.goal_reminder_enabled;
   if (prefs.goal_reminder_local_minutes !== undefined) {
     updates.goalReminderLocalMinutes = prefs.goal_reminder_local_minutes;
+  }
+  if (prefs.goal_reminder_intro_answered !== undefined) {
+    updates.goalReminderIntroAnswered = prefs.goal_reminder_intro_answered;
   }
   if (prefs.goal_intro_answered !== undefined) updates.goalIntroAnswered = prefs.goal_intro_answered;
   const touchesSettingsLanguage = prefs.settings_language !== undefined;

@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { playUserInitiatedAudio } from '@/lib/audio-playback';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import {
   flipSide,
@@ -18,6 +17,11 @@ import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { shuffleGameItems } from '@/features/learning/minigames';
 import { SuccessMarkSlot } from './SuccessMark';
+import { StudyOptionButton, type StudyOptionSize } from './StudyOptionButton';
+import { StageBadge } from '../StageBadge';
+import { CardTopControls } from '../CardTopControls';
+import { useCardAudio } from '../card-audio/useCardAudio';
+import type { SimilarityBand } from '@/features/learning/minigames/similarity';
 
 type ChoiceLayout = 'split' | 'cards' | 'compact';
 
@@ -41,10 +45,10 @@ function getChoiceGridClasses(optionCount: number, layout: ChoiceLayout): string
 
 // The option IS the word being studied, so it carries the type size a study
 // card would give it. Fewer options on screen means each one can be bigger.
-const optionSizeClasses: Record<ChoiceLayout, string> = {
-  split: '!min-h-20 sm:!min-h-24 !px-4 !py-4 !text-xl sm:!text-2xl',
-  cards: '!min-h-16 !px-3 !py-3 !text-lg sm:!text-xl',
-  compact: '!min-h-14 !px-2.5 !py-2.5 !text-base sm:!text-lg',
+const optionSizeForLayout: Record<ChoiceLayout, StudyOptionSize> = {
+  split: 'lg',
+  cards: 'md',
+  compact: 'sm',
 };
 
 interface Props {
@@ -54,7 +58,12 @@ interface Props {
   sourceLang?: WordSide;
   promptMode?: PromptMode;
   soundEnabled?: boolean;
+  /** Card-level controls (the sound toggle) that share the card's top lane. */
+  topControls?: ReactNode;
   level?: 1 | 2;
+  difficultyBand?: SimilarityBand;
+  /** The prompt word's current spaced-repetition stage. */
+  stageIndex?: number;
   onResult?: (delta: number) => void;
   /**
    * Fired once with the review outcome when the game stands in for a study
@@ -71,7 +80,10 @@ export function MultipleChoiceGame({
   sourceLang,
   promptMode = 'text',
   soundEnabled = false,
+  topControls,
   level = 1,
+  difficultyBand,
+  stageIndex = 0,
   onResult,
   onOutcome,
   frameless = false,
@@ -79,7 +91,7 @@ export function MultipleChoiceGame({
   const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
   const [optionOrder] = useState(() => shuffleGameItems(words.map((word) => word.id)));
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play, playAuto } = useCardAudio();
 
   const questionWord = words[0];
   const promptSide: WordSide = sourceLang ?? knownSideForRole(role);
@@ -108,33 +120,20 @@ export function MultipleChoiceGame({
   const choiceLayout = getChoiceLayout(options.length);
   const choiceGridClasses = getChoiceGridClasses(options.length, choiceLayout);
 
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
   const handleSelect = (optionId: string) => {
     if (answered) return;
     const selectedOption = options.find(o => o.id === optionId);
     const isCorrect = selectedOption?.isCorrect ?? false;
     if (isCorrect && soundEnabled) {
-      playAudio(selectedOption?.answerAudioSrcs ?? []);
+      void playAuto(selectedOption?.answerAudioSrcs ?? []);
     }
     setSelected(optionId);
     onResult?.(isCorrect ? (level === 2 ? 2 : 1) : -1);
     onOutcome?.(isCorrect ? 'known' : 'unknown');
   };
 
-  const playAudio = (audioSrc: string | string[] | null) => {
-    void playUserInitiatedAudio(audioRef, audioSrc);
-  };
-
   const replayPrompt = () => {
-    playAudio(promptAudioSrc);
+    void play(promptAudioSrc);
   };
 
   return (
@@ -156,6 +155,10 @@ export function MultipleChoiceGame({
             : `🎯 ${t('game.choice')}`}
         </div>
       )}
+      <CardTopControls>
+        <StageBadge stageIndex={stageIndex} difficultyBand={difficultyBand} />
+        {topControls}
+      </CardTopControls>
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
           <button
@@ -168,10 +171,17 @@ export function MultipleChoiceGame({
           </button>
         </div>
       ) : (
-        <div {...noTranslateProps('game-prompt')}>{prompt}</div>
+        <div className="flex flex-col items-center gap-2">
+          <div {...noTranslateProps('game-prompt !p-0 !text-4xl !font-extrabold !leading-none sm:!text-5xl')}>
+            {prompt}
+          </div>
+        </div>
       )}
+      {/* The prompt needs room to read as the question rather than as the first
+          option: a plain flex gap put it close enough to the grid that the eye
+          ran straight past it. */}
       <div
-        className={`mx-auto grid w-full gap-3 sm:gap-4 ${choiceGridClasses} ${choiceLayout === 'compact' ? 'max-w-4xl' : 'max-w-3xl'}`}
+        className={`mx-auto mt-4 grid w-full gap-3 sm:mt-8 sm:gap-4 ${choiceGridClasses} ${choiceLayout === 'compact' ? 'max-w-4xl' : 'max-w-3xl'}`}
         data-option-count={options.length}
         data-choice-layout={choiceLayout}
       >
@@ -183,37 +193,22 @@ export function MultipleChoiceGame({
             else if (opt.isCorrect) state = 'reveal';
           }
           return (
-            <button
+            <StudyOptionButton
               key={opt.id}
-              type="button"
+              state={state}
+              size={optionSizeForLayout[choiceLayout]}
+              enterIndex={index}
               data-choice-index={index}
-              {...noTranslateProps([
-                `game-option game-option--${state}`,
-                'group relative flex items-center justify-center overflow-hidden !rounded-2xl !border-[1.5px] !font-bold !leading-snug',
-                'transition-[transform,background-color,border-color,box-shadow,color] duration-200 disabled:!cursor-default disabled:!opacity-100',
-                optionSizeClasses[choiceLayout],
+              className={
                 choiceLayout === 'cards' && options.length === 5
                   ? index < 3 ? 'sm:col-span-2' : 'sm:col-span-3'
-                  : '',
-                state === 'idle'
-                  ? '!border-[#BBAE98] !bg-[#FFF8E8] !text-[#2A2218] shadow-[0_3px_0_#D8C9AF] hover:!-translate-y-0.5 hover:!border-[#1E6FA8] hover:!shadow-[0_5px_0_#C7B89E] active:!translate-y-[2px] active:!shadow-none motion-safe:animate-deck-enter-rise'
-                  : '',
-                state === 'correct'
-                  ? '!scale-[1.025] !border-[#187A43] !bg-[#E3F3E7] !text-[#145B33] shadow-[0_4px_0_#A9D3B6] motion-safe:animate-[pulse_420ms_ease-out_1]'
-                  : '',
-                state === 'wrong'
-                  ? '!border-[#B91C1C] !bg-[#FCE7E5] !text-[#8F1515] shadow-[0_3px_0_#E4AAA6]'
-                  : '',
-                state === 'reveal'
-                  ? '!border-[#187A43] !bg-[#F1F7ED] !text-[#187A43] !shadow-none'
-                  : '',
-              ].filter(Boolean).join(' '))}
-              style={!answered ? { animationDelay: `${index * 55}ms` } : undefined}
+                  : ''
+              }
               onClick={() => handleSelect(opt.id)}
               disabled={answered}
             >
-              <span>{opt.label}</span>
-            </button>
+              {opt.label}
+            </StudyOptionButton>
           );
         })}
       </div>

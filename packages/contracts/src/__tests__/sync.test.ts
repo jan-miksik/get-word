@@ -63,6 +63,46 @@ describe('SyncRequestSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts an eight-hour goal with matching weekdays', () => {
+    const result = SyncRequestSchema.safeParse({
+      study_goal: {
+        enabled: true,
+        mode: 'minutes',
+        goal_days_per_week: 4,
+        goal_weekdays: [1, 3, 5, 6],
+        goal_minutes_per_day: 480,
+        goal_preset: 'custom',
+        reveal_mode: 'scratch',
+        minigame_frequency: 'off',
+        learning_fine_tune: {},
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects duplicate, mismatched weekdays and more than eight hours', () => {
+    const base = {
+      enabled: true,
+      mode: 'minutes' as const,
+      goal_days_per_week: 4,
+      goal_preset: 'custom' as const,
+      reveal_mode: 'scratch' as const,
+      minigame_frequency: 'off' as const,
+      learning_fine_tune: {},
+    };
+
+    expect(SyncRequestSchema.safeParse({
+      study_goal: { ...base, goal_weekdays: [1, 1, 3, 5], goal_minutes_per_day: 10 },
+    }).success).toBe(false);
+    expect(SyncRequestSchema.safeParse({
+      study_goal: { ...base, goal_weekdays: [1, 3, 5], goal_minutes_per_day: 10 },
+    }).success).toBe(false);
+    expect(SyncRequestSchema.safeParse({
+      study_goal: { ...base, goal_weekdays: [1, 3, 5, 6], goal_minutes_per_day: 481 },
+    }).success).toBe(false);
+  });
+
   it('rejects an invalid activity-segment timezone', () => {
     const result = SyncRequestSchema.safeParse({
       activity_segments: [{

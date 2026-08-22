@@ -7,6 +7,9 @@ import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import { getWordTextBySide, learningSideForRole } from './types';
 import { SuccessMark } from './SuccessMark';
+import { StageBadge } from '../StageBadge';
+import { CardTopControls } from '../CardTopControls';
+import { ContinueButton } from '../ContinueButton';
 
 /**
  * Offers to fill in the confusable neighbours a word is missing, and — once the
@@ -25,6 +28,7 @@ export function SimilarWordsPromptGame({
   onOpenChat,
   onSaved,
   onDismiss,
+  stageIndex,
 }: {
   word: NormalizedWord;
   role: LearningRole;
@@ -36,6 +40,7 @@ export function SimilarWordsPromptGame({
   /** Pull the committed words into the mounted learning surface. */
   onSaved?: () => void | Promise<void>;
   onDismiss: () => void;
+  stageIndex?: number;
 }) {
   const { t, language } = useI18n();
   const { status, proposals, selected, savedCount, generate, toggle, save } = useSimilarWords({
@@ -47,7 +52,10 @@ export function SimilarWordsPromptGame({
   });
 
   const shell = (children: React.ReactNode) => (
-    <article className="study-ink-scope mx-auto flex min-h-80 max-w-xl flex-col items-center justify-center gap-5 px-6 py-8 text-center">
+    <article className="study-ink-scope relative mx-auto flex min-h-80 max-w-xl flex-col items-center justify-center gap-5 px-6 py-8 text-center">
+      <CardTopControls>
+        <StageBadge stageIndex={stageIndex} />
+      </CardTopControls>
       {children}
     </article>
   );
@@ -55,12 +63,13 @@ export function SimilarWordsPromptGame({
   if (status === 'saved') {
     return shell(
       <>
-        <SuccessMark label="" size="large" />
+        <SuccessMark label="" />
         <h2 className="m-0 text-2xl font-extrabold text-text">
           {t('game.similarWordsSaved', { count: savedCount })}
         </h2>
-        <button
-          type="button"
+        <ContinueButton
+          variant="solid"
+          className="max-w-[22rem]"
           onClick={() => {
             onDismiss();
             void (async () => {
@@ -72,10 +81,7 @@ export function SimilarWordsPromptGame({
               }
             })();
           }}
-          className="rounded-xl bg-accent px-5 py-3 text-sm font-bold text-white"
-        >
-          {t('card.continue')} →
-        </button>
+        />
       </>,
     );
   }

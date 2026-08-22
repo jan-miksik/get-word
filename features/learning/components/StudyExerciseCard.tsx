@@ -6,10 +6,17 @@ import type { ProgressData } from '@/features/sync/contracts';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ResolvedExercise } from '@/features/learning/fine-tune/types';
 import { WordCard } from './WordCard';
+import { readCardSoundEnabled } from './card-audio/cardSound';
 import { TypingStudyCard, type TypingOutcome } from './TypingStudyCard';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { WordAssemblyGame } from './games/WordAssemblyGame';
+import { ContinueButton } from './ContinueButton';
 import { knownSideForRole, learningSideForRole } from './games/types';
+import {
+  FullyKnownOffer,
+  TOP_STAGE_INDEX,
+  isTopStage,
+} from './word-card/FullyKnownOffer';
 
 /**
  * How a review turned out, whichever exercise produced it.
@@ -50,6 +57,17 @@ export interface StudyExerciseCardProps {
   autoFocus?: boolean;
   autoFocusOnMobile?: boolean;
   mobileCustomActionOnly?: boolean;
+}
+
+/**
+ * One appearance of one word. A word can come back inside the same session —
+ * the closing block repeats what the new block just introduced — and the round
+ * it gets then is a fresh round, not a continuation. Keying the game on this
+ * makes the answer count part of its identity, so nothing (a half-built
+ * assembly, an already-answered choice) survives from the earlier appearance.
+ */
+function appearanceKey(word: NormalizedWord, progress: ProgressData, variant: string): string {
+  return `${word.id}:${variant}:${(progress.knownCount ?? 0) + (progress.unknownCount ?? 0)}`;
 }
 
 /**
@@ -116,11 +134,14 @@ export function StudyExerciseCard({
   if (exercise.method === 'choice') {
     return (
       <ChoiceExercise
+        key={appearanceKey(word, progress, exercise.variant)}
         word={word}
         role={role}
         exercise={exercise}
+        progress={progress}
         onScore={onScore}
         onOutcome={onOutcome}
+        onCustomStage={onCustomStage}
       />
     );
   }
@@ -131,6 +152,7 @@ export function StudyExerciseCard({
         word={word}
         role={role}
         exercise={exercise}
+        progress={progress}
         onOutcome={onOutcome}
       />
     );
@@ -170,22 +192,26 @@ function AssemblyExercise({
   word,
   role,
   exercise,
+  progress,
   onOutcome,
 }: {
   word: NormalizedWord;
   role: LearningRole;
   exercise: Extract<ResolvedExercise, { method: 'assembly' }>;
+  progress: ProgressData;
   onOutcome: (outcome: ExerciseOutcome) => void;
 }) {
   return (
     <div className="flex h-full flex-col justify-center">
       <WordAssemblyGame
-        key={`${word.id}:${exercise.variant}`}
+        key={appearanceKey(word, progress, exercise.variant)}
         word={word}
         role={role}
         variant={exercise.variant}
         answerParts={exercise.answerParts}
         distractorParts={exercise.distractorParts}
+        difficultyBand={exercise.effectiveBand}
+        stageIndex={progress.stageIndex}
         onOutcome={onOutcome}
       />
     </div>
@@ -200,16 +226,29 @@ function ChoiceExercise({
   word,
   role,
   exercise,
+  progress,
   onScore,
   onOutcome,
+  onCustomStage,
 }: {
   word: NormalizedWord;
   role: LearningRole;
   exercise: Extract<ResolvedExercise, { method: 'choice' }>;
+  progress: ProgressData;
   onScore: (points: number) => void;
   onOutcome: (outcome: ExerciseOutcome) => void;
+  onCustomStage: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
 }) {
   const [answered, setAnswered] = useState<ExerciseOutcome | null>(null);
+  // The same one setting the sound toggle on a minigame card writes: silencing
+  // a round there silences the choice study card here too.
+  const [soundEnabled] = useState(() => readCardSoundEnabled());
+  // Same rule as the reveal and typing cards: a clean answer at 60 days is the
+  // moment to offer retirement rather than book another 60 days.
+  const showFullyKnownOffer =
+    answered === 'known' &&
+    isTopStage(progress.stageIndex ?? 0) &&
+    Boolean(progress.nextDueAt);
 
   // Asking in the harder direction — known word shown, foreign options to pick
   // from — is what a longer interval deserves; the easier direction stays for
@@ -222,25 +261,31 @@ function ChoiceExercise({
   return (
     <div className="flex h-full flex-col justify-center">
       <MultipleChoiceGame
-        key={`${word.id}:${exercise.variant}`}
+        key={appearanceKey(word, progress, exercise.variant)}
         words={[word, ...exercise.distractors]}
         role={role}
         sourceLang={promptSide}
         promptMode="text"
-        soundEnabled
+        soundEnabled={soundEnabled}
         level={exercise.effectiveBand === 'I' ? 1 : 2}
+        difficultyBand={exercise.effectiveBand}
+        stageIndex={progress.stageIndex}
         frameless
         onResult={(delta) => onScore(Math.max(0, delta))}
         onOutcome={(outcome) => setAnswered(outcome)}
       />
+      {showFullyKnownOffer && (
+        <FullyKnownOffer
+          onRetire={() => onCustomStage(TOP_STAGE_INDEX, { noRepeat: true })}
+          className="mx-auto mt-4 !w-full !max-w-md"
+        />
+      )}
       {answered && (
-        <button
-          type="button"
-          className="mt-4 self-center rounded-xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-6 py-3 text-sm font-bold uppercase tracking-[0.08em] text-[#F4EFE2] transition-colors hover:bg-[#17608f]"
+        <ContinueButton
+          variant="solid"
+          className="mt-4 self-center max-w-[22rem]"
           onClick={() => onOutcome(answered)}
-        >
-          →
-        </button>
+        />
       )}
     </div>
   );

@@ -71,6 +71,8 @@ export function composeStream(
     id: anchor.id,
     gameType: anchor.gameType,
     level: anchor.level,
+    difficultyBand: anchor.difficultyBand,
+    stageIndex: anchor.stageIndex,
     words: anchor.words,
     anchorOriginalIndex: anchor.anchorOriginalIndex,
   });

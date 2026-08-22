@@ -1,3 +1,5 @@
+import { levenshteinTokensWithCost } from "@/lib/levenshtein";
+
 export type AnswerVerdict = "exact" | "close" | "wrong";
 
 // Whitespace and any Unicode punctuation (covers typographic quotes/apostrophes).
@@ -43,6 +45,60 @@ export function isSlotCompatibleAlternative(primary: string, alternative: string
       PREFILL_CHAR_RE.test(primarySlot) || PREFILL_CHAR_RE.test(alternativeSlot);
     return !hasFixedCharacter || primarySlot === alternativeSlot;
   });
+}
+
+// Letters that carry their mark inside the code point, so NFD leaves them
+// whole. Each one is the same letter as its base for grading purposes — the
+// learner wrote the right letter and got its ornament wrong.
+const UNDECOMPOSED_BASE_LETTERS: Record<string, string> = {
+  "đ": "d",
+  "ð": "d",
+  "ø": "o",
+  "ł": "l",
+  "ŧ": "t",
+  "ħ": "h",
+  "ı": "i",
+};
+
+/**
+ * The bare letter behind a grapheme: no marks, no case, no stroke.
+ *
+ * This is what makes "almost right" a rule rather than a list. `a`/`ă`/`ạ` and
+ * `d`/`đ` fold to one base letter and count as the same letter written
+ * differently; `u` and `y` do not fold together and stay two different letters.
+ */
+export function foldToBaseLetter(grapheme: string): string {
+  const stripped = grapheme
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
+    .toLocaleLowerCase();
+  return stripped.replace(
+    /[đðøłŧħı]/g,
+    (character) => UNDECOMPOSED_BASE_LETTERS[character] ?? character,
+  );
+}
+
+/** True when two graphemes are the same base letter in different dress. */
+export function areOrthographicVariants(a: string, b: string): boolean {
+  if (a === b) return true;
+  const baseA = foldToBaseLetter(a);
+  return baseA.length > 0 && baseA === foldToBaseLetter(b);
+}
+
+/**
+ * Edits that change *which* characters were written.
+ *
+ * Diacritic-only substitutions are free; a substitution between two different
+ * base letters, an insertion and a deletion each cost one. Zero therefore means
+ * "the same characters, some of them decorated differently" — the only kind of
+ * mistake the typing card forgives.
+ */
+export function baseLetterEditDistance(a: string, b: string): number {
+  return levenshteinTokensWithCost(
+    splitGraphemes(normalizeAnswerExactKey(a)),
+    splitGraphemes(normalizeAnswerExactKey(b)),
+    (left, right) => (areOrthographicVariants(left, right) ? 0 : 1),
+  );
 }
 
 export function normalizeAnswerExactKey(value: string): string {

@@ -163,6 +163,13 @@ export function ReviewStep({
   const [copied, setCopied] = useState(false);
 
   /**
+   * Saving while a clip is still being generated would store the row without it,
+   * so the button waits. Only `pending` holds it: a clip that failed is not
+   * coming, and a row without audio is still worth keeping.
+   */
+  const audioPending = items.some((item) => item.audioStatus === 'pending');
+
+  /**
    * Hand the whole set over as tab-separated text so it can be checked
    * somewhere else — a spreadsheet, a message to a native speaker. Tabs rather
    * than a prettier layout precisely because it pastes into columns.
@@ -339,14 +346,16 @@ export function ReviewStep({
         <button
           type="button"
           onClick={onSave}
-          disabled={busy || items.length === 0}
+          disabled={busy || items.length === 0 || audioPending}
           className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3 text-center text-base font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy
             ? waitingForAudio
               ? t('wordChat.audioPreparing')
               : t('wordChat.saving')
-            : t('wordChat.save')}
+            : audioPending
+              ? t('wordChat.audioPreparing')
+              : t('wordChat.save')}
         </button>
       </div>
     </div>

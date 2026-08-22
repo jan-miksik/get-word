@@ -34,7 +34,19 @@ function applyEventToEntry(
         ? Math.min(base.stageIndex + 2, STAGES.length - 1)
         : Math.max(base.stageIndex - 1, 0);
   const stage = STAGES[nextStageIndex];
-  const nextDueAt = stage.intervalMs > 0 ? now + stage.intervalMs : undefined;
+  // A word retired as "fully known" sits at the top stage with no due date.
+  // Answering it right again (it can still turn up as practise-ahead material)
+  // must not quietly put it back on the 60-day treadmill; only getting it wrong
+  // returns it to the rotation.
+  const staysRetired =
+    event.action !== 'unknown' &&
+    base.stageIndex === STAGES.length - 1 &&
+    !base.nextDueAt;
+  const nextDueAt = staysRetired
+    ? undefined
+    : stage.intervalMs > 0
+      ? now + stage.intervalMs
+      : undefined;
 
   return {
     ...base,

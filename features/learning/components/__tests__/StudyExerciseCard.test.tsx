@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { StudyExerciseCard } from '../StudyExerciseCard';
 import type { ProgressData } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
 import type { ResolvedExercise } from '@/features/learning/fine-tune/types';
+
+vi.mock('@/lib/audio-availability', () => ({
+  getCachedPlayableAudioUrl: () => null,
+  getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
+}));
 
 const makeWord = (id: string, cz: string, vi: string): NormalizedWord => ({
   id, cz, vi, en: '', category: ['word'],
@@ -75,7 +80,7 @@ describe('StudyExerciseCard — choice', () => {
 
   it('offers exactly as many options as the variant asks for', () => {
     renderCard(choiceExercise('I'));
-    expect(document.querySelectorAll('.game-option')).toHaveLength(4);
+    expect(document.querySelectorAll('[data-option-state]')).toHaveLength(4);
     expect(document.querySelector('[data-choice-layout]')).toHaveAttribute('data-option-count', '4');
   });
 
@@ -87,14 +92,14 @@ describe('StudyExerciseCard — choice', () => {
     expect(onScore).toHaveBeenCalled();
     // The stage only moves once the learner has seen the result and moved on.
     expect(onOutcome).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: '→' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onOutcome).toHaveBeenCalledWith('known');
   });
 
   it('reports a wrong answer so the word steps back', () => {
     const { onOutcome } = renderCard(choiceExercise('I'));
     fireEvent.click(screen.getByText('kočka'));
-    fireEvent.click(screen.getByRole('button', { name: '→' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onOutcome).toHaveBeenCalledWith('unknown');
   });
 
@@ -102,7 +107,7 @@ describe('StudyExerciseCard — choice', () => {
     // Band III is about telling near-identical foreign spellings apart, which
     // only works when the options are the foreign side.
     renderCard(choiceExercise('III'));
-    const options = Array.from(document.querySelectorAll('.game-option')).map(
+    const options = Array.from(document.querySelectorAll('[data-option-state]')).map(
       (option) => option.textContent,
     );
     expect(options).toContain('con chó');
@@ -137,7 +142,8 @@ describe('StudyExerciseCard — assembly', () => {
   it('moves SR only after the assembled phrase is checked', () => {
     const { onOutcome } = renderCard({
       method: 'assembly',
-      variant: 'words:exact',
+      variant: 'words:I',
+      effectiveBand: 'I',
       answerParts: ['con', 'chó'],
       distractorParts: [],
     });
@@ -145,7 +151,92 @@ describe('StudyExerciseCard — assembly', () => {
     fireEvent.click(screen.getByText('con'));
     fireEvent.click(screen.getByText('chó'));
     expect(onOutcome).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: '→' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onOutcome).toHaveBeenCalledWith('known');
+  });
+});
+
+
+describe('StudyExerciseCard — choice audio', () => {
+  const SPOKEN_WORD: NormalizedWord = {
+    ...WORD,
+    czAudio: 'speech/cz/pes.mp3',
+    viAudio: 'speech/vi/con-cho.mp3',
+  };
+
+  let playCalls = 0;
+  let audioSources: string[] = [];
+
+  beforeEach(() => {
+    localStorage.clear();
+    playCalls = 0;
+    audioSources = [];
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(function FakeAudio(
+        this: { play: () => Promise<void>; pause: () => void },
+        src: string,
+      ) {
+        audioSources.push(src);
+        this.play = () => {
+          playCalls += 1;
+          return Promise.resolve();
+        };
+        this.pause = () => {};
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  function renderSpokenChoice() {
+    render(
+      <StudyExerciseCard
+        word={SPOKEN_WORD}
+        progress={PROGRESS}
+        role="knownLanguage"
+        exercise={choiceExercise('I')}
+        showAll={false}
+        memoryHook=""
+        suggestedHook=""
+        onMemoryHookChange={vi.fn()}
+        showMemoryHook={false}
+        onKnown={vi.fn()}
+        onReallyKnown={vi.fn()}
+        onUnknown={vi.fn()}
+        onCustomStage={vi.fn()}
+        onScore={vi.fn()}
+        onOutcome={vi.fn()}
+        showEnglish={false}
+        showCategoryBadges={false}
+        showPronunciation={false}
+        categoryOrder={[]}
+        studyNotesEnabled={false}
+        studyNoteMinimizeFromStage={2}
+        typingPrefillPunctuation
+        typingPlayAudioAfterCheck={false}
+        typingCheckButtonEnabled={false}
+      />,
+    );
+  }
+
+  it('speaks the answer on a correct pick by default', async () => {
+    renderSpokenChoice();
+    // Band I prompts with the foreign word, so the option to pick is the known side.
+    fireEvent.click(screen.getByText('pes'));
+    await waitFor(() => expect(playCalls).toBe(1));
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+  });
+
+  it('honours the sound toggle the learner flipped on a minigame card', async () => {
+    localStorage.setItem('get-word-skip-sound', 'true');
+    renderSpokenChoice();
+    // Band I prompts with the foreign word, so the option to pick is the known side.
+    fireEvent.click(screen.getByText('pes'));
+    await Promise.resolve();
+    expect(playCalls).toBe(0);
   });
 });

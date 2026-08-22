@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   checkAudioUrlAvailable,
   getCachedAudioUrlAvailability,
@@ -13,6 +13,7 @@ import { MatchingPairsGame } from './games/MatchingPairsGame';
 import { TiltChoiceGame } from './games/TiltChoiceGame';
 import { BubbleChoiceGame } from './games/BubbleChoiceGame';
 import { SimilarWordsPromptGame } from './games/SimilarWordsPromptGame';
+import { SkipExerciseButton } from './games/SkipExerciseButton';
 import {
   getWordAudioSrcBySide,
   type LearningRole,
@@ -20,36 +21,31 @@ import {
   type WordSide,
 } from './games/types';
 import { useI18n } from '@/components/I18nProvider';
+import { useCardSound } from './card-audio/cardSound';
+import { ContinueButton } from './ContinueButton';
 
-const SKIP_SOUND_KEY = 'get-word-skip-sound';
-
-function readSkipSound(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(SKIP_SOUND_KEY) === 'true';
-}
-
-function SoundToggle({ skipSound, onToggle }: { skipSound: boolean; onToggle: () => void }) {
+function SoundToggle({ soundEnabled, onToggle }: { soundEnabled: boolean; onToggle: () => void }) {
   const { t } = useI18n();
 
   return (
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onToggle(); }}
-      aria-label={skipSound ? t('game.soundOff') : t('game.soundOn')}
-      title={skipSound ? t('game.enableAudio') : t('game.disableAudio')}
-      className="absolute top-3 right-3 z-20 inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] transition-colors duration-150 hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] active:bg-[#1E6FA8] active:border-[#1E6FA8] active:text-[#F4EFE2]"
+      aria-label={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
+      title={soundEnabled ? t('game.disableAudio') : t('game.enableAudio')}
+      className="inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] transition-colors duration-150 hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] active:bg-[#1E6FA8] active:border-[#1E6FA8] active:text-[#F4EFE2]"
     >
-      {skipSound ? (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-          <line x1="23" y1="9" x2="17" y2="15" />
-          <line x1="17" y1="9" x2="23" y2="15" />
-        </svg>
-      ) : (
+      {soundEnabled ? (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
           <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <line x1="23" y1="9" x2="17" y2="15" />
+          <line x1="17" y1="9" x2="23" y2="15" />
         </svg>
       )}
     </button>
@@ -178,19 +174,11 @@ function pickCachedVerifiedAudioSideForMatching(
 }
 
 export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcome, onAddSimilarWords, similarWordsContext, isActive = true }: Props) {
-  const { t } = useI18n();
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
-  const [skipSound, setSkipSound] = useState<boolean>(() => readSkipSound());
+  const { soundEnabled, toggleSound } = useCardSound();
   const level = config.level ?? 1;
   const standardLevel: 1 | 2 = level === 3 ? 2 : level;
 
-  const toggleSkipSound = useCallback(() => {
-    setSkipSound((prev) => {
-      const next = !prev;
-      localStorage.setItem(SKIP_SOUND_KEY, String(next));
-      return next;
-    });
-  }, []);
   const randomPromptSide = useMemo(
     () => getDeterministicSourceLangForGameId(config.id),
     [config.id],
@@ -205,7 +193,14 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
     setFinished({ delta });
   };
 
-  const gameProps = { words: config.words, role, level: standardLevel, onResult: handleResult };
+  const gameProps = {
+    words: config.words,
+    role,
+    level: standardLevel,
+    difficultyBand: config.difficultyBand,
+    stageIndex: config.stageIndex,
+    onResult: handleResult,
+  };
   const questionWord = config.words[0];
   const requestedQuestionAudioSide = useMemo(
     () => (shouldUseAudioPrompt ? pickAudioSideForQuestion(questionWord) : null),
@@ -224,7 +219,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
     : cachedQuestionAudioSide;
   const typingAndChoicePromptSide: WordSide = verifiedQuestionAudioSide ?? randomPromptSide;
   const typingAndChoicePromptMode: PromptMode =
-    !skipSound && verifiedQuestionAudioSide ? 'audio' : 'text';
+    soundEnabled && verifiedQuestionAudioSide ? 'audio' : 'text';
 
   const requestedMatchingAudioSide = useMemo(
     () => (shouldUseAudioPrompt ? pickAudioSideForMatching(config.words) : null),
@@ -242,7 +237,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
     ? matchingAudioResult.side
     : cachedMatchingAudioSide;
   const matchingPromptMode: PromptMode =
-    !skipSound && verifiedMatchingAudioSide ? 'audio' : 'text';
+    soundEnabled && verifiedMatchingAudioSide ? 'audio' : 'text';
 
   useEffect(() => {
     if (!requestedQuestionAudioSide) return;
@@ -272,15 +267,25 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
     };
   }, [config.words, matchingAudioKey, requestedMatchingAudioSide]);
 
+  // The toggle rides in the game's own top-right lane (CardTopControls), next
+  // to whatever else lives up there, rather than pinning itself to the corner
+  // and landing on top of the stage badge.
+  const topControls =
+    config.gameType === 'similarWordsPrompt'
+      ? null
+      : <SoundToggle soundEnabled={soundEnabled} onToggle={toggleSound} />;
+
   let game = null;
   if (config.gameType === 'multipleChoice') {
     game = (
       <MultipleChoiceGame
         key={config.id}
         {...gameProps}
+        stageIndex={config.stageIndex}
         sourceLang={typingAndChoicePromptSide}
         promptMode={typingAndChoicePromptMode}
-        soundEnabled={!skipSound}
+        soundEnabled={soundEnabled}
+        topControls={topControls}
       />
     );
   } else if (config.gameType === 'typing') {
@@ -290,7 +295,8 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
         {...gameProps}
         sourceLang={typingAndChoicePromptSide}
         promptMode={typingAndChoicePromptMode}
-        soundEnabled={!skipSound}
+        soundEnabled={soundEnabled}
+        topControls={topControls}
       />
     );
   } else if (config.gameType === 'matching') {
@@ -298,7 +304,8 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
       <MatchingPairsGame
         key={config.id}
         {...gameProps}
-        soundEnabled={!skipSound}
+        soundEnabled={soundEnabled}
+        topControls={topControls}
         frameless
         {...(matchingPromptMode === 'audio'
           ? { sourceLang: verifiedMatchingAudioSide!, promptMode: 'audio' as const }
@@ -312,7 +319,8 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
         {...gameProps}
         sourceLang={typingAndChoicePromptSide}
         promptMode={typingAndChoicePromptMode}
-        soundEnabled={!skipSound}
+        soundEnabled={soundEnabled}
+        topControls={topControls}
         isActive={isActive}
       />
     );
@@ -323,8 +331,15 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
         words={config.words}
         role={role}
         level={level}
+        difficultyBand={config.difficultyBand}
+        stageIndex={config.stageIndex}
         onScore={(delta) => onResult?.(delta)}
         onReviewOutcome={onReviewOutcome}
+        soundEnabled={soundEnabled}
+        topControls={topControls}
+        // A cleared field raises the same tap-to-continue bar every other game
+        // ends on. Popping the last bubble used to advance on its own, which
+        // took the card away mid-burst and gave the last answer no beat.
         onComplete={() => setFinished({ delta: 0 })}
       />
     );
@@ -337,6 +352,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
         languageFrom={similarWordsContext?.languageFrom ?? ''}
         languageTo={similarWordsContext?.languageTo ?? ''}
         baseListId={similarWordsContext?.baseListId ?? null}
+        stageIndex={config.stageIndex}
         onOpenChat={() => onAddSimilarWords?.()}
         onSaved={similarWordsContext?.onSaved}
         onDismiss={onDismiss}
@@ -357,23 +373,29 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
           play space really does run to the edges of the window. */}
       <div className={fullBleed ? 'relative mx-[calc(50%-50vw)] h-full w-screen' : 'relative w-full'}>
         {config.gameType !== 'similarWordsPrompt' && (
-          <SoundToggle skipSound={skipSound} onToggle={toggleSkipSound} />
+          <>
+            {/* Every game here is practice: none of them decides a word's next
+                interval, so walking away from one costs the learner nothing.
+                The similar-words card is left out because it already offers
+                "Not now" as one of its two real choices. */}
+            {!finished && <SkipExerciseButton onSkip={onDismiss} />}
+          </>
         )}
         {game}
       </div>
       {finished && (
         <div
-          className="absolute inset-0 z-10 flex flex-col justify-end cursor-pointer rounded-xl transition-opacity duration-300"
-          onClick={onDismiss}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDismiss(); }}
+          className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end rounded-xl transition-opacity duration-300"
         >
           <div
-            className="flex items-center justify-center px-4 py-3.5 rounded-b-xl max-sm:rounded-b-none bg-[#2A2218] text-[#F4EFE2] border-t-2 border-[#2A2218] shadow-[0_-6px_18px_rgba(0,0,0,0.18)]"
+            className="flex justify-center px-4 py-4"
             style={{ animation: 'overlay-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
-            <span className="text-sm font-bold uppercase tracking-[0.08em]" onClick={onDismiss}>{t('card.tapToContinue')} →</span>
+            <ContinueButton
+              variant="solid"
+              className="pointer-events-auto max-w-[22rem]"
+              onClick={onDismiss}
+            />
           </div>
           <style>{`
             @keyframes overlay-slide {

@@ -39,7 +39,44 @@ function visibleItems(groups: ReturnType<typeof useLearningPageState>['streamGro
     .map((item) => '_isMinigame' in item ? `game:${item.anchorOriginalIndex}` : item.id);
 }
 
+const cappingGoal = {
+  id: 'goal-1', effectiveFromDay: '2026-08-20', enabled: true, mode: 'words' as const, daysPerWeek: 5, weekdays: null,
+  minutesPerDay: 10, wordsPerDay: 4, newWordsPerDay: null, preset: 'medium' as const,
+  pacing: { revealMode: 'press' as const, minigameFrequency: 'off' as const, fineTune: { version: 3 as const, stages: [] } },
+};
+
 describe('useLearningPageState', () => {
+  it('counts every due repeat, not only the ones today\'s plan took', () => {
+    const words = Array.from({ length: 9 }, (_, index) => makeWord(`due-${index}`, 'list-a'));
+    const overdue = Date.now() - 60_000;
+    const progress = Object.fromEntries(
+      words.map((word) => [
+        word.id,
+        { stageIndex: 3, nextDueAt: overdue, knownCount: 1, unknownCount: 0 } as unknown as ProgressData,
+      ]),
+    );
+
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress,
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        studyGoal: cappingGoal,
+        isSessionDataReady: true,
+        dayTargets: { resolvedNewTarget: 0, resolvedReviewTarget: 3, resolvedItemBudget: 3 },
+      })
+    );
+
+    // The plan takes three; the other six are still due this minute, which is
+    // what the Upcoming panel lists and what the closing card must not deny.
+    expect(result.current.dueWords).toHaveLength(3);
+    expect(result.current.dueNowCount).toBe(9);
+  });
+
   it('regenerates the frozen card deck when the filtered word list changes', () => {
     const listA = [makeWord('a-1', 'list-a')];
     const listB = [makeWord('b-1', 'list-b')];
@@ -320,8 +357,8 @@ describe('useLearningPageState', () => {
       .filter((item): item is MiniGameConfig => '_isMinigame' in item)
       .map((item) => item.anchorOriginalIndex);
 
-    // A repeated matching round is still dropped, but its slot may now be used
-    // by the explicit similar-word suggestion when the local pool has no twins.
+    // Every two cards still gets an interlude. When matching is unavailable,
+    // Bubbles can use its four-word minimum instead of leaving a typing gap.
     expect(gameAnchors).toEqual([1, 3, 5, 7, 9]);
   });
 
