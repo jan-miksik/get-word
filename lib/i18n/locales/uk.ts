@@ -511,6 +511,7 @@ export const ukMessages: I18nMessages = {
   "settings.studyGoal": "Ціль навчання",
   "settings.studyGoalToggle": "Увімкнути ціль навчання",
   "settings.studyGoalIntro": "Обери тижневий ритм і коротку щоденну сесію.",
+  "settings.studyGoalOnHint": "Ціль працює. Зміна почне діяти з наступного дня.",
   "settings.studyGoalSummary": "{minutes} хв на день — близько {items} слів — {days} днів на тиждень.",
   "settings.studyGoalSplit": "{fresh} нових · {review} повтор.",
   "settings.studyGoalPreset.light": "Легкий",

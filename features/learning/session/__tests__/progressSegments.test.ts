@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionBlockProgress } from '../dayProgress';
 import {
+  reachableTotal,
   segmentFillPercent,
   segmentFlexGrow,
   toProgressSegments,
@@ -85,6 +86,7 @@ describe('toProgressSegments', () => {
       total: 4,
       done: 3,
       pending: 3,
+      unavailable: 0,
       active: true,
       blockKeys: ['r1'],
     })).toBe(100);
@@ -94,6 +96,7 @@ describe('toProgressSegments', () => {
       total: 0,
       done: 0,
       pending: 0,
+      unavailable: 0,
       active: false,
       blockKeys: ['empty'],
     })).toBe(0);
@@ -103,8 +106,47 @@ describe('toProgressSegments', () => {
       total: 0,
       done: 0,
       pending: 0,
+      unavailable: 0,
       active: false,
       blockKeys: ['empty'],
     })).toBe(1);
+  });
+
+  // A word the stream cannot serve — answered on another device, filtered out of
+  // the selection — used to sit in the denominator, so a fully walked stretch
+  // stopped short of the top and the rail read as unfinished work that was not
+  // coming.
+  it('measures the fill against what the stream can actually serve', () => {
+    const stretch = {
+      key: 'r1',
+      kind: 'review' as const,
+      total: 5,
+      done: 3,
+      pending: 0,
+      unavailable: 2,
+      active: true,
+      blockKeys: ['r1'],
+    };
+    expect(reachableTotal(stretch)).toBe(3);
+    expect(segmentFillPercent(stretch)).toBe(100);
+    // Nothing left to serve at all: the session steps over the stretch, so the
+    // rail draws it as behind the learner rather than as work still owed.
+    expect(segmentFillPercent({ ...stretch, done: 0, unavailable: 5 })).toBe(100);
+  });
+
+  it('keeps unavailable items out of the merged segment only as a denominator', () => {
+    const segments = toProgressSegments(
+      [
+        { key: 'r1', kind: 'review', total: 6, done: 4, pending: 0, liveRemaining: 0, unavailable: 2 },
+        { key: 'n1', kind: 'new', total: 5, done: 0, pending: 0, liveRemaining: 5, unavailable: 0 },
+        { key: 'r2', kind: 'review', total: 4, done: 0, pending: 0, liveRemaining: 3, unavailable: 1 },
+      ],
+      1,
+    );
+    // The day total stays honest about what was planned…
+    expect(segments[0].total).toBe(10);
+    // …while the rail measures the 7 items it can still walk.
+    expect(reachableTotal(segments[0])).toBe(7);
+    expect(segmentFillPercent(segments[0])).toBeCloseTo((4 / 7) * 100);
   });
 });

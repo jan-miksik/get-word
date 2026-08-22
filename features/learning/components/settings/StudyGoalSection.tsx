@@ -10,7 +10,11 @@ import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
 import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
-import { normalizeGoalWeekdays, type StudyPacing } from '@/packages/domain/goals/goal';
+import {
+  defaultGoalWeekdays,
+  normalizeGoalWeekdays,
+  type StudyPacing,
+} from '@/packages/domain/goals/goal';
 import { syncUserData } from '@/lib/sync';
 import { requestStudyReminderPermission, unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
 import { StudyGoalHistory } from './StudyGoalHistory';
@@ -19,6 +23,11 @@ import { StudyGoalHistory } from './StudyGoalHistory';
  * The settings panel deliberately uses the same card as first-time setup.
  * Keeping a second set of presets, toggles and validation here made the goal
  * feel like a different feature depending on where it was edited.
+ *
+ * The on/off switch lives here and only here. Setup asks for a goal because a
+ * learner meeting the app for the first time has nothing to say no to yet;
+ * afterwards, running without one is a legitimate way to use the app, and this
+ * is where that choice is made and unmade.
  */
 export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: MinigameFrequencyRange }) {
   const { t } = useI18n();
@@ -39,6 +48,29 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
     onSaved: refresh,
   });
   const isPending = pending || reminderPending;
+  // What the learner last chose, which is the scheduled version when there is
+  // one — the same version the picker below edits, so the switch and the dial
+  // never describe two different goals.
+  const goalOn = editing?.enabled === true;
+
+  /**
+   * Flip the goal on or off without touching its shape, so switching it back on
+   * restores the rhythm the learner had rather than a default.
+   *
+   * Like every other goal write this takes effect from the next local day: a
+   * day's targets are frozen once it starts, precisely so a change made this
+   * afternoon cannot retroactively earn or un-earn today.
+   */
+  const saveEnabled = (enabled: boolean) => {
+    if (!editing) return;
+    void save({
+      mode: editing.mode,
+      daysPerWeek: editing.daysPerWeek,
+      weekdays: normalizeGoalWeekdays(editing.weekdays) ?? defaultGoalWeekdays(editing.daysPerWeek),
+      minutesPerDay: editing.minutesPerDay,
+      newWordsPerDay: editing.newWordsPerDay ?? 5,
+    }, { preset: editing.preset, enabled });
+  };
 
   const saveReminder = async (enabled: boolean, localMinutes = reminderMinutes) => {
     if (!summary || isPending) return;
@@ -64,29 +96,52 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
 
   return (
     <div className="flex flex-col gap-4">
-      <StudyGoalSetupCard
-        // The picker snapshots `initial` into its own state on mount, and the
-        // summary arrives one fetch later. Without a key tied to it the panel
-        // would keep showing the default goal for a learner who already has
-        // one — and saving would write that default over their real goal.
-        key={summary ? `goal-${summary.goal.revision}` : 'goal-loading'}
-        compact
-        pacing={pacing}
-        pending={!summary || isPending}
-        initial={{
-          mode: editing?.mode ?? 'words',
-          daysPerWeek: editing?.daysPerWeek ?? 4,
-          weekdays: normalizeGoalWeekdays(editing?.weekdays) ?? undefined,
-          minutesPerDay: editing?.minutesPerDay ?? 10,
-          newWordsPerDay: editing?.newWordsPerDay ?? 5,
-        }}
-        onSave={(value) => void save(value, { preset: 'custom' })}
-        title={t('goal.editTitle')}
-        body={summary?.goal.pending
-          ? t('settings.studyGoalScheduled', { day: summary.goal.pending.effectiveFromDay })
-          : t('goal.editBody')}
-        submitLabel={t('goal.editSubmit')}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="m-0 text-xs font-semibold text-text">{t('settings.studyGoal')}</p>
+          <p className="m-0 text-xs text-text-soft">
+            {goalOn ? t('settings.studyGoalOnHint') : t('settings.studyGoalIntro')}
+          </p>
+        </div>
+        <ToggleSwitch
+          checked={goalOn}
+          onChange={saveEnabled}
+          ariaLabel={t('settings.studyGoalToggle')}
+          disabled={!editing || isPending}
+        />
+      </div>
+
+      {/* A change always starts on the next local day, so say which one rather
+          than leaving the learner to wonder why today did not move. */}
+      {summary?.goal.pending ? (
+        <p className="m-0 text-xs text-accent">
+          {t('settings.studyGoalScheduled', { day: summary.goal.pending.effectiveFromDay })}
+        </p>
+      ) : null}
+
+      {goalOn ? (
+        <StudyGoalSetupCard
+          // The picker snapshots `initial` into its own state on mount, and the
+          // summary arrives one fetch later. Without a key tied to it the panel
+          // would keep showing the default goal for a learner who already has
+          // one — and saving would write that default over their real goal.
+          key={summary ? `goal-${summary.goal.revision}` : 'goal-loading'}
+          compact
+          pacing={pacing}
+          pending={!summary || isPending}
+          initial={{
+            mode: editing?.mode ?? 'words',
+            daysPerWeek: editing?.daysPerWeek ?? 4,
+            weekdays: normalizeGoalWeekdays(editing?.weekdays) ?? undefined,
+            minutesPerDay: editing?.minutesPerDay ?? 10,
+            newWordsPerDay: editing?.newWordsPerDay ?? 5,
+          }}
+          onSave={(value) => void save(value, { preset: 'custom' })}
+          title={t('goal.editTitle')}
+          body={t('goal.editBody')}
+          submitLabel={t('goal.editSubmit')}
+        />
+      ) : null}
 
       {summary ? <StudyGoalHistory summary={summary} /> : null}
 

@@ -8,6 +8,7 @@ import {
   MAX_NEW_WORD_GOAL,
   clampGoalMinutes,
   clampGoalWords,
+  defaultGoalWeekdays,
   normalizeGoalWeekdays,
   type GoalMode,
   type GoalWeekday,
@@ -21,17 +22,8 @@ const ARC_DEGREES = 300;
 const RING_RADIUS = 82;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const RING_ARC_LENGTH = RING_CIRCUMFERENCE * (ARC_DEGREES / 360);
-const DEFAULT_WEEKDAYS: GoalWeekday[] = [1, 3, 5, 6];
-const ALL_WEEKDAYS: GoalWeekday[] = [1, 2, 3, 4, 5, 6, 7];
-const WEEKDAYS_BY_COUNT: Record<number, GoalWeekday[]> = {
-  1: [1],
-  2: [2, 5],
-  3: [1, 3, 5],
-  4: DEFAULT_WEEKDAYS,
-  5: [1, 2, 3, 5, 6],
-  6: [1, 2, 3, 4, 5, 6],
-  7: ALL_WEEKDAYS,
-};
+const DEFAULT_WEEKDAYS: GoalWeekday[] = defaultGoalWeekdays(4);
+const ALL_WEEKDAYS: GoalWeekday[] = defaultGoalWeekdays(7);
 
 export type GoalPickerValue = {
   mode: GoalMode;
@@ -276,8 +268,7 @@ export function StudyGoalPicker({
   const { t } = useI18n();
   const [mode, setMode] = useState<GoalMode>(initial?.mode ?? 'words');
   const initialWeekdays = normalizeGoalWeekdays(initial?.weekdays)
-    ?? WEEKDAYS_BY_COUNT[initial?.daysPerWeek ?? 4]
-    ?? DEFAULT_WEEKDAYS;
+    ?? defaultGoalWeekdays(initial?.daysPerWeek ?? 4);
   const [weekdays, setWeekdays] = useState<GoalWeekday[]>(initialWeekdays);
   const [minutesPerDay, setMinutesPerDay] = useState(initial?.minutesPerDay ?? 10);
   const [newWordsPerDay, setNewWordsPerDay] = useState(initial?.newWordsPerDay ?? 5);

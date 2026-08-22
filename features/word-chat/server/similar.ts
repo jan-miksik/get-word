@@ -109,6 +109,7 @@ Rules:
 - Never return part of the seed, and never the seed with a word added to it. It has to be its own expression, not a longer or shorter way of saying the same thing.
 - Single words or short set phrases only. Never a sentence, never an explanation, never an example of use.
 - "target" is the ${target} expression. "known" is its plain ${known} translation — one wording, no parentheses, no brackets, no slash alternatives, no glosses or notes. The translation is only there so the learner can study the pair; it plays no part in choosing the item.
+- ONE meaning per item, on both sides. Never bundle synonyms into one item with a comma, "or", "and", a dash, or a semicolon ("bland, flavourless" / "nevýrazný, fádní"): that is two items, and a card with two words on each side cannot be typed, assembled, or matched. Choose the single best wording on each side.
 - "why" is "twin" for the near twins and "half" for the half-alike ones.
 
 Return only valid JSON, no markdown:

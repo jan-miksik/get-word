@@ -106,14 +106,17 @@ describe('MatchingPairsGame', () => {
     vi.useRealTimers();
   });
 
-  it('shows completion message when all pairs matched', () => {
+  // The visible "All matched!" line is gone; the success mark above the board is
+  // the only completion signal, and it carries the label for screen readers.
+  it('marks the round complete when all pairs matched', () => {
     render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
     // Match all 4 pairs (right column is shuffled but words are accessible by text)
     fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
     fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
     fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
     fireEvent.click(screen.getByText('voda'));    fireEvent.click(screen.getByText('nước'));
-    expect(screen.getByText(/All matched/i)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /All matched/i })).toBeInTheDocument();
+    expect(screen.queryByText(/All matched/i)).not.toBeInTheDocument();
   });
 
   it('calls onResult(+1) when all pairs matched', () => {

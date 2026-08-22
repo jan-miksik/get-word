@@ -93,6 +93,29 @@ export function normalizeGoalWeekdays(value: readonly number[] | null | undefine
   return normalized.length > 0 ? normalized : null;
 }
 
+/**
+ * Which weekdays a bare "n days a week" means.
+ *
+ * Versions written before weekdays existed carry only a count, and the stored
+ * shape now requires the two to agree — so anything that has to turn an old
+ * version back into a saveable goal needs one answer to this, not its own.
+ * Spread rather than stacked at the front: gaps between sessions are the point
+ * of studying four days rather than four days running.
+ */
+const WEEKDAYS_BY_COUNT: Record<number, GoalWeekday[]> = {
+  1: [1],
+  2: [2, 5],
+  3: [1, 3, 5],
+  4: [1, 3, 5, 6],
+  5: [1, 2, 3, 5, 6],
+  6: [1, 2, 3, 4, 5, 6],
+  7: [1, 2, 3, 4, 5, 6, 7],
+};
+
+export function defaultGoalWeekdays(daysPerWeek: number): GoalWeekday[] {
+  return WEEKDAYS_BY_COUNT[clampGoalDays(daysPerWeek)] ?? WEEKDAYS_BY_COUNT[4];
+}
+
 /** A stage is not an introduction state: forgotten words can return to stage 0. */
 export function hasIntroducedWord(progress: { introducedAt?: number | Date | null; knownCount?: number; unknownCount?: number; stageIndex?: number } | null | undefined): boolean {
   if (!progress) return false;

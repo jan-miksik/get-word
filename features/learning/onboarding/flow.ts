@@ -17,6 +17,22 @@ export type LearningOnboardingStep =
  * than from a position in a wizard: someone who closes the tab after the goal
  * comes back to reminders.
  */
+/**
+ * Whether the goal question has been answered, from the goal state as the
+ * server reports it.
+ *
+ * A stored version is the answer, whatever it says. Reading `active.enabled`
+ * instead conflates "never asked" with "asked, and said no": a learner who
+ * switches the goal off in Settings would be shown the setup card again on the
+ * next open, which makes the switch impossible to keep off.
+ */
+export function hasConfiguredGoal(goal: {
+  active: unknown | null;
+  pending: unknown | null;
+} | null | undefined): boolean {
+  return Boolean(goal?.active || goal?.pending);
+}
+
 export function resolveLearningOnboardingStep({
   forceLanguage,
   hasNoSelectedWordList,
@@ -25,7 +41,7 @@ export function resolveLearningOnboardingStep({
   languageLevelLoaded,
   hasLanguageLevel,
   goalSummaryLoaded,
-  hasActiveGoal,
+  hasConfiguredGoal,
   reminderOnboardingAnswered,
 }: {
   forceLanguage: boolean;
@@ -35,7 +51,13 @@ export function resolveLearningOnboardingStep({
   languageLevelLoaded: boolean;
   hasLanguageLevel: boolean;
   goalSummaryLoaded: boolean;
-  hasActiveGoal: boolean;
+  /**
+   * Whether the learner has ever answered the goal question — a stored goal
+   * version, enabled or not. Deliberately not "a goal is running": turning the
+   * goal off in Settings is a supported way to use the app, and asking again on
+   * the next open would make that switch impossible to keep flipped off.
+   */
+  hasConfiguredGoal: boolean;
   reminderOnboardingAnswered: boolean;
 }): LearningOnboardingStep {
   if (forceLanguage || !onboardingCompleted || !hasLanguagePair) {
@@ -49,7 +71,7 @@ export function resolveLearningOnboardingStep({
   if (settingUp && !languageLevelLoaded) return 'loading';
   if (settingUp && !hasLanguageLevel) return 'level';
   if (!goalSummaryLoaded) return settingUp ? 'loading' : 'app';
-  if (!hasActiveGoal) return 'goal';
+  if (!hasConfiguredGoal) return 'goal';
   if (!reminderOnboardingAnswered) return 'reminder';
   return settingUp ? 'words' : 'app';
 }

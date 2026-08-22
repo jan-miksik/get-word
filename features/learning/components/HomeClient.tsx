@@ -53,7 +53,7 @@ import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
 import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
 import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
 import { StudyReminderOnboarding } from '@/features/learning/onboarding/StudyReminderOnboarding';
-import { resolveLearningOnboardingStep } from '@/features/learning/onboarding/flow';
+import { hasConfiguredGoal, resolveLearningOnboardingStep } from '@/features/learning/onboarding/flow';
 import { LanguageLevelOnboarding } from '@/features/learning/onboarding/LanguageLevelOnboarding';
 import { useLanguageLevelStep } from '@/features/learning/onboarding/useLanguageLevelStep';
 import { unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
@@ -130,9 +130,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // left the rails frozen for the length of that animation after every answer.
   // An answered card joins this set on the tap and is counted for display until
   // the real progress entry lands (see `computeBlockProgress`).
-  const [pendingAnsweredIds, setPendingAnsweredIds] = useState<ReadonlySet<string>>(
-    () => new Set<string>(),
-  );
+  const [pendingAnswers, setPendingAnswers] = useState<Record<string, number>>({});
   // Set from the closing card: the day is already earned, and the learner chose
   // to keep going through the repeats it deliberately left out.
   const [continueAnyway, setContinueAnyway] = useState(false);
@@ -418,6 +416,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     sessionBlockProgress,
     progressStats,
     upcomingAudioWords,
+    bonusBlockProgress,
   } = useLearningPageState({
     filteredWords,
     selectedCategories,
@@ -438,7 +437,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       !isInitialServerSyncPending &&
       (!isGoalSummaryLoading || bootTimedOut),
     sessionScopeKey: `pair:${normalizeLanguageCode(learningLanguageFrom ?? 'unknown')}:${normalizeLanguageCode(learningLanguageTo ?? 'unknown')}`,
-    pendingAnsweredIds,
+    pendingAnswers,
     continueAnyway,
     dayTargets: goalDay ? {
       resolvedNewTarget: goalDay.resolvedNewTarget,
@@ -629,6 +628,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // breather takes the interstitial slot ahead of every other card: it is the
   // seam in the learner's own session, so nothing else should cut in front.
   const sessionFlow = useMemo(() => resolveSessionFlow(sessionBlockProgress), [sessionBlockProgress]);
+  // Carrying on past the day still deserves a sense of how far the stretch runs.
+  // The bonus round has its own frozen plan, so it gets its own rail; the day's
+  // own flow keeps driving the breather and the closing card either way.
+  const bonusFlow = useMemo(() => resolveSessionFlow(bonusBlockProgress), [bonusBlockProgress]);
+  const railFlow = continueAnyway && bonusFlow.dayTotal > 0 ? bonusFlow : sessionFlow;
   useEffect(() => {
     if (!sessionFlow.complete) return;
     void flushOutboxBeforeRead()
@@ -688,7 +692,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     languageLevelLoaded: languageLevelStep.loaded,
     hasLanguageLevel: languageLevelStep.level !== null,
     goalSummaryLoaded: goalSummary !== null,
-    hasActiveGoal: Boolean(goalSummary?.goal.active?.enabled),
+    hasConfiguredGoal: hasConfiguredGoal(goalSummary?.goal),
     reminderOnboardingAnswered: goalSummary?.reminder.onboardingAnswered ?? false,
   });
   const needsLanguageOnboarding = onboardingStep === 'language';
@@ -928,12 +932,19 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               interstitialCard={interstitialCard}
               onDeckWordCardCompleted={(word) => {
                 setCompletedDeckWordCards((count) => count + 1);
-                setPendingAnsweredIds((previous) => new Set(previous).add(word.id));
+                // Recorded as "where this word stood when it was tapped", not as
+                // a bare id: the entry then expires on its own as soon as the
+                // real answer lands, and a word tapped twice in one session
+                // (the closing block repeats the new one) records each tap.
+                setPendingAnswers((previous) => ({
+                  ...previous,
+                  [word.id]: (progress[word.id]?.knownCount ?? 0) + (progress[word.id]?.unknownCount ?? 0),
+                }));
               }}
               deckSwipeActions={deckSwipeActions}
               isSwipeBlockedForWord={isTypingCard}
               streamGroups={streamGroups}
-              sessionFlow={sessionFlow}
+              sessionFlow={railFlow}
               renderCardForDeck={renderCardForDeck}
               renderMiniGameForDeck={renderMiniGameForDeck}
               renderCard={renderCard}

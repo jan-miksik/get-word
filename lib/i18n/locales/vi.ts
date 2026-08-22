@@ -511,6 +511,7 @@ export const viMessages: I18nMessages = {
   "settings.studyGoal": "Mục tiêu học",
   "settings.studyGoalToggle": "Bật mục tiêu học",
   "settings.studyGoalIntro": "Chọn nhịp học hằng tuần và một buổi ngắn mỗi ngày.",
+  "settings.studyGoalOnHint": "Mục tiêu đang chạy. Thay đổi có hiệu lực từ ngày hôm sau.",
   "settings.studyGoalSummary": "{minutes} phút mỗi ngày — khoảng {items} từ — {days} ngày mỗi tuần.",
   "settings.studyGoalSplit": "{fresh} từ mới · {review} ôn tập",
   "settings.studyGoalPreset.light": "Nhẹ",

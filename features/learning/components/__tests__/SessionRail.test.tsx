@@ -49,4 +49,18 @@ describe('SessionRail', () => {
     const segments = Array.from(dayRail?.children ?? []) as HTMLElement[];
     expect(segments.map((segment) => segment.style.flexGrow)).toEqual(['5', '10', '5']);
   });
+
+  // The block rail counts ticks. Items the block planned but the stream cannot
+  // serve used to get a tick each, so the rail was still short of the top on the
+  // answer that actually finished the block.
+  it('counts only the items the block can still serve', () => {
+    const { container } = renderRail([
+      { key: 'review-0', kind: 'review', done: 2, total: 6, pending: 0, liveRemaining: 1, unavailable: 3 },
+    ]);
+
+    const blockRail = container.querySelector('.left-0');
+    const ticks = Array.from(blockRail?.children ?? []) as HTMLElement[];
+    expect(ticks).toHaveLength(3);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-new') || tick.style.background.includes('--rail-review'))).toHaveLength(2);
+  });
 });

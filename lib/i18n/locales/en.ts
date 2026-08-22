@@ -535,6 +535,7 @@ export const enMessages = {
   "settings.studyGoal": "Study goal",
   "settings.studyGoalToggle": "Enable study goal",
   "settings.studyGoalIntro": "Set a weekly rhythm and a short daily session.",
+  "settings.studyGoalOnHint": "The goal is running. A change starts the next day.",
   "settings.studyGoalSummary": "{minutes} min a day — about {items} words — on {days} days a week.",
   "settings.studyGoalSplit": "{fresh} new · {review} review",
   "settings.studyGoalPreset.light": "Light",

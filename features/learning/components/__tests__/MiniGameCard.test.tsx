@@ -246,6 +246,28 @@ describe('MiniGameCard', () => {
     expect(badge.className).not.toContain('absolute');
   });
 
+  // Popping the last bubble used to advance the deck on its own, which took the
+  // card away mid-burst. A cleared field now raises the same tap-to-continue bar
+  // every other game ends on.
+  it('ends a cleared bubble field on Continue instead of dismissing itself', async () => {
+    const onDismiss = vi.fn();
+    render(
+      <MiniGameCard config={config('bubbleChoice')} role="knownLanguage" onDismiss={onDismiss} />
+    );
+
+    // Pop every bubble: the prompt names the word whose bubble is next.
+    for (let round = 0; round < WORDS.length; round += 1) {
+      const prompt = WORDS.find((word) => screen.queryByText(word.cz));
+      expect(prompt).toBeDefined();
+      fireEvent.click(screen.getByRole('button', { name: prompt!.vi }));
+    }
+
+    const continueButton = await screen.findByRole('button', { name: 'Continue' });
+    expect(onDismiss).not.toHaveBeenCalled();
+    fireEvent.click(continueButton);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
   it('renders directly in audio mode when availability was prewarmed in cache', async () => {
     expect(shouldUseDeterministicAudioPromptForGameId('audio-c')).toBe(true);
 

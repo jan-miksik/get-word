@@ -511,6 +511,7 @@ export const csMessages: I18nMessages = {
   "settings.studyGoal": "Studijní cíl",
   "settings.studyGoalToggle": "Zapnout studijní cíl",
   "settings.studyGoalIntro": "Nastav si týdenní rytmus a krátkou denní session.",
+  "settings.studyGoalOnHint": "Cíl běží. Změna se projeví od dalšího dne.",
   "settings.studyGoalSummary": "{minutes} min denně — asi {items} slovíček — {days} dní v týdnu.",
   "settings.studyGoalSplit": "{fresh} nových · {review} opak.",
   "settings.studyGoalPreset.light": "Lehký",

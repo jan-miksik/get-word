@@ -36,10 +36,77 @@ describe('session day progress', () => {
         liveIds: new Set(['queued', 'untouched']),
         dayKey,
         timezone: 'UTC',
-        pendingIds: new Set(['committed', 'queued']),
+        pendingAnswers: { committed: 0, queued: 0 },
       },
     );
     expect(progress).toMatchObject({ done: 1, pending: 1 });
+  });
+
+  // One tap is one answer. A word listed in two blocks — the closing block
+  // repeats what the new block just introduced — used to count that single
+  // queued answer in both, so the day rail's new and review stretches grew
+  // together on the same tap.
+  it('credits a queued answer only to the block it actually settles', () => {
+    const blocks = [
+      { key: 'new-0', kind: 'new' as const, ids: ['w1'] },
+      { key: 'review-1', kind: 'review' as const, ids: ['w1'], pass: 2 },
+    ];
+    const input = {
+      liveIds: new Set(['w1']),
+      settlingIds: new Set(['w1']),
+      dayKey,
+      timezone: 'UTC',
+      answerBaseline: { w1: 0 },
+    };
+
+    // First tap: it settles the new block, and leaves the repeat untouched.
+    const firstTap = computeBlockProgress(blocks, {
+      ...input,
+      progress: {},
+      pendingAnswers: { w1: 0 },
+    });
+    expect(firstTap.map((block) => [block.done, block.pending])).toEqual([[0, 1], [0, 0]]);
+
+    // Answer committed, nothing tapped since: no phantom pending anywhere.
+    const committed = {
+      w1: { stageIndex: 1, knownCount: 1, unknownCount: 0, lastKnownAt: Date.parse('2026-08-20T10:00:00Z') },
+    };
+    const settled = computeBlockProgress(blocks, {
+      ...input,
+      progress: committed,
+      pendingAnswers: { w1: 0 },
+    });
+    expect(settled.map((block) => [block.done, block.pending])).toEqual([[1, 0], [0, 0]]);
+
+    // Second tap, on the repeat: now the repeat block is the one that moves.
+    const secondTap = computeBlockProgress(blocks, {
+      ...input,
+      progress: committed,
+      pendingAnswers: { w1: 1 },
+    });
+    expect(secondTap.map((block) => [block.done, block.pending])).toEqual([[1, 0], [0, 1]]);
+  });
+
+  // The bonus round is made of words already due again, and a stage-0 word falls
+  // due minutes after being answered — so "answered today" would mark half the
+  // bonus set done before the learner touched it. A baseline on a single-pass
+  // block means "answer it once more from here".
+  it('settles a single-pass block from its baseline when one is given', () => {
+    const today = Date.parse('2026-08-20T10:00:00Z');
+    const [progress] = computeBlockProgress(
+      [{ key: 'bonus-review', kind: 'review', ids: ['answeredEarlier', 'answeredAgain'] }],
+      {
+        progress: {
+          answeredEarlier: { stageIndex: 1, knownCount: 1, unknownCount: 0, lastKnownAt: today },
+          answeredAgain: { stageIndex: 2, knownCount: 2, unknownCount: 0, lastKnownAt: today },
+        },
+        liveIds: new Set(['answeredEarlier', 'answeredAgain']),
+        dayKey,
+        timezone: 'UTC',
+        answerBaseline: { answeredEarlier: 1, answeredAgain: 1 },
+      },
+    );
+    expect(progress).toMatchObject({ total: 2, done: 1 });
   });
 
   it('settles a second-pass block on a second answer, counting from the frozen baseline', () => {

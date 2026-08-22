@@ -13,6 +13,7 @@ import type { ViewMode } from '../app-state/types';
 import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { useSessionPlan } from '@/features/learning/session/useSessionPlan';
 import { computeBlockProgress } from '@/features/learning/session/dayProgress';
+import type { SessionBlock } from '@/features/learning/session/blocks';
 import type { LearningStreamBlock } from '@/features/learning/types';
 
 interface UseLearningPageStateOptions {
@@ -40,10 +41,11 @@ interface UseLearningPageStateOptions {
   continueAnyway?: boolean;
   /**
    * Cards answered in the deck whose SRS write is still queued behind the exit
-   * animation. They count towards the rails immediately, so marking an answer
-   * moves the progress on the tap rather than when the card has flown away.
+   * animation, keyed by the answer count the word carried at the tap. They count
+   * towards the rails immediately, so marking an answer moves the progress on
+   * the tap rather than when the card has flown away.
    */
-  pendingAnsweredIds?: ReadonlySet<string>;
+  pendingAnswers?: Record<string, number>;
   /** Immutable target claimed by the server for the current local day. */
   dayTargets?: { resolvedNewTarget: number | null; resolvedReviewTarget: number | null; resolvedItemBudget: number | null } | null;
 }
@@ -55,6 +57,34 @@ type LearningUiState = {
 };
 
 type SessionDay = { dayKey: string; timezone: string };
+
+/**
+ * The stretch the learner opted into once they had already earned the day.
+ *
+ * Some of these words were answered minutes ago — a stage-0 word falls due again
+ * the same day — so "answered today" would mark half the round done before it
+ * started. The baseline is where each word stood at opt-in, and the round asks
+ * for one answer from there.
+ */
+function freezeBonusRound(input: {
+  reviewWords: NormalizedWord[];
+  newWords: NormalizedWord[];
+  progress: Record<string, ProgressData>;
+}): { blocks: SessionBlock[]; baseline: Record<string, number> } | null {
+  const blocks: SessionBlock[] = [];
+  if (input.reviewWords.length > 0) {
+    blocks.push({ key: 'bonus-review', kind: 'review', ids: input.reviewWords.map((word) => word.id) });
+  }
+  if (input.newWords.length > 0) {
+    blocks.push({ key: 'bonus-new', kind: 'new', ids: input.newWords.map((word) => word.id) });
+  }
+  if (blocks.length === 0) return null;
+  const baseline: Record<string, number> = {};
+  for (const id of blocks.flatMap((block) => block.ids)) {
+    baseline[id] = (input.progress[id]?.knownCount ?? 0) + (input.progress[id]?.unknownCount ?? 0);
+  }
+  return { blocks, baseline };
+}
 
 function readSessionDay(): SessionDay {
   const timezone = currentIanaTimezone();
@@ -118,7 +148,7 @@ export function useLearningPageState({
   isSessionDataReady,
   sessionScopeKey = 'pair:unknown',
   continueAnyway = false,
-  pendingAnsweredIds,
+  pendingAnswers,
   dayTargets = null,
 }: UseLearningPageStateOptions) {
   const [sessionDay, setSessionDay] = useState<SessionDay>(readSessionDay);
@@ -271,6 +301,39 @@ export function useLearningPageState({
     () => [...streamBlocks.flatMap((block) => block.words), ...(showNotReady ? settlingWords : [])].slice(0, 5),
     [settlingWords, showNotReady, streamBlocks],
   );
+  // The bonus round is not part of the day's plan — it is the repeats the day
+  // deliberately left out. Its stretch is frozen the moment the learner opts in,
+  // because the live stream shrinks with every answer and a rail measured
+  // against it would never fill.
+  const [bonus, setBonus] = useState<{ blocks: SessionBlock[]; baseline: Record<string, number> } | null>(null);
+  useEffect(() => {
+    // Frozen once. Every later run — the learner is answering, so `progress`
+    // changes constantly — resolves to the snapshot already held and stops.
+    const next = !continueAnyway ? null : bonus ?? freezeBonusRound({
+      reviewWords: [...priorityWords, ...dueWords],
+      newWords,
+      progress,
+    });
+    if (next === bonus) return;
+    // The snapshot can only be taken at the moment the learner opts in, from the
+    // live stream, and it is written exactly once per bonus round.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBonus(next);
+  }, [bonus, continueAnyway, dueWords, newWords, priorityWords, progress]);
+
+  const bonusBlockProgress = useMemo(
+    () => computeBlockProgress(bonus?.blocks ?? [], {
+      progress,
+      liveIds: new Set(liveById.keys()),
+      settlingIds: new Set(settlingById.keys()),
+      dayKey: sessionDayKey,
+      timezone: sessionTimezone,
+      pendingAnswers,
+      answerBaseline: bonus?.baseline,
+    }),
+    [bonus, liveById, pendingAnswers, progress, sessionDayKey, sessionTimezone, settlingById],
+  );
+
   const sessionBlockProgress = useMemo(
     () => computeBlockProgress(session.dailyPlan?.blocks ?? [], {
       progress,
@@ -278,10 +341,10 @@ export function useLearningPageState({
       settlingIds: new Set(settlingById.keys()),
       dayKey: sessionDayKey,
       timezone: sessionTimezone,
-      pendingIds: pendingAnsweredIds,
+      pendingAnswers,
       answerBaseline: session.dailyPlan?.answerBaseline,
     }),
-    [liveById, pendingAnsweredIds, progress, session.dailyPlan, sessionDayKey, sessionTimezone, settlingById],
+    [liveById, pendingAnswers, progress, session.dailyPlan, sessionDayKey, sessionTimezone, settlingById],
   );
 
   const progressStats = useMemo(
@@ -305,5 +368,6 @@ export function useLearningPageState({
     upcomingAudioWords,
     progressStats,
     sessionBlockProgress,
+    bonusBlockProgress,
   };
 }

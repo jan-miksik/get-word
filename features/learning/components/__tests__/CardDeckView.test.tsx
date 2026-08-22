@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -133,6 +134,70 @@ describe('CardDeckView', () => {
     );
     await userEvent.click(screen.getByText('Complete'));
     expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+  });
+
+  // The closing block repeats the words the new block just introduced, so the
+  // same word legitimately appears twice in one day. Keyed by word id alone the
+  // second appearance was swallowed as "already completed", which left the
+  // repeat block unfinished and the session rail stuck on it.
+  it('serves a word again when a later block repeats it', async () => {
+    const repeated = makeWord('w1');
+    const streamGroups = [
+      { key: 'new-0', kind: 'new' as const, blockIndex: 0, items: [repeated] },
+      { key: 'review-1', kind: 'review' as const, blockIndex: 1, items: [repeated] },
+    ];
+    const renderCard = (word: NormalizedWord, blockIndex: number, onComplete: (afterExit?: () => void) => void) => (
+      <div>
+        <span data-testid={`card-${word.id}-block-${blockIndex}`}>{word.id}</span>
+        <button onClick={() => onComplete()}>Complete</button>
+      </div>
+    );
+    render(
+      <CardDeckView
+        streamGroups={streamGroups}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('card-w1-block-0')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Complete'));
+    expect(screen.getByTestId('card-w1-block-1')).toBeInTheDocument();
+  });
+
+  // Same root cause seen from the card's side: the repeat is a fresh round, so
+  // it must not inherit the state the first appearance left behind.
+  it('remounts the card when a later block repeats the same word', async () => {
+    const repeated = makeWord('w1');
+    const streamGroups = [
+      { key: 'new-0', kind: 'new' as const, blockIndex: 0, items: [repeated] },
+      { key: 'review-1', kind: 'review' as const, blockIndex: 1, items: [repeated] },
+    ];
+    const mounts: number[] = [];
+    function Card({ blockIndex, onComplete }: { blockIndex: number; onComplete: () => void }) {
+      const [taps, setTaps] = useState(0);
+      useEffect(() => { mounts.push(blockIndex); }, [blockIndex]);
+      return (
+        <div>
+          <span data-testid="taps">{taps}</span>
+          <button onClick={() => setTaps((value) => value + 1)}>Tap</button>
+          <button onClick={onComplete}>Complete</button>
+        </div>
+      );
+    }
+    render(
+      <CardDeckView
+        streamGroups={streamGroups}
+        renderCard={(_word, blockIndex, onComplete) => (
+          <Card blockIndex={blockIndex} onComplete={() => onComplete()} />
+        )}
+        renderMiniGame={vi.fn()}
+      />
+    );
+    await userEvent.click(screen.getByText('Tap'));
+    expect(screen.getByTestId('taps')).toHaveTextContent('1');
+    await userEvent.click(screen.getByText('Complete'));
+    expect(mounts).toEqual([0, 1]);
+    expect(screen.getByTestId('taps')).toHaveTextContent('0');
   });
 
   it('renders a minigame when the current item is a MiniGameConfig', () => {

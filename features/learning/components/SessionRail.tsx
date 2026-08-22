@@ -4,6 +4,7 @@ import { useI18n } from '@/components/I18nProvider';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import type { SessionFlowState } from '@/features/learning/session/flow';
 import {
+  reachableTotal,
   segmentFillPercent,
   segmentFlexGrow,
   toProgressSegments,
@@ -130,13 +131,18 @@ export function SessionRail({ flow }: { flow: SessionFlowState }) {
   // and it competes with the card that is actually saying how the day ended.
   if (flow.complete) return null;
 
+  // The block rail measures the walk, so it counts only what the stream can
+  // still serve. Items the block planned but cannot deliver used to sit in the
+  // denominator, which left the rail short of the top on the very answer that
+  // finished the block.
+  const blockTotal = block ? reachableTotal(block) : 0;
   const color = block ? blockColor(block.kind) : 'var(--rail-review)';
   const label = block?.kind === 'new' ? t('learning.sessionPlanNew') : t('learning.sessionPlanReview');
 
   return (
     <>
-      {block && block.total > 0 ? (
-        <BlockRail done={block.done + block.pending} total={block.total} color={color} />
+      {block && blockTotal > 0 ? (
+        <BlockRail done={block.done + block.pending} total={blockTotal} color={color} />
       ) : null}
       <DayRail blocks={flow.blocks} activeIndex={flow.index} />
       {/* Keyed on the block so a new block remounts the label and replays its
