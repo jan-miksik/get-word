@@ -27,6 +27,7 @@ function savedGoal(): Record<string, unknown> {
 }
 
 vi.mock('@/features/learning/goals/web-push', () => ({
+  reminderPermissionEnablesReminders: (result: string) => result === 'granted',
   requestStudyReminderPermission: vi.fn(async () => 'granted'),
   unsubscribeFromStudyWebPush: vi.fn(async () => undefined),
 }));

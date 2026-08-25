@@ -1,6 +1,11 @@
 import type { NormalizedWord } from '@/lib/words';
 import { splitGraphemes } from '@/lib/answer-normalization';
-import type { LearningRole } from '@/features/learning/state/learningRole';
+import {
+  knownSideForRole,
+  learningSideForRole,
+  type LearningRole,
+  type WordSide,
+} from '@/features/learning/state/learningRole';
 import {
   bandAtLeast,
   similarityBandForTerms,
@@ -18,6 +23,7 @@ import {
   parseChoiceVariant,
   parseAssemblyVariant,
   parseMatchVariant,
+  type ChoiceOptionsSide,
   type ChoiceVariant,
   type AssemblyVariant,
   type FineTuneConfig,
@@ -110,6 +116,11 @@ function feasibleChoiceVariants(
     const { options } = parseChoiceVariant(variant);
     return canBuildVariant({ target, pool, count: options - 1 });
   });
+}
+
+/** The side an exercise's options are written on, for this learner's role. */
+function wordSideForOptions(side: ChoiceOptionsSide, role: LearningRole): WordSide {
+  return side === 'foreign' ? learningSideForRole(role) : knownSideForRole(role);
 }
 
 function answerParts(value: string, unit: 'letters' | 'words'): string[] {
@@ -333,7 +344,7 @@ export function pickExerciseForWord({
   }
 
   const variant = pickUniform(usableChoice, random);
-  const { options, band } = parseChoiceVariant(variant);
+  const { options, band, side } = parseChoiceVariant(variant);
   const resolved = resolveVariantDistractors({
     target: word,
     pool: distractorPool,
@@ -341,6 +352,9 @@ export function pickExerciseForWord({
     band,
     minInBand: MIN_IN_BAND_OPTIONS,
     random,
+    // Difficulty is about the words the learner has to tell apart, so it is
+    // measured on the side the options are actually written in.
+    side: wordSideForOptions(side, role),
   });
 
   if (!resolved) return FALLBACK_EXERCISE;
@@ -350,6 +364,7 @@ export function pickExerciseForWord({
     variant,
     requestedBand: resolved.requestedBand,
     effectiveBand: resolved.effectiveBand,
+    optionsSide: side,
     distractors: resolved.distractors,
   };
 }

@@ -102,14 +102,12 @@ describe('TopMenu', () => {
         onMenuAction={vi.fn()}
         categoryCount={0}
         categoryActive={false}
-        photoLabEnabled
         onOpenWordChat={vi.fn()}
       />
     );
 
     expect(screen.getByRole('link', { name: /Study words/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Add words by chatting/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Add words from a photo/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Add your own words/i })).toBeInTheDocument();
   });
 
   it('opens the word chat in place from the top-bar shortcut', () => {
@@ -126,7 +124,7 @@ describe('TopMenu', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('link', { name: /Add words by chatting/i }));
+    fireEvent.click(screen.getByRole('link', { name: /Add your own words/i }));
 
     expect(onOpenWordChat).toHaveBeenCalledTimes(1);
   });
@@ -154,7 +152,7 @@ describe('TopMenu', () => {
     expect(onSurfaceChange).toHaveBeenCalledWith('study');
   });
 
-  it('uses the canonical integrated photo-lab URL', () => {
+  it('keeps the camera out of the menu now that it is a tab on Add words', () => {
     render(
       <TopMenu
         showAll={false}
@@ -163,92 +161,13 @@ describe('TopMenu', () => {
         categoryCount={0}
         categoryActive={false}
         quickAddEnabled
-        photoLabEnabled
       />
     );
 
-    expect(screen.getByRole('link', { name: /Add words from a photo/i })).toHaveAttribute(
-      'href',
-      '/?surface=photo'
-    );
-  });
-
-  it('opens photo lab in place from the top-bar shortcut', () => {
-    const onOpenPhotoLab = vi.fn();
-    render(
-      <TopMenu
-        showAll={false}
-        onShowAll={vi.fn()}
-        onMenuAction={vi.fn()}
-        categoryCount={0}
-        categoryActive={false}
-        quickAddEnabled
-        photoLabEnabled
-        onOpenPhotoLab={onOpenPhotoLab}
-      />
-    );
-
-    const shortcut = screen.getByRole('link', { name: /Add words from a photo/i });
-    // Default prevented → the href never navigates away from the deck.
-    expect(fireEvent.click(shortcut)).toBe(false);
-    expect(onOpenPhotoLab).toHaveBeenCalledTimes(1);
-  });
-
-  it('leaves a modifier-click on the photo shortcut to open its own tab', () => {
-    const onOpenPhotoLab = vi.fn();
-    render(
-      <TopMenu
-        showAll={false}
-        onShowAll={vi.fn()}
-        onMenuAction={vi.fn()}
-        categoryCount={0}
-        categoryActive={false}
-        quickAddEnabled
-        photoLabEnabled
-        onOpenPhotoLab={onOpenPhotoLab}
-      />
-    );
-
-    const shortcut = screen.getByRole('link', { name: /Add words from a photo/i });
-    expect(fireEvent.click(shortcut, { metaKey: true })).toBe(true);
-    expect(onOpenPhotoLab).not.toHaveBeenCalled();
-  });
-
-  it('opens photo lab in place from the app menu', () => {
-    const onOpenPhotoLab = vi.fn();
-    render(
-      <TopMenu
-        showAll={false}
-        onShowAll={vi.fn()}
-        onMenuAction={vi.fn()}
-        categoryCount={0}
-        categoryActive={false}
-        photoLabEnabled
-        onOpenPhotoLab={onOpenPhotoLab}
-      />
-    );
+    expect(screen.queryByRole('link', { name: /Add words from a photo/i })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Photo lab/i }));
-
-    expect(onOpenPhotoLab).toHaveBeenCalledTimes(1);
-  });
-
-  it('drops the photo shortcut for an account that turned photo lab off', () => {
-    render(
-      <TopMenu
-        showAll={false}
-        onShowAll={vi.fn()}
-        onMenuAction={vi.fn()}
-        categoryCount={0}
-        categoryActive={false}
-        quickAddEnabled
-        photoLabEnabled={false}
-      />
-    );
-
-    expect(screen.getByRole('link', { name: /Add words by chatting/i })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Add words from a photo/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /Photo lab/i })).toBeNull();
   });
 
   it('marks the active shortcut as current and treats another shortcut as navigation', () => {
@@ -261,16 +180,15 @@ describe('TopMenu', () => {
         categoryCount={0}
         categoryActive={false}
         quickAddEnabled
-        photoLabEnabled
         activeSurface="chat"
         onSurfaceChange={onSurfaceChange}
       />
     );
 
-    const chat = screen.getByRole('link', { name: /Add words by chatting/i });
-    const photo = screen.getByRole('link', { name: /Add words from a photo/i });
+    const chat = screen.getByRole('link', { name: /Add your own words/i });
+    const study = screen.getByRole('link', { name: /Study words/i });
     expect(chat).toHaveAttribute('aria-current', 'page');
-    expect(photo).not.toHaveAttribute('aria-current');
+    expect(study).not.toHaveAttribute('aria-current');
 
     fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
     expect(screen.getByRole('menuitem', { name: /^Add words$/i })).toHaveAttribute(
@@ -280,8 +198,8 @@ describe('TopMenu', () => {
 
     fireEvent.click(chat);
     expect(onSurfaceChange).not.toHaveBeenCalled();
-    fireEvent.click(photo);
-    expect(onSurfaceChange).toHaveBeenCalledWith('photo');
+    fireEvent.click(study);
+    expect(onSurfaceChange).toHaveBeenCalledWith('study');
   });
 
   it('confirms school membership and links teachers to the dashboard', () => {

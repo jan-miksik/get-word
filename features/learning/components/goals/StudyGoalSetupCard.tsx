@@ -5,7 +5,11 @@ import type { StudyPacing } from '@/packages/domain/goals/goal';
 import { StudyGoalPicker } from './StudyGoalPicker';
 import type { GoalPickerValue } from './StudyGoalPicker';
 import { StudyGoalIcon } from './StudyGoalIcon';
-import { OnboardingProgress } from '@/features/learning/onboarding/OnboardingProgress';
+import {
+  OnboardingBody,
+  OnboardingScreen,
+  OnboardingTitle,
+} from '@/features/learning/onboarding/OnboardingScreen';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 
 export function StudyGoalSetupCard({
@@ -18,6 +22,7 @@ export function StudyGoalSetupCard({
   submitLabel,
   compact = false,
   showProgress = false,
+  onBack,
 }: {
   pacing: StudyPacing;
   onSave: (value: GoalPickerValue) => void;
@@ -30,34 +35,54 @@ export function StudyGoalSetupCard({
   compact?: boolean;
   /** Shown only while this card is a step of first-time setup. */
   showProgress?: boolean;
+  /** Back to the previous setup step. Never set in the settings panel. */
+  onBack?: () => void;
 }) {
   const { t } = useI18n();
-  return (
-    <main
-      style={warmPaletteVars}
-      className={`flex w-full items-center justify-center px-4 text-[color:var(--ob-ink)] ${compact ? 'py-2' : 'min-h-[100dvh] bg-[color:var(--ob-surface)] py-8 sm:py-12'}`}
-    >
-      <div className="w-full max-w-4xl text-center">
-        {showProgress ? (
-          <div className="mx-auto max-w-2xl">
-            <OnboardingProgress step="goal" />
-          </div>
-        ) : null}
-        <StudyGoalIcon />
-        <h1 className="mb-5 mt-3 text-3xl font-black text-[color:var(--ob-ink)]">{title ?? t('goal.setupTitle')}</h1>
-        {body ? (
-          <p className="mx-auto mb-5 -mt-2 max-w-xl text-sm leading-relaxed text-[color:var(--ob-ink-soft)]">
-            {body}
-          </p>
-        ) : null}
+  const heading = (
+    <>
+      <StudyGoalIcon />
+      <OnboardingTitle className="mb-5 mt-3">{title ?? t('goal.setupTitle')}</OnboardingTitle>
+      {body ? (
+        <OnboardingBody className="mx-auto mb-5 -mt-2 max-w-xl">{body}</OnboardingBody>
+      ) : null}
+    </>
+  );
+
+  // Inside the settings panel this is a section of a longer page, not a screen:
+  // no background, no sheet, no progress — and the picker keeps its own frame
+  // because there is none around it there.
+  if (compact) {
+    return (
+      <div style={warmPaletteVars} className="w-full px-4 py-2 text-center text-[color:var(--ob-ink)]">
+        {heading}
         <StudyGoalPicker
           pacing={pacing}
           initial={initial}
           onSubmit={onSave}
           pending={pending}
+          framed
           submitLabel={submitLabel ?? t('goal.setupSubmit')}
         />
       </div>
-    </main>
+    );
+  }
+
+  return (
+    <OnboardingScreen
+      step={showProgress ? 'goal' : null}
+      onBack={onBack}
+      width="wide"
+      contentClassName="text-center"
+    >
+      {heading}
+      <StudyGoalPicker
+        pacing={pacing}
+        initial={initial}
+        onSubmit={onSave}
+        pending={pending}
+        submitLabel={submitLabel ?? t('goal.setupSubmit')}
+      />
+    </OnboardingScreen>
   );
 }

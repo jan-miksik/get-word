@@ -16,6 +16,8 @@ export interface SessionBlockProgress {
   pending: number;
   liveRemaining: number;
   unavailable: number;
+  /** The time stretch this block belongs to; only a minutes plan has one. */
+  phase?: number;
 }
 
 export interface BlockProgressInput {
@@ -87,6 +89,15 @@ export function computeBlockProgress(
       : 0;
     const liveRemaining = block.ids.filter(isLive).length;
     const unavailable = block.ids.filter((id) => !isLive(id) && !isDone(id)).length;
-    return { key: block.key, kind: block.kind, total: block.ids.length, done, pending, liveRemaining, unavailable };
+    return {
+      key: block.key,
+      kind: block.kind,
+      total: block.ids.length,
+      done,
+      pending,
+      liveRemaining,
+      unavailable,
+      ...(block.phase === undefined ? {} : { phase: block.phase }),
+    };
   });
 }

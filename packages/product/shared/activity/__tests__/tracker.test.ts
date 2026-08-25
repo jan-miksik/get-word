@@ -72,9 +72,9 @@ describe('activity tracker accrual', () => {
     const h = harness();
     beginActive(h);
 
-    // 55 s since the interaction, then a tick that is 20 s late. Only the 5 s
-    // remaining before the idle deadline may count.
-    h.advance(55_000);
+    // Five seconds short of the idle deadline, then a tick that is 20 s late.
+    // Only the 5 s remaining before the deadline may count.
+    h.advance(IDLE_TIMEOUT_MS - 5_000);
     h.tracker.tick();
     h.advance(20_000);
     h.tracker.tick();

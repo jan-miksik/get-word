@@ -64,10 +64,19 @@ function WordPair({
 export function SaveWordsModal({
   session,
   onClose,
+  onPick,
   onSaved,
 }: {
   session: PhotoLabSession;
   onClose: () => void;
+  /**
+   * Present inside the tabbed "Add your own words" screen: the picked pairs go
+   * into that screen's basket instead of straight into the list, so they end on
+   * the same Check step as typed and proposed words. The dialog then stops at
+   * picking — the category, the destination and the receipt all belong to the
+   * shared flow.
+   */
+  onPick?: (items: { known: string; target: string; audioHash: string | null }[]) => void;
   /**
    * Present when the lab is open over the study view, which is holding a synced
    * snapshot taken before this save: the words land in the database but the
@@ -121,6 +130,18 @@ export function SaveWordsModal({
 
   const save = async () => {
     if (selectedCount === 0) return;
+    const picked = labels.filter((label) => selectedIds.has(label.id));
+    if (onPick) {
+      onPick(
+        picked.map((label) => ({
+          known: label.known,
+          target: label.target,
+          audioHash: session.audioHashes?.[label.id] ?? null,
+        })),
+      );
+      onClose();
+      return;
+    }
     setState({ status: 'saving' });
     const result = await savePhotoLabWordsToList({
       languageFrom: session.languageFrom,
@@ -169,7 +190,7 @@ export function SaveWordsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="photo-lab-save-title" className="m-0 text-base font-semibold">
-          {t('photoLab.saveModalTitle')}
+          {t(onPick ? 'photoLab.pickModalTitle' : 'photoLab.saveModalTitle')}
         </h2>
 
         {state.status === 'saved' ? (
@@ -215,13 +236,22 @@ export function SaveWordsModal({
           </>
         ) : (
           <>
-            <p className="m-0 mt-1 text-xs text-[color:var(--ob-ink-soft)]">
-              {listName
-                ? t('photoLab.saveDestination', { list: listName })
-                : t('photoLab.saveDestinationLoading')}
-            </p>
+            {onPick ? (
+              <p className="m-0 mt-1 text-xs text-[color:var(--ob-ink-soft)]">
+                {t('photoLab.pickHint')}
+              </p>
+            ) : (
+              <p className="m-0 mt-1 text-xs text-[color:var(--ob-ink-soft)]">
+                {listName
+                  ? t('photoLab.saveDestination', { list: listName })
+                  : t('photoLab.saveDestinationLoading')}
+              </p>
+            )}
 
-            <label className="mt-4 flex flex-col gap-1 text-xs font-medium text-[color:var(--ob-ink-soft)]">
+            <label
+              hidden={Boolean(onPick)}
+              className="mt-4 flex flex-col gap-1 text-xs font-medium text-[color:var(--ob-ink-soft)]"
+            >
               {t('photoLab.saveCategoryLabel')}
               <input
                 type="text"
@@ -290,7 +320,9 @@ export function SaveWordsModal({
                 {saving
                   ? t('photoLab.saving')
                   : selectedCount > 0
-                    ? t('photoLab.saveConfirm', { count: selectedCount })
+                    ? t(onPick ? 'photoLab.pickConfirm' : 'photoLab.saveConfirm', {
+                        count: selectedCount,
+                      })
                     : t('photoLab.saveConfirmEmpty')}
               </button>
             </div>

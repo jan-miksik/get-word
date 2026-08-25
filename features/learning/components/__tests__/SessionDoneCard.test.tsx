@@ -6,34 +6,37 @@ import { SessionDoneCard } from '../SessionDoneCard';
 function renderCard(props: Partial<React.ComponentProps<typeof SessionDoneCard>> = {}) {
   return render(
     <I18nProvider language="en">
-      <SessionDoneCard settlingCount={0} showNotReady={false} {...props} />
+      <SessionDoneCard settlingCount={0} {...props} />
     </I18nProvider>,
   );
 }
 
 describe('SessionDoneCard', () => {
-  it('offers the settling words as a way to keep studying', () => {
-    const onToggleShowNotReady = vi.fn();
-    renderCard({ settlingCount: 4, onToggleShowNotReady });
+  it('names the settling words without offering to pull them forward', () => {
+    renderCard({ settlingCount: 4, onOpenWordChat: vi.fn() });
 
-    fireEvent.click(screen.getByRole('button', { name: /practise ahead \(4\)/i }));
-
-    expect(onToggleShowNotReady).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/4 words are settling in/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /practise ahead/i })).not.toBeInTheDocument();
   });
 
-  it('offers adding words when nothing is settling, so the screen is never a dead end', () => {
+  it('offers adding words, so the screen is never a dead end', () => {
     const onOpenWordChat = vi.fn();
     renderCard({ onOpenWordChat });
 
-    expect(screen.queryByRole('button', { name: /practise ahead/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /add words/i }));
 
     expect(onOpenWordChat).toHaveBeenCalledTimes(1);
   });
 
+  it('does not offer Photo Lab after completing the day', () => {
+    renderCard();
+
+    expect(screen.queryByRole('button', { name: /take a photo/i })).not.toBeInTheDocument();
+  });
+
   it('never claims nothing is due while the plan\'s leftover repeats are waiting', () => {
     const onStudyExtra = vi.fn();
-    renderCard({ settlingCount: 127, dueNowCount: 36, onStudyExtra, onToggleShowNotReady: vi.fn() });
+    renderCard({ settlingCount: 127, dueNowCount: 36, onStudyExtra });
 
     expect(screen.queryByText(/nothing due right now/i)).not.toBeInTheDocument();
     expect(screen.getByText(/done for today/i)).toBeInTheDocument();

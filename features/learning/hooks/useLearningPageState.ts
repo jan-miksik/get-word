@@ -46,6 +46,13 @@ interface UseLearningPageStateOptions {
    * the tap rather than when the card has flown away.
    */
   pendingAnswers?: Record<string, number>;
+  /**
+   * The stretch a minutes day's clock has reached. Stretches already behind it
+   * are dropped from the stream: their time is spent, and their words are
+   * simply still due — leaving them at the front of the deck would make the
+   * clock advance the session on paper only.
+   */
+  timePhase?: number;
   /** Immutable target claimed by the server for the current local day. */
   dayTargets?: { resolvedNewTarget: number | null; resolvedReviewTarget: number | null; resolvedItemBudget: number | null } | null;
 }
@@ -149,6 +156,7 @@ export function useLearningPageState({
   sessionScopeKey = 'pair:unknown',
   continueAnyway = false,
   pendingAnswers,
+  timePhase,
   dayTargets = null,
 }: UseLearningPageStateOptions) {
   const [sessionDay, setSessionDay] = useState<SessionDay>(readSessionDay);
@@ -231,7 +239,11 @@ export function useLearningPageState({
       ].filter((block) => block.words.length > 0);
     }
     return session.dailyPlan.blocks
-      .map((block, blockIndex) => ({
+      // The position in the day's own plan, kept through the filter: a stretch
+      // dropped by the clock must not renumber the ones still to come.
+      .map((block, blockIndex) => ({ block, blockIndex }))
+      .filter(({ block }) => timePhase === undefined || (block.phase ?? 0) >= timePhase)
+      .map(({ block, blockIndex }) => ({
         key: block.key,
         kind: block.kind,
         blockIndex,
@@ -240,7 +252,7 @@ export function useLearningPageState({
           .filter((word): word is NormalizedWord => Boolean(word)),
       }))
       .filter((block) => block.words.length > 0);
-  }, [dueWords, liveById, newWords, priorityWords, session.dailyPlan, session.streamMode, settlingById]);
+  }, [dueWords, liveById, newWords, priorityWords, session.dailyPlan, session.streamMode, settlingById, timePhase]);
   const plannedPriorityWords = session.dailyPlan
     ? priorityWords.filter((word) => session.dailyPlan!.priorityIds.includes(word.id))
     : priorityWords;

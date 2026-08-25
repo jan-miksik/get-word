@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { STAGES } from '@/lib/words';
 import { useI18n } from '@/components/I18nProvider';
 import type { I18nKey } from '@/lib/i18n/messages';
@@ -9,6 +9,7 @@ import { Section } from '@/components/settings/primitives';
 import { SIMILARITY_BANDS, type SimilarityBand } from '@/features/learning/minigames/similarity';
 import {
   CHOICE_OPTION_COUNTS,
+  CHOICE_OPTIONS_SIDES,
   ASSEMBLY_VARIANTS,
   MATCH_PAIR_COUNTS,
   METHOD_IDS,
@@ -16,7 +17,9 @@ import {
   TYPING_VARIANTS,
   choiceVariant,
   matchVariant,
+  parseChoiceVariant,
   type ChoiceOptionCount,
+  type ChoiceOptionsSide,
   type AssemblyVariant,
   type ChoiceVariant,
   type FineTuneConfig,
@@ -53,6 +56,11 @@ const PRESET_LABEL_KEY: Record<PresetId | 'custom', I18nKey> = {
 const REVEAL_LABEL_KEY = {
   foreign: 'settings.fineTuneRevealForeign',
   known: 'settings.fineTuneRevealKnown',
+} as const;
+
+const CHOICE_SIDE_LABEL_KEY = {
+  foreign: 'settings.fineTuneChoiceOptionsForeign',
+  known: 'settings.fineTuneChoiceOptionsKnown',
 } as const;
 
 const TYPING_LABEL_KEY = {
@@ -253,15 +261,9 @@ function StageDetail({
         <p className="m-0 text-[0.65rem] text-text-soft">{t('settings.fineTuneTypingNote')}</p>
       </div>
 
-      <VariantGrid
-        title={t('settings.fineTuneMethodChoice')}
-        countLabel={t('settings.fineTuneOptions')}
-        counts={CHOICE_OPTION_COUNTS}
-        selected={stageConfig.choice.variants}
-        makeVariant={(count, band) => choiceVariant(count as ChoiceOptionCount, band)}
-        onToggle={(variant) =>
-          setVariants('choice', toggle(stageConfig.choice.variants, variant as ChoiceVariant))
-        }
+      <ChoiceVariantGrid
+        variants={stageConfig.choice.variants}
+        onToggle={(variant) => setVariants('choice', toggle(stageConfig.choice.variants, variant))}
       />
 
       <div className="flex flex-col gap-2">
@@ -337,6 +339,57 @@ function StageDetail({
   );
 }
 
+/**
+ * The choice grid, plus the switch for which language its options are written
+ * in. Both directions can be active on one stage, so the switch only picks the
+ * one being edited; a dot marks the other when it also has variants, which is
+ * the only way that half stays visible while it is folded away.
+ */
+function ChoiceVariantGrid({
+  variants,
+  onToggle,
+}: {
+  variants: readonly ChoiceVariant[];
+  onToggle: (variant: ChoiceVariant) => void;
+}) {
+  const { t } = useI18n();
+  const [side, setSide] = useState<ChoiceOptionsSide>(() => {
+    const stored = variants.map((variant) => parseChoiceVariant(variant).side);
+    return stored.length > 0 && !stored.includes('foreign') ? 'known' : 'foreign';
+  });
+
+  return (
+    <VariantGrid
+      title={t('settings.fineTuneMethodChoice')}
+      countLabel={t('settings.fineTuneOptions')}
+      counts={CHOICE_OPTION_COUNTS}
+      selected={variants}
+      makeVariant={(count, band) => choiceVariant(count as ChoiceOptionCount, band, side)}
+      onToggle={(variant) => onToggle(variant as ChoiceVariant)}
+    >
+      <div
+        role="radiogroup"
+        aria-label={t('settings.fineTuneChoiceOptionsSide')}
+        className="flex flex-wrap gap-1.5"
+      >
+        {CHOICE_OPTIONS_SIDES.map((option) => (
+          <Chip
+            key={option}
+            role="radio"
+            selected={side === option}
+            marked={
+              side !== option &&
+              variants.some((variant) => parseChoiceVariant(variant).side === option)
+            }
+            label={t(CHOICE_SIDE_LABEL_KEY[option])}
+            onClick={() => setSide(option)}
+          />
+        ))}
+      </div>
+    </VariantGrid>
+  );
+}
+
 function VariantGrid({
   title,
   countLabel,
@@ -344,6 +397,7 @@ function VariantGrid({
   selected,
   makeVariant,
   onToggle,
+  children,
 }: {
   title: string;
   countLabel: string;
@@ -351,13 +405,17 @@ function VariantGrid({
   selected: readonly string[];
   makeVariant: (count: number, band: SimilarityBand) => string;
   onToggle: (variant: string) => void;
+  children?: ReactNode;
 }) {
   const selectedSet = new Set(selected);
   return (
-    <div className="flex flex-col gap-2">
+    // Grouped and named: the cells are labelled by count and band alone, which
+    // only says which exercise it is once the group announces the method.
+    <div role="group" aria-label={title} className="flex flex-col gap-2">
       <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
         {title}
       </p>
+      {children}
       <div
         className="grid gap-1"
         style={{ gridTemplateColumns: `minmax(2.5rem, auto) repeat(${SIMILARITY_BANDS.length}, 1fr)` }}
@@ -433,15 +491,20 @@ function Chip({
   selected,
   label,
   onClick,
+  role = 'checkbox',
+  marked = false,
 }: {
   selected: boolean;
   label: string;
   onClick: () => void;
+  role?: 'checkbox' | 'radio';
+  /** Shows this option holds settings even though it is not the one on screen. */
+  marked?: boolean;
 }) {
   return (
     <button
       type="button"
-      role="checkbox"
+      role={role}
       aria-checked={selected}
       onClick={onClick}
       className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
@@ -451,6 +514,11 @@ function Chip({
       }`}
     >
       {label}
+      {marked && (
+        <span aria-hidden className="ml-1 text-accent">
+          •
+        </span>
+      )}
     </button>
   );
 }

@@ -51,14 +51,14 @@ describe('preset table', () => {
       },
       {
         reveal: { weight: 2, variants: ['foreign'] },
-        choice: { weight: 2, variants: ['2:I'] },
+        choice: { weight: 2, variants: ['2:II:foreign', '3:II:foreign'] },
         typing: { weight: 1, variants: [] },
         assembly: { weight: 1, variants: ['letters:I', 'words:I'] },
         match: { variants: ['2:I', '3:I', '4:I'] },
       },
       {
         reveal: { weight: 2, variants: ['foreign'] },
-        choice: { weight: 2, variants: ['2:II', '3:I', '4:I'] },
+        choice: { weight: 2, variants: ['2:III:foreign', '3:II:foreign', '4:II:foreign'] },
         typing: { weight: 1, variants: ['90:90'] },
         assembly: { weight: 1, variants: ['letters:II', 'words:II'] },
         match: { variants: ['2:II', '3:II', '4:II', '5:I', '6:I'] },
@@ -68,9 +68,9 @@ describe('preset table', () => {
         choice: {
           weight: 1,
           variants: [
-            '2:III',
-            '3:II', '4:II', '5:I', '6:I', '7:I', '8:I',
-            '3:III', '4:III', '5:II', '6:II', '7:II', '8:II',
+            '3:III:foreign', '4:III:foreign',
+            '4:II:foreign', '5:II:foreign', '6:II:foreign', '7:II:foreign', '8:II:foreign',
+            '5:III:foreign', '6:III:foreign',
           ],
         },
         typing: { weight: 1, variants: ['50:90'] },
@@ -79,7 +79,10 @@ describe('preset table', () => {
       },
       {
         reveal: { weight: 1, variants: [] },
-        choice: { weight: 1, variants: ['5:III', '6:III', '7:III', '8:III'] },
+        choice: {
+          weight: 1,
+          variants: ['5:III:foreign', '6:III:foreign', '7:III:foreign', '8:III:foreign'],
+        },
         typing: { weight: 1, variants: ['20:50'] },
         assembly: { weight: 1, variants: [] },
         match: { variants: ['4:III', '5:III', '6:III'] },
@@ -148,11 +151,14 @@ describe('normalizeFineTuneConfig', () => {
 
   it('drops variant codes it does not recognise', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 3,
+      version: 4,
       stages: [
         {
           reveal: { weight: 2, variants: ['foreign', 'sideways'] },
-          choice: { weight: 1, variants: ['4:II', '9:II', '4:IV', 'nonsense'] },
+          choice: {
+            weight: 1,
+            variants: ['4:II:foreign', '4:II', '9:II:known', '4:IV:known', 'nonsense'],
+          },
           typing: { weight: 1, variants: ['0:0', 'telepathy'] },
           assembly: { weight: 1, variants: ['letters:exact', 'bad'] },
           match: { variants: ['6:III', '5:III', '7:III'] },
@@ -161,7 +167,7 @@ describe('normalizeFineTuneConfig', () => {
     });
 
     expect(normalized.stages[0].reveal.variants).toEqual(['foreign']);
-    expect(normalized.stages[0].choice.variants).toEqual(['4:II']);
+    expect(normalized.stages[0].choice.variants).toEqual(['4:II:foreign']);
     expect(normalized.stages[0].typing.variants).toEqual(['0:0']);
     expect(normalized.stages[0].assembly.variants).toEqual(['letters:I']);
     expect(normalized.stages[0].match.variants).toEqual(['6:III', '5:III']);
@@ -169,7 +175,7 @@ describe('normalizeFineTuneConfig', () => {
 
   it('clamps weights into range', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 3,
+      version: 4,
       stages: [{ reveal: { weight: 9999, variants: ['foreign'] } }],
     });
     expect(normalized.stages[0].reveal.weight).toBe(4);
@@ -177,7 +183,7 @@ describe('normalizeFineTuneConfig', () => {
 
   it('guarantees at least one active method per stage', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 3,
+      version: 4,
       stages: Array.from({ length: 8 }, () => ({
         reveal: { weight: 1, variants: [] },
         choice: { weight: 1, variants: [] },
@@ -192,7 +198,7 @@ describe('normalizeFineTuneConfig', () => {
   });
 
   it('pads a short stage list up to the full ladder', () => {
-    const normalized = normalizeFineTuneConfig({ version: 3, stages: [] });
+    const normalized = normalizeFineTuneConfig({ version: 4, stages: [] });
     expect(normalized.stages).toHaveLength(STAGES.length);
     expect(detectPreset(normalized)).toBe('balanced');
   });
@@ -212,8 +218,26 @@ describe('normalizeFineTuneConfig', () => {
         match: { variants: ['6:III'] },
       }],
     });
-    expect(normalized.version).toBe(3);
-    expect(normalized.stages[0].choice).toEqual({ weight: 2, variants: ['4:II'] });
+    expect(normalized.version).toBe(4);
     expect(normalized.stages[0].typing).toEqual(DEFAULT_FINE_TUNE_CONFIG.stages[0].typing);
+    expect(normalized.stages[0].match.variants).toEqual(['6:III']);
+  });
+
+  it('replaces directionless choice variants with the current ladder', () => {
+    const normalized = normalizeFineTuneConfig({
+      version: 3,
+      stages: DEFAULT_FINE_TUNE_CONFIG.stages.map((stage, index) => ({
+        ...stage,
+        choice: { weight: 3, variants: index === 3 ? ['4:I', '8:I'] : [] },
+      })),
+    });
+
+    // The stored bands said nothing about which language the options were in,
+    // so the whole method comes back from the default ladder rather than being
+    // guessed at — but the learner's weight for it survives.
+    expect(normalized.stages[3].choice.variants).toEqual(
+      DEFAULT_FINE_TUNE_CONFIG.stages[3].choice.variants,
+    );
+    expect(normalized.stages[3].choice.weight).toBe(3);
   });
 });

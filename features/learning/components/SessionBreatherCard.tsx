@@ -1,7 +1,12 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { useI18n } from '@/components/I18nProvider';
+import type { I18nKey } from '@/lib/i18n/messages';
+import { pluralForm } from '@/lib/i18n/plural';
 import type { SessionBlockKind } from '@/features/learning/session/blocks';
+import type { SessionFlowState } from '@/features/learning/session/flow';
 import { formatDuration } from '@/features/learning/goals/useStudyCountdown';
 import type { SessionBreather } from '@/features/learning/session/useSessionBreather';
 
@@ -56,6 +61,59 @@ function Handover({ from, to, count }: { from: SessionBlockKind; to: SessionBloc
   );
 }
 
+const RECAP_REVIEWED = {
+  one: 'learning.sessionRecapReviewed.one',
+  few: 'learning.sessionRecapReviewed.few',
+  many: 'learning.sessionRecapReviewed.many',
+} satisfies Record<string, I18nKey>;
+const RECAP_NEW = {
+  one: 'learning.sessionRecapNew.one',
+  few: 'learning.sessionRecapNew.few',
+  many: 'learning.sessionRecapNew.many',
+} satisfies Record<string, I18nKey>;
+
+/**
+ * What the day has actually amounted to so far, in the two units the learner
+ * thinks in: words met for the first time, and words brought back.
+ *
+ * It belongs at the seam rather than on the study surface. Mid-card, a running
+ * tally is something to watch instead of the word; here the work of the stretch
+ * just finished is the whole subject, and the numbers are the answer to the
+ * question the pause raises by itself.
+ */
+function Recap({ flow }: { flow: SessionFlowState }) {
+  const { t, language } = useI18n();
+  const doneOf = (kind: SessionBlockKind) =>
+    flow.blocks.reduce((sum, block) => (block.kind === kind ? sum + block.done : sum), 0);
+  const reviewed = doneOf('review');
+  const fresh = doneOf('new');
+  if (reviewed === 0 && fresh === 0) return null;
+
+  return (
+    <ul className="m-0 mt-5 flex list-none flex-col items-center gap-1 p-0 text-sm font-bold text-[#4a4032]">
+      {reviewed > 0 ? (
+        <RecapLine color="var(--rail-review)">
+          {t(pluralForm(RECAP_REVIEWED, language, reviewed), { count: reviewed })}
+        </RecapLine>
+      ) : null}
+      {fresh > 0 ? (
+        <RecapLine color="var(--rail-new)">
+          {t(pluralForm(RECAP_NEW, language, fresh), { count: fresh })}
+        </RecapLine>
+      ) : null}
+    </ul>
+  );
+}
+
+function RecapLine({ color, children }: { color: string; children: ReactNode }) {
+  return (
+    <li className="flex items-center gap-2 tabular-nums">
+      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+      {children}
+    </li>
+  );
+}
+
 function CompletionMark() {
   return (
     <div className="relative mx-auto h-24 w-28" aria-hidden>
@@ -88,6 +146,7 @@ export function SessionBreatherCard({
   shortfall = 0,
   extraReviewCount = 0,
   result = null,
+  showDayProgress = true,
   onAddWords,
   onContinueExtra,
 }: {
@@ -107,6 +166,12 @@ export function SessionBreatherCard({
    * can check the estimate against the real thing.
    */
   result?: { activeMs: number; itemsDone: number; secondsPerItem: number } | null;
+  /**
+   * A minutes day is not measured in cards, and its countdown strip is already
+   * on screen above this card — so the day bar would be a second, disagreeing
+   * answer to "how far along am I". The recap above it stays either way.
+   */
+  showDayProgress?: boolean;
   onAddWords?: () => void;
   onContinueExtra?: () => void;
 }) {
@@ -164,6 +229,8 @@ export function SessionBreatherCard({
                 : t('learning.sessionDayDoneBody')}
           </p>
 
+          {breather.kind === 'between' ? <Recap flow={flow} /> : null}
+
           {complete && !shortOfGoal && result && result.itemsDone > 0 ? (
             <p className="m-0 mt-4 text-sm font-bold tabular-nums text-[#4a4032]">
               {t('goal.dayResult', {
@@ -176,7 +243,9 @@ export function SessionBreatherCard({
 
           {/* Where the day stands — the number the rail deliberately does not
               carry, kept to one bar and, while work remains, one line. */}
-          <div className={`mx-auto max-w-xs ${complete && !shortOfGoal ? 'sr-only' : 'mt-6'}`}>
+          <div
+            className={`mx-auto max-w-xs ${(complete && !shortOfGoal) || !showDayProgress ? 'sr-only' : 'mt-6'}`}
+          >
             <div
               className="h-1.5 overflow-hidden rounded-full"
               style={{ background: 'var(--rail-track)' }}
@@ -191,7 +260,7 @@ export function SessionBreatherCard({
                 style={{ width: `${dayPercent}%`, background: 'var(--rail-review)' }}
               />
             </div>
-            {!complete && remaining > 0 ? (
+            {!complete && showDayProgress && remaining > 0 ? (
               <p className="m-0 mt-2 text-xs tabular-nums text-[#4a4032]">
                 {t('learning.sessionDayRemaining', { count: remaining, total: flow.dayTotal })}
               </p>

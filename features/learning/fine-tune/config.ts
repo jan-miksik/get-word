@@ -2,6 +2,7 @@ import { STAGES } from '@/lib/words';
 import { SIMILARITY_BANDS } from '@/features/learning/minigames/similarity';
 import {
   CHOICE_OPTION_COUNTS,
+  CHOICE_OPTIONS_SIDES,
   ASSEMBLY_VARIANTS,
   MATCH_PAIR_COUNTS,
   MAX_WEIGHT,
@@ -21,6 +22,13 @@ import {
 } from './types';
 
 const STAGE_COUNT = STAGES.length;
+
+/**
+ * Bumped whenever a method's stored shape changes in a way older data cannot
+ * express. Each bump upgrades that one method wholesale (see
+ * `normalizeFineTuneConfig`) and leaves the learner's other choices alone.
+ */
+const CONFIG_VERSION = 4;
 
 export const PRESET_IDS = ['calm', 'balanced', 'demanding'] as const;
 export type PresetId = (typeof PRESET_IDS)[number];
@@ -50,6 +58,13 @@ const NO_ASSEMBLY = method<AssemblyVariant>(1, []);
  * Quiz-only matching rounds sit outside the review-method weights. They are
  * listed here because their size and similarity still progress with the same
  * repetition stages.
+ *
+ * Choice asks in the productive direction throughout — known word on the card,
+ * foreign options to pick from — and never below band II. Picking a Czech
+ * translation out of four unrelated Czech words is something a learner can do
+ * without having learnt anything, which is exactly what made the three-day
+ * stage feel like a free pass. The recognition direction and band I stay
+ * available in the settings grid for anyone who wants a gentler ladder.
  */
 export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
   // 0 — now / forgotten
@@ -63,7 +78,7 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
   // 1 — 5 minutes
   {
     reveal: method<RevealVariant>(2, ['foreign']),
-    choice: method<ChoiceVariant>(2, ['2:I']),
+    choice: method<ChoiceVariant>(2, ['2:II:foreign', '3:II:foreign']),
     typing: NO_TYPING,
     assembly: method<AssemblyVariant>(1, ['letters:I', 'words:I']),
     match: { variants: ['2:I', '3:I', '4:I'] },
@@ -71,7 +86,7 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
   // 2 — 1 day
   {
     reveal: method<RevealVariant>(2, ['foreign']),
-    choice: method<ChoiceVariant>(2, ['2:II', '3:I', '4:I']),
+    choice: method<ChoiceVariant>(2, ['2:III:foreign', '3:II:foreign', '4:II:foreign']),
     typing: method<TypingVariant>(1, ['90:90']),
     assembly: method<AssemblyVariant>(1, ['letters:II', 'words:II']),
     match: { variants: ['2:II', '3:II', '4:II', '5:I', '6:I'] },
@@ -80,9 +95,9 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
   {
     reveal: method<RevealVariant>(2, ['known']),
     choice: method<ChoiceVariant>(1, [
-      '2:III',
-      '3:II', '4:II', '5:I', '6:I', '7:I', '8:I',
-      '3:III', '4:III', '5:II', '6:II', '7:II', '8:II',
+      '3:III:foreign', '4:III:foreign',
+      '4:II:foreign', '5:II:foreign', '6:II:foreign', '7:II:foreign', '8:II:foreign',
+      '5:III:foreign', '6:III:foreign',
     ]),
     typing: method<TypingVariant>(1, ['50:90']),
     assembly: method<AssemblyVariant>(1, ['letters:III', 'words:III']),
@@ -91,7 +106,9 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
   // 4 — 7 days
   {
     reveal: NO_REVEAL,
-    choice: method<ChoiceVariant>(1, ['5:III', '6:III', '7:III', '8:III']),
+    choice: method<ChoiceVariant>(1, [
+      '5:III:foreign', '6:III:foreign', '7:III:foreign', '8:III:foreign',
+    ]),
     typing: method<TypingVariant>(1, ['20:50']),
     assembly: NO_ASSEMBLY,
     match: { variants: ['4:III', '5:III', '6:III'] },
@@ -148,7 +165,7 @@ function presetStageConfigs(preset: PresetId): StageConfig[] {
 }
 
 export function presetConfig(preset: PresetId): FineTuneConfig {
-  return { version: 3, stages: presetStageConfigs(preset) };
+  return { version: CONFIG_VERSION, stages: presetStageConfigs(preset) };
 }
 
 export const DEFAULT_FINE_TUNE_CONFIG: FineTuneConfig = presetConfig(DEFAULT_PRESET);
@@ -160,14 +177,15 @@ export const DEFAULT_FINE_TUNE_CONFIG: FineTuneConfig = presetConfig(DEFAULT_PRE
 const REVEAL_SET = new Set<string>(REVEAL_VARIANTS);
 const TYPING_SET = new Set<string>(TYPING_VARIANTS);
 const BAND_SET = new Set<string>(SIMILARITY_BANDS);
+const CHOICE_SIDE_SET = new Set<string>(CHOICE_OPTIONS_SIDES);
 const CHOICE_COUNT_SET = new Set<number>(CHOICE_OPTION_COUNTS);
 const MATCH_COUNT_SET = new Set<number>(MATCH_PAIR_COUNTS);
 const ASSEMBLY_SET = new Set<string>(ASSEMBLY_VARIANTS);
 
 function isChoiceVariant(value: unknown): value is ChoiceVariant {
   if (typeof value !== 'string') return false;
-  const [count, band] = value.split(':');
-  return CHOICE_COUNT_SET.has(Number(count)) && BAND_SET.has(band);
+  const [count, band, side] = value.split(':');
+  return CHOICE_COUNT_SET.has(Number(count)) && BAND_SET.has(band) && CHOICE_SIDE_SET.has(side);
 }
 
 function isMatchVariant(value: unknown): value is MatchVariant {
@@ -239,6 +257,7 @@ function normalizeStage(
   fallback: StageConfig,
   upgradeTyping: boolean,
   upgradeAssembly: boolean,
+  upgradeChoice: boolean,
 ): StageConfig {
   if (!value || typeof value !== 'object') return cloneStage(fallback);
   const raw = value as Record<string, unknown>;
@@ -265,6 +284,13 @@ function normalizeStage(
   // method repair below can turn an old typing-only stage into reveal.
   if (upgradeTyping) stage.typing = { ...fallback.typing, variants: [...fallback.typing.variants] };
   if (upgradeAssembly) stage.assembly = { ...fallback.assembly, variants: [...fallback.assembly.variants] };
+  // Choice variants stored before version 4 carry no direction, and the bands
+  // they carry were chosen for a ladder that always offered the easy one.
+  // Guessing an upgrade per entry would silently keep a stage easier than the
+  // learner's own settings claim, so the whole method is replaced instead.
+  // How often choice comes up is still the learner's decision, so only the
+  // variants are rebuilt.
+  if (upgradeChoice) stage.choice = { ...stage.choice, variants: [...fallback.choice.variants] };
 
   // A stage with no active review method has nothing to render. Rather than
   // failing later inside the card, fall back to the gentlest exercise there is.
@@ -286,17 +312,20 @@ export function normalizeFineTuneConfig(value: unknown): FineTuneConfig {
       ? (value as { version?: unknown; stages?: unknown })
       : { version: undefined, stages: undefined };
   const rawStages = Array.isArray(raw.stages) ? raw.stages : [];
-  const upgradeTyping = raw.version !== 2 && raw.version !== 3;
-  const upgradeAssembly = raw.version !== 3;
+  const version = typeof raw.version === 'number' && Number.isFinite(raw.version) ? raw.version : 0;
+  const upgradeTyping = version < 2;
+  const upgradeAssembly = version < 3;
+  const upgradeChoice = version < 4;
 
   return {
-    version: 3,
+    version: CONFIG_VERSION,
     stages: BALANCED_STAGE_CONFIGS.map((fallback, index) =>
       normalizeStage(
         rawStages[index],
         DEFAULT_FINE_TUNE_CONFIG.stages[index] ?? fallback,
         upgradeTyping,
         upgradeAssembly,
+        upgradeChoice,
       ),
     ),
   };

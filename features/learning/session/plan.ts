@@ -2,7 +2,7 @@ import type { ProgressData } from '@/features/sync/contracts';
 import type { NormalizedWord } from '@/lib/words';
 import { hasIntroducedWord, type StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { resolveGoalTargets } from '@/packages/domain/goals/calibration';
-import { planSessionBlocks, type SessionBlock } from './blocks';
+import { planSessionBlocks, planTimeSessionBlocks, type SessionBlock } from './blocks';
 
 export interface SessionPlanInput {
   goal: StudyGoalVersion | null;
@@ -148,7 +148,17 @@ export function planSession(input: SessionPlanInput): SessionPlan {
   // Repeats ran out before the budget did: the day is closed with a second pass
   // over today's new words instead of being left short of review entirely.
   const fillWithRepeats = selectedReview.length < reviewBudget && newIds.length > 0;
-  const blocks = planSessionBlocks({ warmUpIds, newIds, closingReviewIds, fillWithRepeats });
+  // A minutes day is cut by the clock rather than by card counts, so it gets
+  // the three time stretches instead of the words day's batched blocks.
+  const blocks = isWordsGoal
+    ? planSessionBlocks({ warmUpIds, newIds, closingReviewIds, fillWithRepeats })
+    : planTimeSessionBlocks({
+        reviewIds: selectedReview.map((word) => word.id),
+        newIds,
+        itemBudget: cap,
+        fillWithRepeats,
+        openOnNew: rampUp,
+      });
   // The server earns a day on *distinct* words answered (see `recomputeUserDayStat`),
   // so a day padded out with same-day repeats can still fall short of the goal.
   // That gap is what turns the closing card from "day done" into "you have run

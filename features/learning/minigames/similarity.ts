@@ -1,4 +1,5 @@
 import { similarityRatio } from '@/lib/levenshtein';
+import type { WordSide } from '@/features/learning/state/learningRole';
 import type { NormalizedWord } from '@/lib/words';
 
 /**
@@ -114,6 +115,24 @@ export function similarityBand(a: NormalizedWord, b: NormalizedWord): Similarity
   const known = similarityBandForTerms(a.cz, b.cz);
   const target = similarityBandForTerms(a.vi, b.vi);
   return BAND_RANK[known] >= BAND_RANK[target] ? known : target;
+}
+
+/**
+ * Band for the one side the learner will actually be reading.
+ *
+ * Once an exercise fixes which language its options are written in, taking the
+ * more confusable of the two sides would overstate the difficulty: a pair that
+ * are near-twins in Czech tells you nothing about telling their Vietnamese
+ * forms apart.
+ */
+export function similarityBandOnSide(
+  a: NormalizedWord,
+  b: NormalizedWord,
+  side: WordSide,
+): SimilarityBand {
+  return side === 'from'
+    ? similarityBandForTerms(a.cz, b.cz)
+    : similarityBandForTerms(a.vi, b.vi);
 }
 
 function areWordsSimilar(a: NormalizedWord, b: NormalizedWord): boolean {

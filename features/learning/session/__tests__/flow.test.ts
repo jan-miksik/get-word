@@ -63,3 +63,48 @@ describe('resolveSessionFlow', () => {
     expect(flow.dayDone).toBe(10);
   });
 });
+
+describe('resolveSessionFlow on a minutes day', () => {
+  const day = () => [
+    block({ key: 'review-0', phase: 0, total: 6 }),
+    block({ key: 'new-0', kind: 'new', phase: 1, total: 4, liveRemaining: 4 }),
+    block({ key: 'review-1', phase: 2, total: 8, liveRemaining: 8 }),
+  ];
+
+  it('starts on the opening stretch while the clock is still in it', () => {
+    expect(resolveSessionFlow(day(), 0).block?.key).toBe('review-0');
+  });
+
+  it('hands the session on when the stretch time is spent, unfinished or not', () => {
+    const flow = resolveSessionFlow(day(), 1);
+
+    expect(flow.block?.key).toBe('new-0');
+    // The repeats nobody got to are simply still due; the day keeps counting
+    // them so its own total stays honest about what was planned.
+    expect(flow.dayTotal).toBe(18);
+    expect(flow.dayDone).toBe(0);
+  });
+
+  it('falls forward early when a stretch runs out of material', () => {
+    const blocks = day();
+    blocks[0] = block({ key: 'review-0', phase: 0, total: 6, done: 6, liveRemaining: 0 });
+
+    expect(resolveSessionFlow(blocks, 0).block?.key).toBe('new-0');
+  });
+
+  it('stays open without material until the time budget itself is spent', () => {
+    const blocks = day();
+    blocks[2] = block({ key: 'review-1', phase: 2, total: 8, done: 8, liveRemaining: 0 });
+
+    const flow = resolveSessionFlow(blocks, 2);
+    expect(flow.block).toBeNull();
+    expect(flow.complete).toBe(false);
+  });
+
+  it('completes at the terminal time phase even with cards left', () => {
+    const flow = resolveSessionFlow(day(), 3);
+
+    expect(flow.block).toBeNull();
+    expect(flow.complete).toBe(true);
+  });
+});

@@ -11,7 +11,6 @@ import { SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
 import {
   CategoryIcon,
   MenuIcon,
-  PhotoLabIcon,
   SchoolIcon,
   SettingsIcon,
   StarIcon,
@@ -30,7 +29,6 @@ import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 
 const STUDY_SURFACE_HREF = '/';
 const CHAT_SURFACE_HREF = '/?surface=chat';
-const PHOTO_SURFACE_HREF = '/?surface=photo';
 
 interface TopMenuProps {
   onShowAll: () => void;
@@ -55,13 +53,11 @@ interface TopMenuProps {
   /** Persists a new study pair through the app-state sync path. */
   onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
   /** When Photo Lab is available, surface it as a main-menu destination. */
-  photoLabEnabled?: boolean;
   /** Active school membership; drives the school row and the teacher dashboard link. */
   school?: SchoolMembership | null;
   /** Opens the word chat in place. Falls back to a full page load when absent. */
   onOpenWordChat?: () => void;
   /** Opens photo lab in place. Falls back to the `/photo-lab` route when absent. */
-  onOpenPhotoLab?: () => void;
   /** Mirrors the two word-input paths as icons in the centre of the bar. */
   quickAddEnabled?: boolean;
   /** Active workspace destination, used for persistent navigation state. */
@@ -193,9 +189,7 @@ function SurfaceNavLink({
 }
 
 interface QuickAddButtonsProps {
-  photoLabEnabled?: boolean;
   onOpenWordChat?: () => void;
-  onOpenPhotoLab?: () => void;
   activeSurface: AppSurface;
   onSurfaceChange?: (surface: AppSurface) => void;
 }
@@ -209,9 +203,7 @@ interface QuickAddButtonsProps {
  * while we decide whether the top bar is where they belong.
  */
 function SurfaceNavButtons({
-  photoLabEnabled,
   onOpenWordChat,
-  onOpenPhotoLab,
   activeSurface,
   onSurfaceChange,
 }: QuickAddButtonsProps) {
@@ -223,7 +215,7 @@ function SurfaceNavButtons({
         href={CHAT_SURFACE_HREF}
         surface="chat"
         activeSurface={activeSurface}
-        label={t('top.quickAddChat')}
+        label={t('addWords.title')}
         onOpen={onOpenWordChat}
         onSurfaceChange={onSurfaceChange}
       >
@@ -238,18 +230,6 @@ function SurfaceNavButtons({
       >
         <StudyIcon size={25} />
       </SurfaceNavLink>
-      {photoLabEnabled && (
-        <SurfaceNavLink
-          href={PHOTO_SURFACE_HREF}
-          surface="photo"
-          activeSurface={activeSurface}
-          label={t('top.quickAddPhoto')}
-          onOpen={onOpenPhotoLab}
-          onSurfaceChange={onSurfaceChange}
-        >
-          <PhotoLabIcon size={25} />
-        </SurfaceNavLink>
-      )}
     </nav>
   );
 }
@@ -539,10 +519,8 @@ interface MenuDropdownProps {
   activeListLanguagePair?: { from: string; to: string } | null;
   learningLanguagePair?: { from: string; to: string } | null;
   onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
-  photoLabEnabled?: boolean;
   school?: SchoolMembership | null;
   onOpenWordChat?: () => void;
-  onOpenPhotoLab?: () => void;
   activeSurface: AppSurface;
   onSurfaceChange?: (surface: AppSurface) => void;
 }
@@ -558,10 +536,8 @@ function MenuDropdown({
   activeListLanguagePair,
   learningLanguagePair,
   onLearningLanguagePairChange,
-  photoLabEnabled,
   school,
   onOpenWordChat,
-  onOpenPhotoLab,
   activeSurface,
   onSurfaceChange,
 }: MenuDropdownProps) {
@@ -634,6 +610,9 @@ function MenuDropdown({
           },
         ]
       : []),
+    // The camera used to sit beside this as a second way in. It is a tab on
+    // the screen this opens now (see `AddWordsScreen`), so the menu names the
+    // errand once.
     {
       kind: 'surface',
       icon: <WordListsIcon size={15} />,
@@ -654,22 +633,6 @@ function MenuDropdown({
       active: false,
       badge: null,
     },
-    ...(photoLabEnabled
-      ? [
-          {
-            kind: 'surface' as const,
-            icon: <PhotoLabIcon size={15} />,
-            label: t('top.photoLab'),
-            href: PHOTO_SURFACE_HREF,
-            surface: 'photo' as const,
-            onSelect: () => {
-              if (onSurfaceChange) onSurfaceChange('photo');
-              else if (onOpenPhotoLab) onOpenPhotoLab();
-              else window.location.assign(PHOTO_SURFACE_HREF);
-            },
-          },
-        ]
-      : []),
     {
       kind: 'panel',
       icon: <CategoryIcon size={15} />,
@@ -901,10 +864,8 @@ export function TopMenu({
   activeListLanguagePair,
   learningLanguagePair,
   onLearningLanguagePairChange,
-  photoLabEnabled,
   school,
   onOpenWordChat,
-  onOpenPhotoLab,
   quickAddEnabled = true,
   activeSurface = 'study',
   onSurfaceChange,
@@ -934,9 +895,7 @@ export function TopMenu({
       <div className={`top-menu-center ${quickAddEnabled ? 'top-menu-center--quick-add' : ''}`}>
         {quickAddEnabled && (
           <SurfaceNavButtons
-            photoLabEnabled={photoLabEnabled}
             onOpenWordChat={onOpenWordChat}
-            onOpenPhotoLab={onOpenPhotoLab}
             activeSurface={activeSurface}
             onSurfaceChange={onSurfaceChange}
           />
@@ -954,10 +913,8 @@ export function TopMenu({
           activeListLanguagePair={activeListLanguagePair}
           learningLanguagePair={learningLanguagePair}
           onLearningLanguagePairChange={onLearningLanguagePairChange}
-          photoLabEnabled={photoLabEnabled}
           school={school}
           onOpenWordChat={onOpenWordChat}
-          onOpenPhotoLab={onOpenPhotoLab}
           activeSurface={activeSurface}
           onSurfaceChange={onSurfaceChange}
         />

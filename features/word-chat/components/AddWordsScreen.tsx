@@ -1,12 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { PencilIcon, PhotoLabIcon, RobotIcon } from '@/components/icons/AppIcons';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
-import { WordChatFlow } from './WordChatFlow';
+import { WordChatFlow, type WordChatEntryActions } from './WordChatFlow';
+import { WordChatProgress } from './WordChatProgress';
+import { loadDraft, readAddWordsTab, storeAddWordsTab } from '../client/storage';
 import { useMobileKeyboardOpen } from '../hooks/useMobileKeyboardOpen';
 import type { WordChatStep } from '../hooks/useWordChat';
+
+/** The three ways in. Not three screens — three ways of filling the same step. */
+export type AddWordsTab = 'manual' | 'photo' | 'ai';
 
 type Props = {
   languageFrom: string;
@@ -19,6 +25,45 @@ type Props = {
   onClose: () => void;
   /** Whether this mounted workspace surface is currently visible. */
   active?: boolean;
+  /**
+   * The photo lab, rendered by the host — this screen owns the tab, not what is
+   * behind it. Undefined until the tab has actually been opened once: the lab is
+   * a second app (camera, IndexedDB, a zoom canvas) and nobody should pay for it
+   * on a visit that only ever typed words.
+   *
+   * Called with `pickWords`, which is how the picked pairs reach this screen's
+   * basket: they are already translated and voiced, so they wait for the Check
+   * step beside the typed ones instead of being saved from the lab.
+   */
+  photoTab?: (api: {
+    pickWords: (items: { known: string; target: string; audioHash?: string | null }[]) => void;
+  }) => ReactNode;
+  /**
+   * Whether the photo tab belongs on the bar at all. Separate from `photoTab`,
+   * which is empty until the tab is first opened — the tab has to be there
+   * before it can be pressed.
+   */
+  photoTabAvailable?: boolean;
+  /**
+   * True while the photo tab is the one showing. Owned by the host because it
+   * is a URL-level fact (`?surface=photo`), not a local toggle: the top menu
+   * and old bookmarks still link straight to it.
+   */
+  photoTabActive?: boolean;
+  /** Asks the host to show another tab. See `photoTabActive` for why it is theirs. */
+  onTabChange?: (tab: AddWordsTab) => void;
+  /**
+   * The short-practice offer shown on the confirmation step, built by the host
+   * from the words that actually landed. Rendered as-is: this screen has no
+   * business knowing what a study exercise is.
+   */
+  practiceOffer?: ReactNode;
+  /**
+   * Bumped by the host to hand the learner a fresh, empty add-words screen —
+   * after a practice round, for instance. Any other value change resets the
+   * flow; the initial value never does.
+   */
+  restartSignal?: number;
   onCommitted: (result: {
     listId: string;
     categoryId: string | null;
@@ -30,6 +75,10 @@ type Props = {
 
 /**
  * "Add words" opened from inside the app.
+ *
+ * One screen with one heading and three ways in — typing, a photo, the
+ * conversation — instead of a chat screen here and a photo lab behind a camera
+ * button in the top menu.
  *
  * Deliberately not the onboarding screen: no account row and no ready-made-list
  * offer. The opener picks up from the stored brief (see
@@ -44,6 +93,12 @@ export function AddWordsScreen({
   onLanguagePairChange,
   onClose,
   active = true,
+  photoTab,
+  photoTabAvailable = false,
+  photoTabActive = false,
+  onTabChange,
+  practiceOffer,
+  restartSignal,
   onCommitted,
 }: Props) {
   const { t } = useI18n();
@@ -57,8 +112,13 @@ export function AddWordsScreen({
   // top-right corner, which is exactly where this header puts the language
   // pair — they landed on top of it. They render into this row instead.
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
+  // The tab bar is here; the two doors it opens belong to the flow below it.
+  // State rather than a ref: the photo tab is a render prop, so its handler is
+  // built during render and cannot read a ref to find the flow's actions.
+  const [entryActions, setEntryActions] = useState<WordChatEntryActions | null>(null);
+  const restoredTabRef = useRef(false);
   const screenRef = useRef<HTMLDivElement | null>(null);
-  const keyboardOpen = useMobileKeyboardOpen(screenRef, active);
+  const keyboardOpen = useMobileKeyboardOpen(screenRef, active && !photoTabActive);
   // No confirmation banner: the pickers in the settings modal already show which
   // pair is in force, so announcing the change a second time on the screen
   // behind them only took a line away from the chat.
@@ -81,6 +141,60 @@ export function AddWordsScreen({
   const handleHeaderBackActionChange = useCallback((action: (() => void) | null) => {
     setHeaderBackAction(action ? () => action : null);
   }, []);
+  const handleEntryActionsChange = useCallback((actions: WordChatEntryActions | null) => {
+    setEntryActions(actions);
+  }, []);
+
+  const activeTab: AddWordsTab = photoTabActive ? 'photo' : step === 'chat' ? 'ai' : 'manual';
+  // Collecting words is what the tabs are for. Once the translations are on
+  // screen the learner is working on one batch, and switching the way in would
+  // only be a way to lose it.
+  const showTabs = photoTabActive || step === 'select' || step === 'chat';
+
+  const selectTab = useCallback(
+    (tab: AddWordsTab) => {
+      if (tab === activeTab) return;
+      storeAddWordsTab(tab);
+      // The surface moves first — the flow's own tabs live behind `?surface=chat`,
+      // and telling it to switch while the photo tab is still up would run the
+      // change on a screen nobody is looking at.
+      if (tab !== 'photo') onTabChange?.(tab);
+      if (tab === 'manual') entryActions?.startManual();
+      else if (tab === 'ai') entryActions?.startChat();
+      else onTabChange?.('photo');
+    },
+    [activeTab, entryActions, onTabChange],
+  );
+
+  // Words picked off a photo join the basket and the learner comes back to it:
+  // the picking is done, and the next thing to look at is the batch they are
+  // building, not the picture they built it from.
+  const pickPhotoWords = useCallback(
+    (items: { known: string; target: string; audioHash?: string | null }[]) => {
+      if (items.length === 0 || !entryActions) return;
+      entryActions.addPretranslatedItems(
+        items.map((item) => ({
+          textKnown: item.known,
+          textTarget: item.target,
+          audioHash: item.audioHash ?? null,
+        })),
+      );
+      selectTab('manual');
+    },
+    [entryActions, selectTab],
+  );
+
+  // Reopening on the way in the learner used last. The two addresses are the
+  // host's call (see `openAddWords`); the conversation is settled here, because
+  // this is the only place that can see whether a draft is waiting — an
+  // interrupted batch of typed words outranks a remembered preference.
+  useEffect(() => {
+    if (!active || !entryActions || restoredTabRef.current) return;
+    restoredTabRef.current = true;
+    if (photoTabActive || readAddWordsTab() !== 'ai') return;
+    if (loadDraft(languageFrom, languageTo)) return;
+    entryActions.startChat();
+  }, [active, entryActions, languageFrom, languageTo, photoTabActive]);
 
   // While the keyboard is up on a phone there is barely a third of the screen
   // left, and the top menu is not usable mid-sentence anyway. Hand its space to
@@ -104,25 +218,32 @@ export function AddWordsScreen({
   // the bottom edge. Everything below the card — the wrapper's padding included
   // — would otherwise be slack the composer slides up into at the end of a
   // scroll. The later steps stay ordinary documents the surface scrolls.
-  const fullHeight = step === 'chat';
+  const fullHeight = !photoTabActive && step === 'chat';
+
+  const tabs: { id: AddWordsTab; label: string; icon: ReactNode }[] = [
+    { id: 'manual', label: t('addWords.tabManual'), icon: <PencilIcon size={15} /> },
+    ...(photoTabAvailable
+      ? [
+          {
+            id: 'photo' as const,
+            label: t('addWords.tabPhoto'),
+            icon: <PhotoLabIcon size={15} />,
+          },
+        ]
+      : []),
+    { id: 'ai', label: t('addWords.tabAi'), icon: <RobotIcon size={15} /> },
+  ];
 
   return (
-    // Full-bleed on a phone: the chat is the whole screen there, so the card's
-    // side gutters and rounded corners only cost width that word chips, inputs
-    // and the transcript can use. From `sm` up it goes back to a card.
+    // The screen, not a card on a page — at every width. It used to become an
+    // inset bordered card from `sm` up, which cost the photo tab exactly the
+    // width a picture wants and drew a frame around a surface that already runs
+    // edge to edge (see `[data-app-surface='chat']` in `styles/layout.css`).
     <div
       ref={screenRef}
       className={[
-        'mx-auto flex w-full max-w-[800px] flex-col px-0 sm:px-4 sm:pb-8',
-        fullHeight
-          ? 'min-h-0 flex-1 pb-0'
-          : // On a phone the card is the screen at every step, not just the
-            // chat: it grows into whatever height is left so the paper-coloured
-            // background runs to the bottom edge instead of stopping under the
-            // last row with app background showing below it. The bottom breathing
-            // room moves inside the card for the same reason. From `sm` up
-            // nothing changes — it stays a card on the page.
-            'max-sm:flex-1 sm:pb-[max(2rem,env(safe-area-inset-bottom))]',
+        'flex w-full flex-col px-0',
+        fullHeight ? 'min-h-0 flex-1 pb-0' : 'flex-1',
       ].join(' ')}
     >
       <section
@@ -134,82 +255,144 @@ export function AddWordsScreen({
         // back to `currentColor`, painting dark patches on the beige.
         style={warmPaletteVars}
         className={[
-          // Borderless on a phone: the sheet and the page are one cream surface
-          // there (see `[data-app-surface='chat']` in `styles/layout.css`), and
-          // a leftover edge would draw a dark line across it. From `sm` up it is
-          // an inset card on sand again and keeps its full border.
-          'onboarding-card relative w-full rounded-2xl! border-2! p-4 max-sm:rounded-none! max-sm:border-0! max-sm:px-3 sm:p-7',
-          // The card tightens up as the keyboard arrives; it does so over the
-          // same beat as the menu sliding away above it, so the screen settles
-          // rather than snaps.
+          // No side padding of its own: the reading column and the header carry
+          // theirs, and the photo lab pads itself — a shared gutter here would
+          // stack on top of the lab's and narrow the picture twice over.
+          'relative flex w-full flex-col bg-[var(--ob-surface)] pt-4 text-[color:var(--ob-ink)] sm:pt-6',
+          // The screen tightens up as the keyboard arrives; it does so over the
+          // same beat as the menu sliding away above it, so it settles rather
+          // than snaps.
           'motion-safe:transition-[padding] motion-safe:duration-200',
           keyboardOpen ? 'max-sm:pt-2' : '',
-          fullHeight
-            ? 'flex min-h-0 flex-1 flex-col max-sm:pb-[max(0.5rem,env(safe-area-inset-bottom))]'
-            : 'max-sm:flex-1 max-sm:pb-[max(2rem,env(safe-area-inset-bottom))]',
+          fullHeight ? 'min-h-0 flex-1' : 'flex-1',
         ].join(' ')}
       >
-        {step !== 'select' ? <div
+        {/* One header for every tab and every step: the screen's name, the study
+            pair, and — while words are still being collected — the three ways in.
+            Past that the tabs give way to the step rail and a Back, because from
+            there on the learner is working on one batch rather than choosing how
+            to start it. */}
+        <div
           className={[
-            // Title left, controls right — the same reading order as the select
-            // step's own heading, so the two steps do not shuffle their titles
-            // around as the learner moves between them.
-            'flex items-center gap-3',
+            // The same column on every tab. Widening it for the photo tab lined
+            // the title up with the gallery, but it also made the heading jump
+            // sideways the moment a tab was pressed — and a header that moves
+            // when you switch tabs reads as a different screen, not the same one.
+            'mx-auto flex w-full max-w-[800px] flex-col gap-3 px-3 sm:px-4',
             'motion-safe:transition-[margin] motion-safe:duration-200',
-            keyboardOpen ? 'mb-2' : 'mb-4',
+            keyboardOpen ? 'mb-3' : 'mb-5',
           ].join(' ')}
         >
-          {headerBackAction ? (
-            <button
-              type="button"
-              onClick={headerBackAction}
-              className="shrink-0 rounded-full border-2 border-[#2A2218]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-xs font-bold text-[#2A2218] transition hover:-translate-y-0.5 hover:border-[#2A2218] hover:bg-[#FFF8E8] hover:shadow-md"
+          <div className="flex items-start gap-3">
+            <h1
+              className={[
+                'm-0 min-w-0 flex-1 font-black leading-tight',
+                keyboardOpen ? 'text-lg' : 'text-2xl sm:text-3xl',
+              ].join(' ')}
             >
-              ← {t('wordChat.back')}
-            </button>
-          ) : null}
-          {/* Every step past the chat carries its own heading — and with the
-              keyboard up, even the one heading is a line the transcript needs
-              more than the learner does. The empty spacer keeps the controls on
-              the right edge when there is no title to push them there. */}
-          {step === 'chat' && !keyboardOpen ? (
-            <h1 className="min-w-0 flex-1 truncate text-sm font-extrabold uppercase tracking-wide">
-              {t('wordChat.addWords')}
+              {t('addWords.title')}
             </h1>
-          ) : (
-            <span className="flex-1" />
-          )}
-          <div ref={setHeaderSlot} className="flex shrink-0 items-center gap-2">
-            <LanguagePairSummary
-              from={languageFrom}
-              to={languageTo}
-              onOpen={() => setSettingsOpen(true)}
-            />
+            <div ref={setHeaderSlot} className="flex shrink-0 items-center gap-2">
+              <LanguagePairSummary
+                from={languageFrom}
+                to={languageTo}
+                onOpen={() => setSettingsOpen(true)}
+              />
+            </div>
           </div>
-        </div> : null}
 
-        <WordChatFlow
-          key={`${languageFrom}\u0000${languageTo}`}
-          languageFrom={languageFrom}
-          languageTo={languageTo}
-          baseListId={baseListId}
-          refreshAfterCommit={refreshAfterCommit}
-          onLanguagePairChange={changeLanguagePair}
-          onDone={returnToStudyAfterDone}
-          onStepChange={setStep}
-          onHeaderBackActionChange={handleHeaderBackActionChange}
-          settingsPlacement="screen-header"
-          headerSlot={headerSlot}
-          settingsOpen={settingsOpen}
-          onSettingsOpenChange={setSettingsOpen}
-          // Typing your own words is the plain way in; the conversation waits
-          // behind a button on that step for when the learner wants ideas.
-          entryStep="manual"
-          keyboardOpen={keyboardOpen}
-          active={active}
-          embedded
-          onCommitted={onCommitted}
-        />
+          {showTabs ? (
+            <div role="tablist" aria-label={t('addWords.title')} className="flex flex-wrap gap-2">
+              {tabs.map((tab) => {
+                const selected = tab.id === activeTab;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => selectTab(tab.id)}
+                    className={[
+                      'inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold',
+                      selected
+                        ? 'onboarding-option onboarding-option-highlight'
+                        : 'onboarding-option-secondary',
+                    ].join(' ')}
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              {headerBackAction ? (
+                <button
+                  type="button"
+                  onClick={headerBackAction}
+                  className="onboarding-option-secondary inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold"
+                >
+                  <span aria-hidden="true" className="text-base leading-none">←</span>
+                  <span>{t('wordChat.back')}</span>
+                </button>
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <WordChatProgress step={step} compact={keyboardOpen} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Both tabs stay mounted: a half-typed batch and an analyzed photo are
+            both work in progress, and swapping tabs is not a reason to throw
+            either away. */}
+        {/* The photo tab spends the whole window: a labelled picture is the
+            content there, and the lab caps and pads itself. Typing and the
+            conversation stay on a reading column. */}
+        {photoTab ? (
+          <div className={photoTabActive ? 'flex min-h-0 w-full flex-1 flex-col' : 'hidden'}>
+            {photoTab({ pickWords: pickPhotoWords })}
+          </div>
+        ) : null}
+        <div
+          className={[
+            'mx-auto w-full max-w-[800px] px-3 sm:px-4',
+            photoTabActive
+              ? 'hidden'
+              : fullHeight
+                ? 'flex min-h-0 flex-1 flex-col pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+                : 'flex flex-1 flex-col pb-[max(2rem,env(safe-area-inset-bottom))]',
+          ].join(' ')}
+        >
+          <WordChatFlow
+            key={`${languageFrom}\u0000${languageTo}`}
+            languageFrom={languageFrom}
+            languageTo={languageTo}
+            baseListId={baseListId}
+            refreshAfterCommit={refreshAfterCommit}
+            onLanguagePairChange={changeLanguagePair}
+            onDone={returnToStudyAfterDone}
+            onStepChange={setStep}
+            onHeaderBackActionChange={handleHeaderBackActionChange}
+            settingsPlacement="screen-header"
+            headerSlot={headerSlot}
+            settingsOpen={settingsOpen}
+            onSettingsOpenChange={setSettingsOpen}
+            // Typing your own words is the plain way in; the conversation and
+            // the photo lab are the other two tabs above.
+            entryStep="manual"
+            hostEntryTabs
+            offScreen={photoTabActive}
+            onEntryActionsChange={handleEntryActionsChange}
+            practiceOffer={practiceOffer}
+            restartSignal={restartSignal}
+            keyboardOpen={keyboardOpen}
+            active={active && !photoTabActive}
+            embedded
+            onCommitted={onCommitted}
+          />
+        </div>
       </section>
     </div>
   );

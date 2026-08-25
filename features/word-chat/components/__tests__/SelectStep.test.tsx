@@ -708,4 +708,187 @@ describe('SelectStep', () => {
 
     expect(onToggleAudioDisabled).toHaveBeenCalledExactlyOnceWith('custom:coffee');
   });
+
+  it('shows words picked off a photo in the same basket, translation and all', () => {
+    const onRemovePretranslated = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          titleInHost
+          listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[{ kind: 'word', text: 'káva' }]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          pretranslatedItems={[
+            { kind: 'word', textKnown: 'stůl', textTarget: 'cái bàn', audioHash: 'abc' },
+          ]}
+          onRemovePretranslated={onRemovePretranslated}
+          limits={limits}
+          selectedCount={2}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    // The screen around this step names it; a second heading would repeat it.
+    expect(screen.queryByRole('heading', { name: 'Add your own words' })).not.toBeInTheDocument();
+
+    // Both sides, because both are already written — unlike the typed word,
+    // which still has to go through the translator.
+    expect(screen.getByText('stůl')).toBeInTheDocument();
+    expect(screen.getByText('cái bàn')).toBeInTheDocument();
+    expect(screen.getByText('káva')).toBeInTheDocument();
+
+    const removals = screen.getAllByRole('button', { name: 'Remove' });
+    fireEvent.click(removals[removals.length - 1]);
+    expect(onRemovePretranslated).toHaveBeenCalledExactlyOnceWith('stůl\u0000cái bàn');
+  });
+
+  it('can continue with photo-only rows after the translation allowance is spent', () => {
+    const onContinue = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="vi"
+          registerApplies
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          pretranslatedItems={[
+            { kind: 'word', textKnown: 'stůl', textTarget: 'cái bàn', audioHash: 'abc' },
+          ]}
+          limits={{ ...limits, monthlyUsed: 60 }}
+          selectedCount={1}
+          translatedSelectionCount={0}
+          remainingSelections={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={0}
+          overMonthlyLimit={false}
+          atSelectionLimit
+          busy={false}
+          onContinue={onContinue}
+        />
+      </I18nProvider>,
+    );
+
+    const continueButton = screen.getByRole('button', { name: 'Translate and continue' });
+    expect(continueButton).toBeEnabled();
+    fireEvent.click(continueButton);
+    expect(onContinue).toHaveBeenCalledExactlyOnceWith([]);
+  });
+
+  it('stands its typing-field entries down while another tab is the one on screen', () => {
+    const headerSlot = document.createElement('div');
+    document.body.append(headerSlot);
+
+    const { rerender } = render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          titleInHost
+          headerSlot={headerSlot}
+          listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          onOpenSettings={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    // The menu lives in the screen header, which every tab shares.
+    expect(headerSlot).toContainElement(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    expect(screen.getByRole('menuitem', { name: 'Add several at once' })).toBeInTheDocument();
+
+    // The photo tab takes over: this step stays mounted with its draft, but its
+    // entry field is not on screen, so pasting a batch into it is not on offer.
+    rerender(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          titleInHost
+          headerSlot={headerSlot}
+          offScreen
+          listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          onOpenSettings={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    // The menu is the same one, still open — only what it offers has changed.
+    expect(screen.getByRole('menuitem', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Add several at once' })).not.toBeInTheDocument();
+
+    headerSlot.remove();
+  });
 });

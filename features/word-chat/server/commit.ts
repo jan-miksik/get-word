@@ -1,4 +1,6 @@
 import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import { isPlayableAudioAsset } from "@/lib/audio-assets";
+import { findMediaByHashes } from "@/lib/db";
 import { db } from "@/lib/db/client";
 import type { Executor } from "@/lib/db/queries/executor";
 import {
@@ -254,6 +256,26 @@ export async function commitWordChatSession(input: {
 
   const items = sanitizeReviewItems(request.items ?? []);
   if (items.length === 0) throw new WordChatCommitError("There is nothing to save.");
+
+  // Rows picked off a photo name their clip by content hash: the lab generated
+  // it and never learned the asset id. Resolving it here is what keeps those
+  // words audible instead of silently re-voiced later.
+  const hashesToResolve = [
+    ...new Set(
+      items
+        .filter((item) => !item.audioAssetId)
+        .map((item) => item.audioHash)
+        .filter((hash): hash is string => Boolean(hash)),
+    ),
+  ];
+  const assetIdByHash = new Map<string, string>();
+  if (hashesToResolve.length > 0) {
+    for (const [hash, asset] of await findMediaByHashes(hashesToResolve)) {
+      if (isPlayableAudioAsset(asset)) assetIdByHash.set(hash, asset.id);
+    }
+  }
+  const audioAssetIdFor = (item: ReviewItem): string | null =>
+    item.audioAssetId ?? (item.audioHash ? assetIdByHash.get(item.audioHash) ?? null : null);
 
   const categoryName = request.categoryName?.trim().slice(0, 60) || "My words";
   // The category is editable and may contain a name; only the dedicated,
@@ -518,9 +540,9 @@ export async function commitWordChatSession(input: {
             notes: takeover?.notes ?? null,
             comment: takeover?.comment ?? null,
             translationStatus: "translated" as const,
-            audioAssetId: item.audioAssetId ?? takeover?.audioAssetId ?? null,
+            audioAssetId: audioAssetIdFor(item) ?? takeover?.audioAssetId ?? null,
             audioStatus:
-              item.audioAssetId || takeover?.audioAssetId
+              audioAssetIdFor(item) || takeover?.audioAssetId
                 ? ("ready" as const)
                 : ("none" as const),
             knownAudioAssetId:

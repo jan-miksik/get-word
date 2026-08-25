@@ -20,7 +20,16 @@ import {
 
 export { MAX_SEGMENT_MS };
 
-export const IDLE_TIMEOUT_MS = 60_000;
+/**
+ * How long after the last interaction time keeps accruing.
+ *
+ * This is the whole defence against a tab left open: a focused, visible page
+ * with nobody in front of it stops counting half a minute after the last real
+ * action, and starts again on the next one. It is deliberately one number for
+ * the whole app — the minutes countdown the learner watches has to be the same
+ * time the server stores, or the clock and the record would disagree.
+ */
+export const IDLE_TIMEOUT_MS = 30_000;
 export const TICK_MS = 5_000;
 export const SESSION_GAP_MS = 30 * 60_000;
 export const CLOCK_SLIP_TOLERANCE_MS = 5_000;

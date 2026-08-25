@@ -656,6 +656,68 @@ describe('useWordChat', () => {
     expect(result.current.selectedCount).toBe(1);
   });
 
+  it('shares the session cap with photo rows without charging them to the monthly allowance', async () => {
+    const { result } = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          entryStep: 'manual',
+          onCommitted: vi.fn(),
+        }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    act(() => result.current.addPretranslatedItems(
+      Array.from({ length: 29 }, (_, index) => ({
+        textKnown: `known ${index}`,
+        textTarget: `target ${index}`,
+      })),
+    ));
+
+    expect(result.current.selectedCount).toBe(29);
+    expect(result.current.translatedSelectionCount).toBe(0);
+    expect(result.current.remainingSelections).toBe(1);
+
+    act(() => result.current.addCustomItem('last translated row'));
+    expect(result.current.selectedCount).toBe(30);
+    expect(result.current.atHardCap).toBe(true);
+
+    act(() => result.current.addCustomItem('does not fit'));
+    expect(result.current.selectedCount).toBe(30);
+  });
+
+  it('keeps an edited photo pair edited when returning through selection', async () => {
+    const { result } = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          entryStep: 'manual',
+          onCommitted: vi.fn(),
+        }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    act(() => result.current.addPretranslatedItems([
+      { textKnown: 'káva', textTarget: 'cà phê', audioHash: 'old-clip' },
+    ]));
+    await act(() => result.current.continueToReview());
+    act(() => result.current.updateReviewItem(0, { textTarget: 'cà phê sữa' }));
+    act(() => result.current.backToSelect());
+    await act(() => result.current.continueToReview());
+
+    expect(result.current.reviewItems).toHaveLength(1);
+    expect(result.current.reviewItems[0]).toMatchObject({
+      textKnown: 'káva',
+      textTarget: 'cà phê sữa',
+      audioHash: null,
+      audioStatus: 'idle',
+    });
+  });
+
   it('keeps a selected proposal selected when its text is edited', async () => {
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),

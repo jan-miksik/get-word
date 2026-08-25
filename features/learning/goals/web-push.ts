@@ -19,33 +19,137 @@ function base64UrlToApplicationServerKey(value: string): ArrayBuffer {
   return Uint8Array.from(decoded, (character) => character.charCodeAt(0)).buffer as ArrayBuffer;
 }
 
-function isWebPushAvailable(): boolean {
+/**
+ * What this browser can actually do with reminders — asked of the platform, one
+ * capability at a time, and never of the user agent string.
+ *
+ * The distinction that matters is between notifications and *push*: a browser
+ * can implement the Notification API perfectly and still refuse to hand out a
+ * push subscription (Brave ships with Google's push service switched off, and a
+ * deployment with no VAPID key configured is in the same position). That is not
+ * "this device does not support notifications", and telling the learner so was
+ * wrong — permission still works, and reminders still fire while the app is
+ * open, so the screen must offer them.
+ */
+export type ReminderCapability =
+  /** A native notification port is installed (the iOS/Android shells). */
+  | 'native'
+  /** Notifications and a usable push subscription path both look present. */
+  | 'web-push'
+  /** Notifications work; nothing here can deliver them in the background. */
+  | 'local-only'
+  /** Notifications need https; this page is not in a secure context. */
+  | 'insecure-context'
+  /** No Notification API at all. */
+  | 'unsupported';
+
+function hasNotificationApi(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
+function pushSubscriptionLooksAvailable(): boolean {
   return typeof window !== 'undefined'
-    && window.isSecureContext
     && 'serviceWorker' in navigator
     && 'PushManager' in window
-    && 'Notification' in window
     && vapidPublicKey() !== null;
 }
 
-export type WebPushSubscriptionResult = 'subscribed' | 'unsupported' | 'denied';
-export type StudyReminderPermissionResult = 'granted' | 'unsupported' | 'denied';
+/**
+ * Read-only probe. Never prompts, so it is safe to call during render — the
+ * verdict it returns is "what could work", not "what the learner has allowed".
+ */
+export function detectReminderCapability(hasNativePort = false): ReminderCapability {
+  if (hasNativePort) return 'native';
+  if (typeof window === 'undefined') return 'unsupported';
+  if (!hasNotificationApi()) return 'unsupported';
+  // Checked after the API test on purpose: a browser without notifications at
+  // all is unsupported whatever the origin, and http://localhost counts as a
+  // secure context, so this only fires on a genuinely insecure page.
+  if (!window.isSecureContext) return 'insecure-context';
+  return pushSubscriptionLooksAvailable() ? 'web-push' : 'local-only';
+}
+
+export type WebPushSubscriptionResult =
+  | 'subscribed'
+  /** Notifications are allowed, but no push subscription could be created. */
+  | 'push-unavailable'
+  | 'unsupported'
+  | 'denied';
+
+export type StudyReminderPermissionResult =
+  /** Allowed, and this device can be reached while the app is closed. */
+  | 'granted'
+  /** Permission exists, but this app has no delivery transport on this device. */
+  | 'granted-local'
+  /** The learner said no, or the site is blocked in browser settings. */
+  | 'denied'
+  /** The prompt was closed without an answer; asking again is allowed. */
+  | 'dismissed'
+  | 'insecure-context'
+  | 'unsupported';
+
+/** Whether a result has a real delivery path and may be persisted as enabled. */
+export function reminderPermissionEnablesReminders(
+  result: StudyReminderPermissionResult,
+): boolean {
+  return result === 'granted';
+}
+
+/**
+ * `navigator.serviceWorker.ready` never rejects: on a page whose worker failed
+ * to register it simply waits forever, which would leave the enable button
+ * spinning with no way out. Time it out and treat that as "no push here".
+ */
+async function readyServiceWorker(timeoutMs = 5000): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((resolve) => {
+        timer = window.setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer);
+  }
+}
 
 /** Must be called from a direct settings interaction because browsers reject
  * notification permission prompts not initiated by a user gesture. */
-export async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResult> {
-  if (!isWebPushAvailable()) return 'unsupported';
+async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResult> {
+  const capability = detectReminderCapability();
+  if (capability === 'unsupported' || capability === 'insecure-context') return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
   if (Notification.permission === 'default') {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return 'denied';
   }
-  const registration = await navigator.serviceWorker.ready;
+  if (capability === 'local-only') {
+    if (!vapidPublicKey()) {
+      console.warn(
+        '[reminders] NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY is not set, so this build cannot create push subscriptions.',
+      );
+    }
+    return 'push-unavailable';
+  }
+  const registration = await readyServiceWorker();
+  if (!registration) return 'push-unavailable';
   const existing = await registration.pushManager.getSubscription();
-  const subscription = existing ?? await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: base64UrlToApplicationServerKey(vapidPublicKey()!),
-  });
+  // Brave (and any browser whose push service is switched off) rejects here
+  // rather than missing the API, so the failure is only discoverable by trying.
+  let subscription = existing;
+  if (!subscription) {
+    try {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToApplicationServerKey(vapidPublicKey()!),
+      });
+    } catch (error) {
+      console.warn('[reminders] this browser refused a push subscription:', error);
+      return 'push-unavailable';
+    }
+  }
   const response = await apiFetch('/api/goals/push-subscription', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -55,24 +159,50 @@ export async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResu
   return 'subscribed';
 }
 
-/** One user-gesture entrypoint for native notification ports and browser Push. */
+/**
+ * One user-gesture entrypoint for native notification ports and browser Push.
+ *
+ * Returns why it could not be granted rather than a blanket "unsupported": the
+ * four outcomes ask for four different things from the learner, and only one of
+ * them is about the device being incapable.
+ */
 export async function requestStudyReminderPermission(): Promise<StudyReminderPermissionResult> {
   if (await requestReminderPermission()) return 'granted';
+
+  const capability = detectReminderCapability();
+  if (capability === 'unsupported') return 'unsupported';
+  if (capability === 'insecure-context') return 'insecure-context';
+
+  // Asked before subscribing so a closed prompt ("default" afterwards) can be
+  // told apart from an explicit no.
+  if (Notification.permission === 'denied') return 'denied';
+  if (Notification.permission === 'default') {
+    const permission = await Notification.requestPermission();
+    if (permission === 'denied') return 'denied';
+    if (permission !== 'granted') return 'dismissed';
+  }
+
   const webResult = await subscribeToStudyWebPush();
-  return webResult === 'subscribed' ? 'granted' : webResult;
+  if (webResult === 'subscribed') return 'granted';
+  if (webResult === 'denied') return 'denied';
+  // Permission alone cannot deliver anything. The UI explains the missing
+  // transport and persists reminders as disabled instead of promising a local
+  // notification scheduler the web runtime does not have.
+  return 'granted-local';
 }
 
 /** Reconnect a previously granted browser permission when this device returns
  * to the app. Unlike `subscribeToStudyWebPush` it will never open a prompt. */
 export async function syncGrantedStudyWebPush(): Promise<WebPushSubscriptionResult> {
-  if (!isWebPushAvailable()) return 'unsupported';
+  if (detectReminderCapability() !== 'web-push') return 'unsupported';
   if (Notification.permission !== 'granted') return 'denied';
   return subscribeToStudyWebPush();
 }
 
 export async function unsubscribeFromStudyWebPush(): Promise<void> {
-  if (!isWebPushAvailable()) return;
-  const registration = await navigator.serviceWorker.ready;
+  if (detectReminderCapability() !== 'web-push') return;
+  const registration = await readyServiceWorker();
+  if (!registration) return;
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return;
   const response = await apiFetch('/api/goals/push-subscription', {

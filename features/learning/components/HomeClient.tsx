@@ -10,7 +10,11 @@ import { usePressHandlers } from '@/features/learning/hooks/usePressHandlers';
 import { useLearningRenderers } from '@/features/learning/hooks/useLearningRenderers';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import { useSessionBreather } from '@/features/learning/session/useSessionBreather';
+import { useTimePhase } from '@/features/learning/session/useTimePhase';
+import { setActivitySurfaceOverride } from '@/lib/activity/runtime';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
+import { SessionPreflightCard } from '@/features/learning/components/SessionPreflightCard';
+import { planSessionPreflight } from '@/features/learning/session/preflight';
 import { useAppState } from '@/hooks/useAppState';
 import {
   getAvailableCategories,
@@ -39,8 +43,14 @@ import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro
 import { FeatureTour } from '@/features/learning/onboarding/FeatureTour';
 import { useFeatureTour } from '@/features/learning/onboarding/useFeatureTour';
 import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsPrompt';
-import { useAppSurface } from '@/features/workspace/public.client';
-import { migrateDraftToLanguagePair } from '@/features/word-chat/client/storage';
+import { QuickPracticeOffer } from '@/features/learning/quick-practice/QuickPracticeOffer';
+import { QuickPracticeRun } from '@/features/learning/quick-practice/QuickPracticeRun';
+import { useQuickPractice } from '@/features/learning/quick-practice/useQuickPractice';
+import { useAppSurface, type AppSurface } from '@/features/workspace/public.client';
+import {
+  migrateDraftToLanguagePair,
+  readAddWordsTab,
+} from '@/features/word-chat/client/storage';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 import { useBackgroundTargetAudioRepair } from '@/features/learning/hooks/useBackgroundTargetAudioRepair';
 import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list-selection';
@@ -48,12 +58,22 @@ import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
 import { useStudyCountdown } from '@/features/learning/goals/useStudyCountdown';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
-import { type StudyGoalVersion, type StudyPacing } from '@/packages/domain/goals/goal';
+import {
+  normalizeGoalWeekdays,
+  type StudyGoalVersion,
+  type StudyPacing,
+} from '@/packages/domain/goals/goal';
 import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
 import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
 import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
 import { StudyReminderOnboarding } from '@/features/learning/onboarding/StudyReminderOnboarding';
-import { hasConfiguredGoal, resolveLearningOnboardingStep } from '@/features/learning/onboarding/flow';
+import {
+  applyOnboardingBack,
+  hasConfiguredGoal,
+  onboardingBackTarget,
+  resolveLearningOnboardingStep,
+  type LearningOnboardingStep,
+} from '@/features/learning/onboarding/flow';
 import { LanguageLevelOnboarding } from '@/features/learning/onboarding/LanguageLevelOnboarding';
 import { useLanguageLevelStep } from '@/features/learning/onboarding/useLanguageLevelStep';
 import { unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
@@ -135,6 +155,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // to keep going through the repeats it deliberately left out.
   const [continueAnyway, setContinueAnyway] = useState(false);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
+  const [preflightDismissed, setPreflightDismissed] = useState(false);
   const [addWordsPromptDismissedForSession, setAddWordsPromptDismissedForSession] =
     useState(false);
   // Completing onboarding updates the language preference synchronously, but
@@ -218,6 +239,24 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     returnToStudy,
     visitedSurfaces,
   } = useAppSurface(photoLabEnabled);
+  // "Add words" reopens on the way in the learner used last. Only the two
+  // addresses are decided here — typing versus the conversation is settled
+  // inside the screen, which is the only place that knows whether a draft is
+  // waiting. Offers that name a way in ("take a photo", "add similar words")
+  // still override it: they were asked for by name.
+  const openAddWords = useCallback(() => {
+    navigateSurface(readAddWordsTab() === 'photo' && photoLabEnabled ? 'photo' : 'chat');
+  }, [navigateSurface, photoLabEnabled]);
+  // The menu's own switcher goes through the same door: "Add your own words"
+  // there names the errand, not a tab, so it should land where the learner was
+  // working last. Asking for the photo tab by name still means the photo tab.
+  const changeSurface = useCallback(
+    (surface: AppSurface) => {
+      if (surface === 'chat') openAddWords();
+      else navigateSurface(surface);
+    },
+    [navigateSurface, openAddWords],
+  );
   const activeListMatchesLearningPair = Boolean(
     appState.activeList &&
       learningLanguageFrom &&
@@ -309,7 +348,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     enabled: boolean;
     localMinutes: number;
   }) => {
-    if (isSavingReminderOnboarding) return;
+    if (isSavingReminderOnboarding) return false;
     setIsSavingReminderOnboarding(true);
     try {
       await syncUserData({
@@ -320,6 +359,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       if (!enabled) await unsubscribeFromStudyWebPush();
       await refreshGoalSummary();
       window.dispatchEvent(new Event('get-word:reschedule-reminders'));
+      return true;
+    } catch (error) {
+      console.error('[study-goal] failed to save reminder onboarding:', error);
+      return false;
     } finally {
       setIsSavingReminderOnboarding(false);
     }
@@ -404,6 +447,29 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     onSaved: refreshFullSnapshot,
   }), [learningLanguageFrom, learningLanguageTo, personalListIds, refreshFullSnapshot]);
 
+  // A minutes goal is measured by its countdown instead of by the item rails.
+  // The budget is the day's own resolved one, so a goal edited today cannot
+  // rewrite a day already under way, and the bonus round past the plan keeps
+  // the item rails: its time was never budgeted, so counting it down would only
+  // ever draw an empty clock.
+  const sessionTimeGoal = useMemo(() => {
+    if (continueAnyway) return null;
+    if (!goalSummary?.goal.active?.enabled) return null;
+    if (!goalDay || goalDay.goalMode !== 'minutes' || goalDay.goalStatus !== 'active') return null;
+    const minutes = goalDay.resolvedMinutesBudget ?? goalDay.goalMinutes ?? 0;
+    if (minutes <= 0) return null;
+    return {
+      dayKey: goalDay.dayKey,
+      // The summary's own zone, so the client buckets measured time under the
+      // same day key the server drew that day in.
+      timezone: goalSummary.timezone,
+      budgetMs: minutes * 60_000,
+      serverActiveMs: goalDay.activeMs,
+    };
+  }, [continueAnyway, goalDay, goalSummary]);
+  // On a minutes day the clock, not the card count, is what moves the session
+  // from repeats to new words and on to the closing stretch.
+  const sessionTimePhase = useTimePhase(sessionTimeGoal);
   const {
     showNotReady,
     setShowNotReady,
@@ -439,6 +505,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     sessionScopeKey: `pair:${normalizeLanguageCode(learningLanguageFrom ?? 'unknown')}:${normalizeLanguageCode(learningLanguageTo ?? 'unknown')}`,
     pendingAnswers,
     continueAnyway,
+    timePhase: sessionTimePhase,
     dayTargets: goalDay ? {
       resolvedNewTarget: goalDay.resolvedNewTarget,
       resolvedReviewTarget: goalDay.resolvedReviewTarget,
@@ -595,6 +662,21 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     />
   ) : null;
 
+  // A batch of new words is worth a minute of play before the next batch, so
+  // saving offers one — three or four rounds of an existing minigame, no
+  // progress written — and drops the learner back on an empty add-words screen
+  // afterwards.
+  const [addWordsRestartSignal, setAddWordsRestartSignal] = useState(0);
+  const restartAddWords = useCallback(
+    () => setAddWordsRestartSignal((signal) => signal + 1),
+    [],
+  );
+  const quickPractice = useQuickPractice({
+    words: allSyncedWords ?? EMPTY_WORDS,
+    onRestartAddWords: restartAddWords,
+  });
+  const setQuickPracticeTarget = quickPractice.setTarget;
+
   const shouldShowAddWordsPrompt = useMemo(
     () =>
       !addWordsPromptDismissedForSession &&
@@ -614,7 +696,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const addWordsPrompt = shouldShowAddWordsPrompt ? (
     <AddPersonalWordsPrompt
       onAddWords={() => {
-        navigateSurface('chat');
+        openAddWords();
       }}
       onDismiss={() => setAddWordsPromptDismissedForSession(true)}
     />
@@ -627,7 +709,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // The session flow drives both edge rails and the pause between blocks. The
   // breather takes the interstitial slot ahead of every other card: it is the
   // seam in the learner's own session, so nothing else should cut in front.
-  const sessionFlow = useMemo(() => resolveSessionFlow(sessionBlockProgress), [sessionBlockProgress]);
+  const sessionFlow = useMemo(() => resolveSessionFlow(sessionBlockProgress, sessionTimePhase), [sessionBlockProgress, sessionTimePhase]);
   // Carrying on past the day still deserves a sense of how far the stretch runs.
   // The bonus round has its own frozen plan, so it gets its own rail; the day's
   // own flow keeps driving the breather and the closing card either way.
@@ -646,6 +728,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     goalDay,
     (goalSummary?.goal.active as StudyGoalVersion | null | undefined) ?? null,
     Boolean(goalSummary?.goal.active?.enabled) && sessionFlow.complete,
+    goalSummary?.timezone,
   );
   const sessionBreatherCard = breather ? (
     <SessionBreatherCard
@@ -657,9 +740,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       // and it has to agree with the Upcoming panel, which counts them live.
       extraReviewCount={continueAnyway ? 0 : dueNowCount}
       result={dayResult}
+      showDayProgress={!sessionTimeGoal}
       onAddWords={() => {
         dismissBreather();
-        navigateSurface('chat');
+        openAddWords();
       }}
       onContinueExtra={() => {
         setContinueAnyway(true);
@@ -668,8 +752,43 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     />
   ) : null;
 
+  // Before the day's first card, and only there: the clock now credits studying
+  // alone, so a trip to the chat mid-session costs the learner the trip. If the
+  // plan already knows the lists cannot fill the day, say so while it is free.
+  const preflight = useMemo(
+    () =>
+      planSessionPreflight({
+        plan: session.dailyPlan,
+        goalEnabled: Boolean(goalSummary?.goal.active?.enabled),
+        goalStatus: goalDay?.goalStatus ?? null,
+        // The live plan, not the server rollup: the summary lags a sync behind,
+        // and this card must disappear on the first answer.
+        answeredToday: sessionFlow.dayDone + sessionFlow.dayPending,
+        dismissed: preflightDismissed || continueAnyway,
+      }),
+    [
+      continueAnyway,
+      goalDay?.goalStatus,
+      goalSummary?.goal.active?.enabled,
+      preflightDismissed,
+      session.dailyPlan,
+      sessionFlow.dayDone,
+      sessionFlow.dayPending,
+    ],
+  );
+  const preflightCard = preflight ? (
+    <SessionPreflightCard
+      preflight={preflight}
+      onAddWords={() => {
+        setPreflightDismissed(true);
+        openAddWords();
+      }}
+      onStartAnyway={() => setPreflightDismissed(true)}
+    />
+  ) : null;
+
   const interstitialCard =
-    sessionBreatherCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
+    sessionBreatherCard ?? preflightCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
   const hasNoSelectedWordList = Boolean(
     onboardingCompletedAt &&
       learningLanguageFrom &&
@@ -684,7 +803,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     languageFrom: learningLanguageFrom ?? null,
     languageTo: learningLanguageTo ?? null,
   });
-  const onboardingStep = resolveLearningOnboardingStep({
+  const resolvedOnboardingStep = resolveLearningOnboardingStep({
     forceLanguage: forceOnboarding,
     hasNoSelectedWordList,
     onboardingCompleted: Boolean(onboardingCompletedAt),
@@ -695,15 +814,57 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     hasConfiguredGoal: hasConfiguredGoal(goalSummary?.goal),
     reminderOnboardingAnswered: goalSummary?.reminder.onboardingAnswered ?? false,
   });
+  // Where Back has sent the learner, if anywhere. Every step reads its saved
+  // answer, so going back shows what they chose rather than a blank card; the
+  // override is dropped the moment a step is submitted, which is what lets the
+  // stored answers take the flow forward again.
+  const [onboardingBackStep, setOnboardingBackStep] = useState<LearningOnboardingStep | null>(null);
+  const onboardingStep = applyOnboardingBack(resolvedOnboardingStep, onboardingBackStep);
   const needsLanguageOnboarding = onboardingStep === 'language';
   const needsLanguageLevel = onboardingStep === 'level';
   const needsStudyGoal = onboardingStep === 'goal';
   const needsReminderOnboarding = onboardingStep === 'reminder';
   const needsFirstWords = onboardingStep === 'words';
+  const onboardingSurfaceActive =
+    needsLanguageOnboarding ||
+    needsLanguageLevel ||
+    needsStudyGoal ||
+    needsReminderOnboarding ||
+    needsFirstWords;
+  // These screens all render in place on `/`. Without an override the router
+  // calls every one of them `study`, including the reminder form and the first
+  // word-chat run after a minutes goal has already been saved.
+  useEffect(() => {
+    setActivitySurfaceOverride(
+      onboardingSurfaceActive
+        ? 'onboarding'
+        : activeSurface === 'chat'
+          ? 'word_chat'
+          : activeSurface === 'photo'
+            ? 'photo_lab'
+            : null,
+    );
+    return () => setActivitySurfaceOverride(null);
+  }, [activeSurface, onboardingSurfaceActive]);
   // Everything from the languages to the first list is one run of setup, and
   // the progress bar belongs to that run only — not to an existing learner who
   // reopened a screen from the menu.
   const isSettingUp = hasNoSelectedWordList || !onboardingCompletedAt;
+  const backTarget = onboardingBackTarget(onboardingStep, { isSettingUp });
+  const leaveLanguageScreen = isSettingUp
+    ? undefined
+    : () => {
+        setForceWordChat(false);
+        setForceOnboarding(false);
+      };
+  // A scheduled change is what the learner last chose, so it — not the running
+  // version — is what the goal step reopens on.
+  const editableGoal = goalSummary?.goal.pending ?? goalSummary?.goal.active ?? null;
+  const goToPreviousOnboardingStep = backTarget
+    ? () => setOnboardingBackStep(backTarget)
+    : undefined;
+  /** Hand the flow back to the stored answers, which now point forwards. */
+  const leaveOnboardingStep = () => setOnboardingBackStep(null);
   const landingPairFrom = landingLanguagePair?.from ?? null;
   const landingPairTo = landingLanguagePair?.to ?? null;
   const hasCompleteLandingPair = Boolean(
@@ -727,6 +888,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
    * the last step, where the chat has just created the learner's first list.
    */
   const completeLanguagePair = useCallback(async (from: string, to: string) => {
+    setOnboardingBackStep(null);
     setIsOnboardingHandoffPending(true);
     try {
       await setLearningLanguages(from, to);
@@ -801,15 +963,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
             onSignOut={signOut}
             autoOpenWordChat={forceWordChat}
             // Only someone who is already set up can walk away from this screen;
-            // for everyone else it is the required first step.
-            onExit={
-              isSettingUp
-                ? undefined
-                : () => {
-                    setForceWordChat(false);
-                    setForceOnboarding(false);
-                  }
-            }
+            // for everyone else it is the required first step. For them Back is
+            // that same exit — there is no earlier step to return to, but a
+            // screen opened from the menu must still be closable.
+            onExit={leaveLanguageScreen}
+            onBack={leaveLanguageScreen}
             onComplete={completeLanguagePair}
             onSelectList={setActiveListId}
           />
@@ -820,21 +978,46 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
             targetLanguage={learningLanguageTo}
             initialLevel={languageLevelStep.level}
             pending={languageLevelStep.saving}
-            onSubmit={(level) => void languageLevelStep.save(level)}
+            onBack={goToPreviousOnboardingStep}
+            onSubmit={(level) => {
+              leaveOnboardingStep();
+              void languageLevelStep.save(level);
+            }}
           />
         ) : needsStudyGoal ? (
           <StudyGoalSetupCard
+            // The picker snapshots `initial` on mount, so the key has to change
+            // with the stored goal: coming back to this step after saving one
+            // must show what was saved, not the defaults.
+            key={`goal-${goalSummary?.goal.revision ?? 'new'}`}
             pacing={goalPacing}
             pending={isSavingStudyGoal}
             showProgress={isSettingUp}
-            onSave={(value) => void saveStudyGoal(value)}
+            initial={editableGoal ? {
+              mode: editableGoal.mode,
+              daysPerWeek: editableGoal.daysPerWeek,
+              weekdays: normalizeGoalWeekdays(editableGoal.weekdays) ?? undefined,
+              minutesPerDay: editableGoal.minutesPerDay,
+              newWordsPerDay: editableGoal.newWordsPerDay ?? 5,
+            } : undefined}
+            onBack={goToPreviousOnboardingStep}
+            onSave={(value) => {
+              void saveStudyGoal(value).then((saved) => {
+                if (saved) leaveOnboardingStep();
+              });
+            }}
           />
         ) : needsReminderOnboarding ? (
           <StudyReminderOnboarding
             initialMinutes={goalSummary?.reminder.localMinutes ?? 19 * 60}
             pending={isSavingReminderOnboarding}
             showProgress={isSettingUp}
-            onComplete={(value) => void completeReminderOnboarding(value)}
+            onBack={goToPreviousOnboardingStep}
+            onComplete={(value) => {
+              void completeReminderOnboarding(value).then((saved) => {
+                if (saved) leaveOnboardingStep();
+              });
+            }}
           />
         ) : needsFirstWords ? (
           // The last step: the chat now knows the languages, the level, and how
@@ -848,6 +1031,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
             initialTo={onboardingInitialTo}
             accountEmail={displayEmail}
             onSignOut={signOut}
+            onBack={goToPreviousOnboardingStep}
+            // The chat opens straight away here, so its own back control is the
+            // one the learner sees; leaving the chat at its first question means
+            // stepping back to the reminder rather than to an empty screen.
+            onExit={goToPreviousOnboardingStep}
             onComplete={completeLanguagePair}
             onSelectList={setActiveListId}
           />
@@ -865,7 +1053,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               school={school}
               authAddress={displayAddress}
               onSignOut={signOut}
-              onOpenWordChat={() => navigateSurface('chat')}
+              onOpenWordChat={openAddWords}
               onOpenPhotoLab={() => navigateSurface('photo')}
               learningLanguagePair={
                 learningLanguageFrom && learningLanguageTo
@@ -876,52 +1064,94 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               photoLabAvailable={photoLabEnabled}
               onLearningLanguagePairChange={changeLearningLanguagePair}
               activeSurface={activeSurface}
-              onSurfaceChange={navigateSurface}
+              onSurfaceChange={changeSurface}
               chatContent={
-                visitedSurfaces.has('chat') ? (
-                  <AddWordsScreen
-                    languageFrom={learningLanguageFrom as string}
-                    languageTo={learningLanguageTo as string}
-                    baseListId={
-                      activeListMatchesLearningPair &&
-                      !appState.activeList?.isOwnedPersonal
-                        ? appState.activeListId
-                        : null
-                    }
-                    refreshAfterCommit={refreshFullSnapshot}
-                    onLanguagePairChange={changeLearningLanguagePair}
-                    onClose={returnToStudy}
-                    active={activeSurface === 'chat'}
-                    onCommitted={(result) => {
-                      // Normally personal words overlay the current base list,
-                      // so keep studying that base. After a pair change with no
-                      // existing matching list, the newly created personal list
-                      // is the first valid study surface for the new pair.
-                      if (!activeListMatchesLearningPair) setActiveListId(result.listId);
-                    }}
-                  />
-                ) : undefined
-              }
-              photoContent={
-                visitedSurfaces.has('photo') && photoLabEnabled ? (
-                  <div className={photoDisplayFontClass ?? ''}>
-                    <PhotoLabPage
-                      onClose={returnToStudy}
-                      variant="embedded"
-                      active={activeSurface === 'photo'}
-                      languageFrom={learningLanguageFrom as string}
-                      languageTo={learningLanguageTo as string}
-                      onLanguagePairChange={changeLearningLanguagePair}
-                      onSavedToList={(result) => {
-                        // Same rule as the word chat: personal words overlay
-                        // the current base list, so keep studying it — unless
-                        // it belongs to another pair, in which case the list
-                        // just saved into is the only surface showing them.
-                        if (!activeListMatchesLearningPair) setActiveListId(result.listId);
-                        void refreshFullSnapshot();
-                      }}
-                    />
-                  </div>
+                visitedSurfaces.has('chat') || visitedSurfaces.has('photo') ? (
+                  <>
+                    {/* Kept mounted behind the practice rather than swapped out:
+                        the run is a detour from this screen, and remounting it
+                        afterwards would throw away the settings modal, the
+                        scroll position and the freshly restored draft. */}
+                    <div
+                      className={
+                        quickPractice.method ? 'hidden' : 'flex min-h-0 w-full flex-1 flex-col'
+                      }
+                    >
+                      <AddWordsScreen
+                        languageFrom={learningLanguageFrom as string}
+                        languageTo={learningLanguageTo as string}
+                        baseListId={
+                          activeListMatchesLearningPair &&
+                          !appState.activeList?.isOwnedPersonal
+                            ? appState.activeListId
+                            : null
+                        }
+                        refreshAfterCommit={refreshFullSnapshot}
+                        onLanguagePairChange={changeLearningLanguagePair}
+                        onClose={returnToStudy}
+                        active={activeSurface !== 'study' && !quickPractice.method}
+                        photoTabAvailable={photoLabEnabled}
+                        photoTabActive={activeSurface === 'photo'}
+                        // Tabs replace the surface rather than pushing onto it:
+                        // Back belongs to "leave adding words", not to a walk
+                        // through every tab the learner tried on the way.
+                        onTabChange={(tab) =>
+                          replaceSurface(tab === 'photo' ? 'photo' : 'chat')
+                        }
+                        photoTab={
+                          visitedSurfaces.has('photo') && photoLabEnabled
+                            ? ({ pickWords }) => (
+                                <div className={photoDisplayFontClass ?? ''}>
+                                  <PhotoLabPage
+                                    variant="embedded"
+                                    active={activeSurface === 'photo'}
+                                    hideLanguagePair
+                                    languageFrom={learningLanguageFrom as string}
+                                    languageTo={learningLanguageTo as string}
+                                    onLanguagePairChange={changeLearningLanguagePair}
+                                    // The lab no longer saves anything of its
+                                    // own here: the picked pairs go into the
+                                    // add-words basket and are saved once, with
+                                    // everything else in the batch.
+                                    onPickWords={pickWords}
+                                  />
+                                </div>
+                              )
+                            : undefined
+                        }
+                        restartSignal={addWordsRestartSignal}
+                        practiceOffer={
+                          quickPractice.methods.length > 0 ? (
+                            <QuickPracticeOffer
+                              methods={quickPractice.methods}
+                              onStart={quickPractice.start}
+                            />
+                          ) : undefined
+                        }
+                        onCommitted={(result) => {
+                          // Normally personal words overlay the current base list,
+                          // so keep studying that base. After a pair change with no
+                          // existing matching list, the newly created personal list
+                          // is the first valid study surface for the new pair.
+                          if (!activeListMatchesLearningPair) setActiveListId(result.listId);
+                          setQuickPracticeTarget({
+                            listId: result.listId,
+                            categoryId: result.categoryId,
+                          });
+                        }}
+                      />
+                    </div>
+                    {quickPractice.method ? (
+                      <QuickPracticeRun
+                        method={quickPractice.method}
+                        words={quickPractice.fresh}
+                        pool={quickPractice.pool}
+                        role={role}
+                        seed={quickPractice.seed}
+                        onFinish={quickPractice.finish}
+                      />
+                    ) : null}
+                  </>
                 ) : undefined
               }
               categories={categories}
@@ -945,6 +1175,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               isSwipeBlockedForWord={isTypingCard}
               streamGroups={streamGroups}
               sessionFlow={railFlow}
+              sessionTimeGoal={sessionTimeGoal}
               renderCardForDeck={renderCardForDeck}
               renderMiniGameForDeck={renderMiniGameForDeck}
               renderCard={renderCard}

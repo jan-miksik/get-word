@@ -5,11 +5,11 @@ import { useI18n } from '@/components/I18nProvider';
 
 const MINUTE_STEPS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
-export function formatStudyTime(minutes: number): string {
+function formatStudyTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
-export function parseStudyTime(value: string): number | null {
+function parseStudyTime(value: string): number | null {
   const [hours, minutes] = value.split(':').map(Number);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
   const total = hours * 60 + minutes;

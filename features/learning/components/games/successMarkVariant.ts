@@ -7,10 +7,8 @@
  */
 export const SUCCESS_MARK_ANIMATIONS = ['pop', 'stamp', 'drop', 'draw', 'bloom'] as const;
 
-export const SUCCESS_MARK_SKINS = ['green', 'solid', 'ink', 'gold', 'accent'] as const;
-
 export type SuccessMarkAnimation = (typeof SUCCESS_MARK_ANIMATIONS)[number];
-export type SuccessMarkSkin = (typeof SUCCESS_MARK_SKINS)[number];
+export type SuccessMarkSkin = 'green' | 'solid' | 'ink' | 'gold' | 'accent';
 
 /** Used only when an explicit development-gallery prop is invalid. */
 export const FALLBACK_ANIMATION: SuccessMarkAnimation = 'pop';

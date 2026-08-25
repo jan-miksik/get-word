@@ -7,11 +7,15 @@ import { useI18n } from '@/components/I18nProvider';
  *
  * Emptying the deck used to end in the words "All done!" and nothing else,
  * which is a dead end at exactly the moment someone still wants to study. So
- * this screen always carries the ways forward instead: practise the words that
- * are settling in before their next repeat, add new ones, or photograph
- * something and name it. The headline can be overridden for the cases that are
- * not really "done" — an empty filter, for instance — so those get the same
- * exits rather than their own dead end.
+ * this screen always carries a way forward: add new words. The headline can be
+ * overridden for the cases that are not really "done" — an empty filter, for
+ * instance — so those get the same exit rather than their own dead end.
+ *
+ * Practising the words that are still settling used to be offered here as a
+ * third button. It went: pulling words forward before their interval is due is
+ * the one exit that works against the schedule, and offering it beside "add
+ * words" made it look like an equal choice. Stream mode still lists them behind
+ * `SettlingWordsFooter` for anyone who deliberately goes looking.
  *
  * An emptied deck is not the same as an empty backlog. The day's plan caps how
  * many repeats it takes, so a finished plan can sit on top of dozens of words
@@ -25,25 +29,19 @@ export function SessionDoneCard({
   settlingCount,
   dueNowCount = 0,
   onStudyExtra,
-  showNotReady,
-  onToggleShowNotReady,
   onOpenWordChat,
-  onOpenPhotoLab,
 }: {
   /** Overrides the default headline; the actions stay the same. */
   title?: string;
+  /** Words resting before their next repeat; named in the body copy only. */
   settlingCount: number;
   /** Repeats due right now that today's plan did not take. */
   dueNowCount?: number;
   /** Lifts the day's cap so those repeats join the stream. */
   onStudyExtra?: () => void;
-  showNotReady: boolean;
-  onToggleShowNotReady?: () => void;
   onOpenWordChat?: () => void;
-  onOpenPhotoLab?: () => void;
 }) {
   const { t } = useI18n();
-  const canPractiseAhead = settlingCount > 0 && Boolean(onToggleShowNotReady);
   const hasExtraDue = dueNowCount > 0 && Boolean(onStudyExtra);
 
   return (
@@ -54,7 +52,7 @@ export function SessionDoneCard({
       <p className="m-0 max-w-md text-sm text-text-soft">
         {hasExtraDue
           ? t('learning.sessionDoneExtraDue', { count: dueNowCount })
-          : canPractiseAhead
+          : settlingCount > 0
             ? t('learning.sessionDoneSettling', { count: settlingCount })
             : t('learning.sessionDoneBody')}
       </p>
@@ -68,39 +66,16 @@ export function SessionDoneCard({
             {t('learning.sessionDayExtraAction', { count: dueNowCount })}
           </button>
         ) : null}
-        {canPractiseAhead ? (
-          <button
-            type="button"
-            onClick={onToggleShowNotReady}
-            className={[
-              'onboarding-option rounded-full px-5 py-2.5 text-sm font-extrabold',
-              hasExtraDue ? '' : 'onboarding-option-highlight',
-            ].join(' ')}
-          >
-            {showNotReady
-              ? t('learning.sessionDoneHideAhead')
-              : t('learning.sessionDonePractiseAhead', { count: settlingCount })}
-          </button>
-        ) : null}
         {onOpenWordChat ? (
           <button
             type="button"
             onClick={onOpenWordChat}
             className={[
               'onboarding-option rounded-full px-5 py-2.5 text-sm font-extrabold',
-              canPractiseAhead || hasExtraDue ? '' : 'onboarding-option-highlight',
+              hasExtraDue ? '' : 'onboarding-option-highlight',
             ].join(' ')}
           >
             {t('wordChat.addWords')}
-          </button>
-        ) : null}
-        {onOpenPhotoLab ? (
-          <button
-            type="button"
-            onClick={onOpenPhotoLab}
-            className="onboarding-option rounded-full px-5 py-2.5 text-sm font-extrabold"
-          >
-            {t('learning.noPersonalWordsPhotoLab')}
           </button>
         ) : null}
       </div>

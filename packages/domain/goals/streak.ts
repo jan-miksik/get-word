@@ -1,4 +1,4 @@
-export interface GoalWeek {
+interface GoalWeek {
   metDays: number;
   required: number;
   completed: boolean;

@@ -10,7 +10,10 @@ import {
 import { getDeviceId } from '@/lib/device-id';
 import { currentIanaTimezone, localDayKeyAt } from '@/lib/local-day';
 import { getSyncOwner } from '@/lib/sync';
-import type { ActivitySurface } from '@/packages/contracts/src/activity';
+import {
+  isGoalCreditedSurface,
+  type ActivitySurface,
+} from '@/packages/contracts/src/activity';
 import {
   TICK_MS,
   createActivityTracker,
@@ -82,8 +85,6 @@ interface RuntimeState {
    * segment is open (or before its write is scheduled).
    */
   segmentTimezones: Map<string, string>;
-  /** Closed local time since the last server total was seeded. */
-  dayLocalMs: Map<string, number>;
   tickTimer: ReturnType<typeof setInterval> | null;
   recomputeQueued: boolean;
   teardown: Array<() => void>;
@@ -91,30 +92,288 @@ interface RuntimeState {
 
 let state: RuntimeState | null = null;
 
-// The server is the durable source of truth.  The UI deliberately replaces
-// this baseline on every summary refresh instead of adding it to a running
-// client total; doing the latter double-counts a segment as soon as sync lands.
-const seededDayTotals = new Map<string, number>();
+/**
+ * What a day's clock is worth to the display right now.
+ *
+ * The server is the durable source of truth, but it is a *lagging* one: a
+ * closed segment reaches it through the outbox, which is debounced by half a
+ * minute and flushed for real on shutdown. So between closing a segment and
+ * the server folding it there is a window — often minutes — where the server
+ * total is genuinely smaller than the time the learner has spent.
+ *
+ * That window is why the local part is anchored instead of discarded. This map
+ * lives at module scope rather than on `RuntimeState` so it survives the
+ * tracker being stopped and started; its localStorage mirror also survives a
+ * reload. It remains display bookkeeping only: nothing here is reported or
+ * summed by the server.
+ */
+interface DayLedger {
+  /** Highest day total the server has confirmed. Only ever grows. */
+  serverMs: number;
+  /** The server total this page's own uncredited time is stacked on top of. */
+  baselineMs: number;
+  /** Closed segments measured here that `serverMs` does not include yet. */
+  localMs: number;
+  /**
+   * Which segments `localMs` is made of.
+   *
+   * A segment whose delivery did not finish is redelivered from its recovery
+   * record on the next startup, under the same id — and now that the ledger
+   * itself survives that startup, adding it a second time would move the clock
+   * forward by the whole undelivered stretch on every reload. Ids are dropped
+   * together with `localMs` the moment the server passes it.
+   */
+  countedIds: string[];
+}
 
+/** Bounds the stored id list; a day cannot hold many more than this anyway. */
+const MAX_COUNTED_IDS = 500;
+
+const LEDGER_PREFIX = 'get_word_activity_day:';
+/** Ledgers older than this are noise; swept once per page. */
+const LEDGER_TTL_DAYS = 3;
+
+const dayLedgers = new Map<string, DayLedger>();
+let dayLedgerOwner: string | null = null;
+let ledgersSwept = false;
+
+/**
+ * Which zone the display ledger buckets measured time into.
+ *
+ * The goal summary computes its day keys in the *account's* stored zone, and
+ * the countdown asks this file for the total under one of those keys. Bucketing
+ * by the browser's own zone instead answers a question nobody asked whenever
+ * the two disagree: every closed segment lands under a key the display never
+ * reads, and the clock stands still with nothing to show for it. Segments on
+ * the wire keep their own `timezone_at_creation` — the server splits them at
+ * their own local midnight — so this is display bookkeeping only.
+ */
+let goalDayTimezone: string | null = null;
+
+/** Told by the countdown, which is the only thing that reads a day total. */
+export function setActivityGoalTimezone(timezone: string | null): void {
+  goalDayTimezone = timezone;
+}
+
+function ledgerTimezone(): string {
+  return goalDayTimezone ?? currentIanaTimezone();
+}
+
+function ledgerStorageKey(dayKey: string): string {
+  return `${LEDGER_PREFIX}${dayKey}`;
+}
+
+/**
+ * Reloading is an interruption, not a reset.
+ *
+ * The uncredited part of a day lives here for as long as it takes the outbox
+ * to deliver it and the server to fold it — minutes on a good connection, the
+ * rest of the day offline. Keeping it in memory only meant a reload (or an
+ * app the OS killed, which on a phone is most of them) handed the learner back
+ * a countdown that had forgotten the last stretch they studied.
+ */
+function readStoredLedger(dayKey: string, owner: string | null): DayLedger | null {
+  const store = storage();
+  if (!store) return null;
+  try {
+    const raw = store.getItem(ledgerStorageKey(dayKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Record<keyof DayLedger, unknown>> & {
+      owner?: unknown;
+    };
+    // Time measured under another account must never surface on this one's
+    // clock. A record written before the first sync named the account has no
+    // owner and is adopted; a mismatch is dropped.
+    if (typeof parsed.owner === 'string' && parsed.owner !== owner) return null;
+    const numeric = (value: unknown) =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+    return {
+      serverMs: numeric(parsed.serverMs),
+      baselineMs: numeric(parsed.baselineMs),
+      localMs: numeric(parsed.localMs),
+      countedIds: Array.isArray(parsed.countedIds)
+        ? parsed.countedIds.filter((id): id is string => typeof id === 'string')
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistLedger(
+  dayKey: string,
+  ledger: DayLedger,
+  owner: string | null = state?.owner ?? getSyncOwner(),
+): void {
+  const store = storage();
+  if (!store) return;
+  try {
+    store.setItem(
+      ledgerStorageKey(dayKey),
+      JSON.stringify({ ...ledger, owner }),
+    );
+  } catch {
+    // Quota or a hardened context. The in-memory ledger still serves this page.
+  }
+  if (!ledgersSwept) {
+    ledgersSwept = true;
+    sweepOldLedgers(dayKey);
+  }
+}
+
+function sweepOldLedgers(todayKey: string): void {
+  const store = storage();
+  if (!store) return;
+  const cutoff = new Date(`${todayKey}T00:00:00Z`);
+  if (Number.isNaN(cutoff.getTime())) return;
+  cutoff.setUTCDate(cutoff.getUTCDate() - LEDGER_TTL_DAYS);
+  // Day keys are ISO dates, so a string compare is a date compare.
+  const cutoffKey = cutoff.toISOString().slice(0, 10);
+  const stale: string[] = [];
+  for (let index = 0; index < store.length; index += 1) {
+    const key = store.key(index);
+    if (!key || !key.startsWith(LEDGER_PREFIX)) continue;
+    if (key.slice(LEDGER_PREFIX.length) < cutoffKey) stale.push(key);
+  }
+  for (const key of stale) {
+    try {
+      store.removeItem(key);
+    } catch {
+      // Nothing to do; it is only bookkeeping.
+    }
+  }
+}
+
+function ledgerFor(
+  dayKey: string,
+  owner: string | null = state?.owner ?? getSyncOwner(),
+): DayLedger {
+  if (dayLedgerOwner !== owner) {
+    dayLedgers.clear();
+    dayLedgerOwner = owner;
+    ledgersSwept = false;
+  }
+  let ledger = dayLedgers.get(dayKey);
+  if (!ledger) {
+    ledger = readStoredLedger(dayKey, owner) ?? {
+      serverMs: 0,
+      baselineMs: 0,
+      localMs: 0,
+      countedIds: [],
+    };
+    dayLedgers.set(dayKey, ledger);
+  }
+  return ledger;
+}
+
+/**
+ * Records the server's total for a day.
+ *
+ * The local stack is dropped only once the server has demonstrably caught up
+ * with it — never merely because a fresh summary arrived. Clearing it on every
+ * refresh is what used to make the clock fall back to a stale total (and, when
+ * nothing had been delivered yet, all the way back to zero) each time a screen
+ * that owns the countdown remounted.
+ *
+ * The mirror-image risk — a segment the server already stored being re-added
+ * locally when its recovery record outlives the delivery — is closed by
+ * `countedIds`: the ledger adds each `client_segment_id` once, so redelivery
+ * cannot move the clock. Whichever way the race falls, the number only ever
+ * goes down.
+ */
 export function seedActivityDayTotal(dayKey: string, activeMs: number): void {
-  seededDayTotals.set(dayKey, Math.max(0, Math.round(activeMs)));
-  state?.dayLocalMs.delete(dayKey);
+  const serverMs = Math.max(0, Math.round(activeMs));
+  const ledger = ledgerFor(dayKey);
+  // Summaries can answer out of order; an older, smaller total must not undo a
+  // newer one.
+  ledger.serverMs = Math.max(ledger.serverMs, serverMs);
+  if (ledger.serverMs >= ledger.baselineMs + ledger.localMs) {
+    ledger.baselineMs = ledger.serverMs;
+    ledger.localMs = 0;
+    ledger.countedIds = [];
+  }
+  persistLedger(dayKey, ledger);
 }
 
 /** Best-known local display value; it is not a persistence or reporting API. */
 export function getBestKnownDayActiveMs(dayKey: string): number {
-  const seed = seededDayTotals.get(dayKey) ?? 0;
-  const closedLocal = state?.dayLocalMs.get(dayKey) ?? 0;
+  const ledger = ledgerFor(dayKey);
+  // Whichever knows more: the server's own total, or ours stacked on the last
+  // one it confirmed.
+  const credited = Math.max(ledger.serverMs, ledger.baselineMs + ledger.localMs);
   const open = state?.tracker.peek();
   // An open segment only belongs to the current local day for display. Closed
-  // segments carry their own source timezone and are registered in onSegment.
+  // segments are registered in onSegment under the same zone.
   // `uncreditedMs` is the part of the open segment the next five-second tick
   // will credit; including it is what lets a displayed clock advance every
   // second instead of standing still and then jumping.
-  const openLocal = open?.open && localDayKeyAt(Date.now(), currentIanaTimezone()) === dayKey
-    ? open.activeMs + open.uncreditedMs
-    : 0;
-  return Math.max(0, Math.round(seed + closedLocal + openLocal));
+  const openLocal =
+    open?.open &&
+    isGoalCreditedSurface(open.surface) &&
+    localDayKeyAt(Date.now(), ledgerTimezone()) === dayKey
+      ? open.activeMs + open.uncreditedMs
+      : 0;
+  return Math.max(0, Math.round(credited + openLocal));
+}
+
+/**
+ * Drops every day's display bookkeeping. Test seam only: the ledgers outlive
+ * `startActivityTracking`, which is what a remount needs and what a fresh test
+ * case must not inherit.
+ */
+export function __resetActivityDayLedgersForTests(
+  options: { keepStorage?: boolean } = {},
+): void {
+  dayLedgers.clear();
+  dayLedgerOwner = null;
+  goalDayTimezone = null;
+  ledgersSwept = false;
+  // `keepStorage` is how a test spells "reload": the page's memory is gone and
+  // the durable copy is not.
+  if (options.keepStorage) return;
+  const store = storage();
+  if (!store) return;
+  const keys: string[] = [];
+  for (let index = 0; index < store.length; index += 1) {
+    const key = store.key(index);
+    if (key?.startsWith(LEDGER_PREFIX)) keys.push(key);
+  }
+  for (const key of keys) store.removeItem(key);
+}
+
+/**
+ * What the clock is doing at this instant. Display only.
+ *
+ * "Not counting" has several causes and they are not interchangeable, so the
+ * countdown gets to say which one it is rather than freezing mutely:
+ *
+ *  - `counting` — time is accruing towards the goal.
+ *  - `idle` — measuring, on a credited surface, but the idle horizon has
+ *    passed. The clock is waiting for the learner; the next tap starts it.
+ *  - `elsewhere` — measuring, but on a surface the goal does not credit. The
+ *    tracker is perfectly happy here, which is exactly why this has to be its
+ *    own answer: `accruing` alone would claim the clock is running while the
+ *    number it feeds cannot move.
+ *  - `paused` — the app is backgrounded or the window is unfocused.
+ *  - `unmeasured` — nothing is being measured: the tracker is not running, the
+ *    duplicate-tab claim has not settled, or the account is not known yet.
+ *
+ * Everything except `counting` is a reason the digits are standing still, and
+ * the strip shows every one of them. The previous version collapsed the last
+ * three into a silent `off`, on the theory that nobody is looking at a
+ * backgrounded page — which is true, and which also meant that a clock stuck
+ * for any of those reasons looked identical to a broken one.
+ */
+export type ActivityClockState = 'counting' | 'idle' | 'elsewhere' | 'paused' | 'unmeasured';
+
+export function getActivityClockState(): ActivityClockState {
+  const current = state;
+  if (!current) return 'unmeasured';
+  if (!measurementReady(current)) return 'unmeasured';
+  if (!inForeground(current)) return 'paused';
+  const peeked = current.tracker.peek();
+  if (!isGoalCreditedSurface(peeked.surface)) return 'elsewhere';
+  return peeked.accruing ? 'counting' : 'idle';
 }
 
 function storage(): Storage | null {
@@ -481,8 +740,22 @@ function onSegment(current: RuntimeState, segment: ActivitySegment): void {
   const timezoneAtCreation =
     current.segmentTimezones.get(segment.client_segment_id) ?? currentIanaTimezone();
   current.segmentTimezones.delete(segment.client_segment_id);
-  const dayKey = localDayKeyAt(segment.started_at, timezoneAtCreation);
-  current.dayLocalMs.set(dayKey, (current.dayLocalMs.get(dayKey) ?? 0) + segment.active_ms);
+  // The ledger key follows the zone the goal day is drawn in, not the segment's
+  // own; see `ledgerTimezone`. The wire payload below keeps `timezoneAtCreation`.
+  const ledgerDayKey = localDayKeyAt(segment.started_at, ledgerTimezone());
+  // Only what the day rollup will also credit, or the clock would run down
+  // against a server total that never catches up with it.
+  if (isGoalCreditedSurface(segment.surface)) {
+    const ledger = ledgerFor(ledgerDayKey, owner);
+    if (!ledger.countedIds.includes(segment.client_segment_id)) {
+      ledger.countedIds.push(segment.client_segment_id);
+      if (ledger.countedIds.length > MAX_COUNTED_IDS) {
+        ledger.countedIds.splice(0, ledger.countedIds.length - MAX_COUNTED_IDS);
+      }
+      ledger.localMs += segment.active_ms;
+      persistLedger(ledgerDayKey, ledger, owner);
+    }
+  }
   const recoveryKey = persistClosedSegment(current, segment, owner);
   current.pendingSegmentWrites += 1;
   void (async () => {
@@ -553,11 +826,19 @@ function safeDeviceId(): string | null {
  * before the first sync response names the account; the alternative is holding
  * segments that belong to nobody.
  */
-function effectiveActive(current: RuntimeState): boolean {
-  if (!current.instanceClaimSettled) return false;
-  if (current.owner === null) return false;
+/** Whether the runtime is in a position to measure anything at all. */
+function measurementReady(current: RuntimeState): boolean {
+  return current.instanceClaimSettled && current.owner !== null;
+}
+
+/** Whether the learner is actually in front of the app. */
+function inForeground(current: RuntimeState): boolean {
   if (current.nativeMode) return current.documentVisible && current.nativeAppActive;
   return current.documentVisible && current.windowFocused;
+}
+
+function effectiveActive(current: RuntimeState): boolean {
+  return measurementReady(current) && inForeground(current);
 }
 
 /**
@@ -590,6 +871,18 @@ function noteInteraction(current: RuntimeState): void {
   const now = Date.now();
   if (now - current.lastInteractionAt < INTERACTION_THROTTLE_MS) return;
   current.lastInteractionAt = now;
+  // Input in our own page is proof the learner is in front of it, whatever the
+  // last lifecycle event said. The web signals can be missed rather than wrong:
+  // a page that loaded while the window was elsewhere, or came back from
+  // bfcache, can be handed input without a `focus` event ever arriving — and a
+  // `windowFocused` stuck at false is a clock that never starts, on a screen
+  // the learner is demonstrably using. Recompute before the tracker is told,
+  // because an inactive tracker will not open a segment for the interaction.
+  if (!current.nativeMode && !effectiveActive(current)) {
+    current.windowFocused = true;
+    current.documentVisible = document.visibilityState === 'visible';
+    applyActive(current);
+  }
 
   // Receiving input is proof of focus, whatever `hasFocus()` claimed. Some
   // mobile browsers report focus unreliably, and without this a page that was
@@ -638,7 +931,6 @@ export function startActivityTracking(): () => void {
     recoveryDone: false,
     appendedCheckpointKeys: new Set(),
     segmentTimezones: new Map(),
-    dayLocalMs: new Map(),
     tickTimer: null,
     recomputeQueued: false,
     teardown: [],
@@ -727,6 +1019,9 @@ export function startActivityTracking(): () => void {
   });
 
   applyActive(current);
+  // A surface may already be known: both providers set it from an effect, and
+  // a tracker restarted afterwards must not fall back to `other`.
+  applySurface();
 
   return () => {
     if (state !== current) return;
@@ -738,8 +1033,35 @@ export function startActivityTracking(): () => void {
   };
 }
 
+/**
+ * Which surface the measured time belongs to.
+ *
+ * Two sources, because two things decide it. The route says which screen the
+ * router is on, and `ActivityTrackingProvider` pushes that down. But the study
+ * page also opens the word chat and the photo lab *in place*, without leaving
+ * `/` — to the router nothing happened, while to the learner they left the
+ * deck. Those screens set an override, and it wins for as long as it is set.
+ *
+ * Keeping them apart is what makes the two writers order-independent: the
+ * provider's route effect and the study page's override effect both run on
+ * mount, in an order React decides, and neither can erase the other's answer.
+ */
+let routeSurface: ActivitySurface = 'other';
+let surfaceOverride: ActivitySurface | null = null;
+
+function applySurface(): void {
+  state?.tracker.setSurface(surfaceOverride ?? routeSurface);
+}
+
 export function setActivitySurface(surface: ActivitySurface): void {
-  state?.tracker.setSurface(surface);
+  routeSurface = surface;
+  applySurface();
+}
+
+/** Pass null when the in-place screen closes and the route is in charge again. */
+export function setActivitySurfaceOverride(surface: ActivitySurface | null): void {
+  surfaceOverride = surface;
+  applySurface();
 }
 
 /**
@@ -764,6 +1086,12 @@ export function setActivityOwner(owner: string | null): void {
   // so the emitted segment is attributed to whoever measured it.
   state.tracker.setOwner(owner);
   state.owner = owner;
+  // Day keys are not account identifiers. Drop the monotonic in-memory cache
+  // before the next account seeds its own, potentially smaller, server total.
+  dayLedgers.clear();
+  dayLedgerOwner = owner;
+  ledgersSwept = false;
+  goalDayTimezone = null;
   // The first response to name the account is also the first moment a stored
   // checkpoint can be matched against it, so this is where recovery happens on
   // an ordinary load.

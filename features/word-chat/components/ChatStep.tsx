@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useI18n } from '@/components/I18nProvider';
 import { ArrowUpIcon, PencilIcon } from '@/components/icons/AppIcons';
 import type { WordList } from '@/features/lists/types';
+import { getLanguageInForm, getLanguageQuestionForm } from '@/lib/i18n/language-in-question';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { I18nKey } from '@/lib/i18n/locales/en';
 import { buildFollowUpChips } from '../followUpChips';
@@ -21,6 +22,25 @@ import { SalutationGenderBadge } from './SalutationGenderIcon';
 import { StreamedText, TypingDots, TypingText } from './TypingText';
 
 type ProfileSetupStep = 'address' | 'level' | 'salutation';
+
+/**
+ * The level question names the language it is asking about ("Jak dobře umíš
+ * vietnamsky?") whenever the UI locale has a form we can vouch for, and asks
+ * about "the language" when it does not.
+ */
+function levelTitleKey(
+  register: WordChatAddressRegister | null,
+  namesLanguage: boolean,
+): I18nKey {
+  if (namesLanguage) {
+    if (register === 'casual') return 'wordChat.levelTitleLanguageCasual';
+    if (register === 'formal') return 'wordChat.levelTitleLanguageFormal';
+    return 'wordChat.levelTitleLanguage';
+  }
+  if (register === 'casual') return 'wordChat.levelTitleCasual';
+  if (register === 'formal') return 'wordChat.levelTitleFormal';
+  return 'wordChat.levelTitle';
+}
 
 /** How tall the composer may grow before it starts scrolling instead. */
 const COMPOSER_MAX_ROWS = 6;
@@ -65,6 +85,8 @@ type Props = {
   settingsPlacement?: 'inline' | 'screen-header';
   /** Header element a `screen-header` cluster renders into; see WordChatFlow. */
   headerSlot?: HTMLElement | null;
+  /** Fold the gear and share into one overflow menu; see the settings controls. */
+  settingsAsMenu?: boolean;
   /** Controlled open state for the settings gear; see WordChatFlow. */
   settingsOpen?: boolean;
   onSettingsOpenChange?: (open: boolean) => void;
@@ -103,6 +125,7 @@ export function ChatStep({
   onShareListUpdated,
   settingsPlacement = 'inline',
   headerSlot,
+  settingsAsMenu = false,
   settingsOpen,
   onSettingsOpenChange,
   busy,
@@ -131,6 +154,10 @@ export function ChatStep({
   // localized the same way that copy is — see `chatLanguage` in `useWordChat`.
   const locale = uiLanguage || languageFrom;
   const targetName = getLocalizedLanguageName(languageTo, locale) ?? languageTo.toUpperCase();
+  const levelQuestionLanguage = getLanguageQuestionForm(languageTo, locale);
+  // "ve vietnamštině" / "in Vietnamese": the opener says what the learner wants
+  // to do *in* the language, so it needs the declined form, not the label.
+  const targetInForm = getLanguageInForm(languageTo, locale) ?? targetName;
 
   const scrollToEnd = useCallback(() => {
     if (!active) return;
@@ -218,10 +245,20 @@ export function ChatStep({
   }
 
   const showIntro = messages.length === 0;
+  // Only what is still unknown. The level is asked by onboarding's own step
+  // before the chat ever opens, so listing it unconditionally meant the learner
+  // answered the same question twice in one sitting — and a value that is
+  // already stored is not a question.
+  const profileSetupSteps: ProfileSetupStep[] = [
+    ...(addressRegisterApplies ? (['address'] as const) : []),
+    ...(languageLevel === null ? (['level'] as const) : []),
+    ...(salutationGenderApplies && !salutationGender ? (['salutation'] as const) : []),
+  ];
   // A restored draft can contain messages from before profile fields became
   // required. Do not render an apparently usable composer while the hook will
-  // reject every message for missing preferences.
-  const showProfileSetup = !preferencesComplete;
+  // reject every message for missing preferences. An empty step list means
+  // there is nothing left to ask, whatever the hook thinks.
+  const showProfileSetup = !preferencesComplete && profileSetupSteps.length > 0;
   const useFormalUiCopy = addressRegisterApplies && addressRegister === 'formal';
   const introGreetingKey: I18nKey =
     salutationGenderApplies && salutationGender
@@ -231,14 +268,16 @@ export function ChatStep({
       : useFormalUiCopy
         ? 'wordChat.introGreetingFormal'
         : 'wordChat.introGreeting';
-  const profileSetupSteps: ProfileSetupStep[] = [
-    ...(addressRegisterApplies ? (['address'] as const) : []),
-    'level',
-    ...(salutationGenderApplies ? (['salutation'] as const) : []),
-  ];
-  const profileSetupStepIndex = Math.max(0, profileSetupSteps.indexOf(profileSetupStep));
+  // The remembered step can fall out of the list — the learner answers one, or
+  // arrives with it already answered — so the rendered step is derived rather
+  // than trusted.
+  const activeSetupStep: ProfileSetupStep =
+    profileSetupSteps.find((entry) => entry === profileSetupStep) ?? profileSetupSteps[0] ?? 'level';
+  const profileSetupStepIndex = Math.max(0, profileSetupSteps.indexOf(activeSetupStep));
   const profileSetupProgress =
-    ((profileSetupStepIndex + 1) / profileSetupSteps.length) * 100;
+    ((profileSetupStepIndex + 1) / Math.max(1, profileSetupSteps.length)) * 100;
+  // A counter and a full bar over a single question say nothing.
+  const showProfileSetupProgress = profileSetupSteps.length > 1;
   const returning = history?.hasHistory === true;
   // Three labels is enough to say "I remember"; more turns the opener into a list.
   const coveredSummary = (history?.coveredTopics ?? []).slice(0, 3).join(', ');
@@ -291,6 +330,7 @@ export function ChatStep({
       onLanguagePairChange={onLanguagePairChange}
       placement={settingsPlacement}
       headerSlot={headerSlot}
+      asOverflowMenu={settingsAsMenu}
       active={active}
       open={settingsOpen}
       onOpenChange={onSettingsOpenChange}
@@ -312,7 +352,7 @@ export function ChatStep({
     const saveSetupPreferences = (
       finalPatch: Pick<
         WordChatPreferencePatch,
-        'languageLevel' | 'salutationGender'
+        'addressRegister' | 'languageLevel' | 'salutationGender'
       >,
     ) => {
       void onPreferencesChange({
@@ -320,6 +360,27 @@ export function ChatStep({
         ...(setupLanguageLevel ? { languageLevel: setupLanguageLevel } : {}),
         ...finalPatch,
       });
+    };
+
+    /**
+     * Move to whatever is still unanswered after this one, and save when there
+     * is nothing left. Which step follows which is a property of the list, not
+     * of the question just answered, because the list only holds what is
+     * actually missing.
+     */
+    const advanceFromSetupStep = (
+      from: ProfileSetupStep,
+      finalPatch: Pick<
+        WordChatPreferencePatch,
+        'addressRegister' | 'languageLevel' | 'salutationGender'
+      >,
+    ) => {
+      const next = profileSetupSteps[profileSetupSteps.indexOf(from) + 1];
+      if (next) {
+        setProfileSetupStep(next);
+        return;
+      }
+      saveSetupPreferences(finalPatch);
     };
 
     return (
@@ -331,26 +392,30 @@ export function ChatStep({
           <p className="text-base font-bold">
             <TypingText text={t('wordChat.profileTitle')} animate />
           </p>
-          <span
-            aria-hidden="true"
-            className="shrink-0 rounded-full border border-[color:color-mix(in_srgb,var(--ob-ink)_24%,transparent)] px-2.5 py-1 text-[11px] font-black tabular-nums onboarding-text-soft"
-          >
-            {profileSetupStepIndex + 1} / {profileSetupSteps.length}
-          </span>
+          {showProfileSetupProgress ? (
+            <span
+              aria-hidden="true"
+              className="shrink-0 rounded-full border border-[color:color-mix(in_srgb,var(--ob-ink)_24%,transparent)] px-2.5 py-1 text-[11px] font-black tabular-nums onboarding-text-soft"
+            >
+              {profileSetupStepIndex + 1} / {profileSetupSteps.length}
+            </span>
+          ) : null}
         </div>
-        <div
-          role="progressbar"
-          aria-label={t('wordChat.profileTitle')}
-          aria-valuemin={1}
-          aria-valuemax={profileSetupSteps.length}
-          aria-valuenow={profileSetupStepIndex + 1}
-          className="h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_srgb,var(--ob-ink)_12%,transparent)]"
-        >
+        {showProfileSetupProgress ? (
           <div
-            className="h-full rounded-full bg-[var(--ob-accent)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
-            style={{ width: `${profileSetupProgress}%` }}
-          />
-        </div>
+            role="progressbar"
+            aria-label={t('wordChat.profileTitle')}
+            aria-valuemin={1}
+            aria-valuemax={profileSetupSteps.length}
+            aria-valuenow={profileSetupStepIndex + 1}
+            className="h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_srgb,var(--ob-ink)_12%,transparent)]"
+          >
+            <div
+              className="h-full rounded-full bg-[var(--ob-accent)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
+              style={{ width: `${profileSetupProgress}%` }}
+            />
+          </div>
+        ) : null}
 
         {profileSetupStepIndex > 0 ? (
           <div className="flex">
@@ -371,7 +436,7 @@ export function ChatStep({
         ) : null}
 
         <section
-          key={profileSetupStep}
+          key={activeSetupStep}
           className="relative space-y-4 overflow-hidden rounded-3xl border border-[color:color-mix(in_srgb,var(--ob-ink)_18%,transparent)] bg-[color:color-mix(in_srgb,var(--ob-surface)_82%,white)] p-4 shadow-[0_14px_35px_color-mix(in_srgb,var(--ob-ink)_9%,transparent)] motion-safe:animate-[word-chat-setup-enter_320ms_cubic-bezier(0.16,1,0.3,1)_both] sm:p-5"
         >
           <div
@@ -386,15 +451,12 @@ export function ChatStep({
               ✦
             </span>
             <h2 className="pt-1.5 text-base font-black leading-snug">
-              {profileSetupStep === 'address'
+              {activeSetupStep === 'address'
                 ? t('wordChat.addressTitle')
-                : profileSetupStep === 'level'
+                : activeSetupStep === 'level'
                   ? t(
-                      setupAddressRegister === 'casual'
-                        ? 'wordChat.levelTitleCasual'
-                        : setupAddressRegister === 'formal'
-                          ? 'wordChat.levelTitleFormal'
-                          : 'wordChat.levelTitle',
+                      levelTitleKey(setupAddressRegister, levelQuestionLanguage !== null),
+                      levelQuestionLanguage ? { language: levelQuestionLanguage } : undefined,
                     )
                   : t(
                       setupAddressRegister === 'casual'
@@ -409,11 +471,11 @@ export function ChatStep({
           <div
             className={[
               'relative grid gap-2',
-              profileSetupStep === 'address' ? 'sm:grid-cols-2' : '',
-              profileSetupStep === 'salutation' ? 'sm:grid-cols-3' : '',
+              activeSetupStep === 'address' ? 'sm:grid-cols-2' : '',
+              activeSetupStep === 'salutation' ? 'sm:grid-cols-3' : '',
             ].join(' ')}
           >
-            {profileSetupStep === 'address'
+            {activeSetupStep === 'address'
               ? (['casual', 'formal'] as const).map((value, index) => (
                   <button
                     key={value}
@@ -421,7 +483,7 @@ export function ChatStep({
                     disabled={preferencesSaving}
                     onClick={() => {
                       setSetupAddressRegister(value);
-                      setProfileSetupStep('level');
+                      advanceFromSetupStep('address', { addressRegister: value });
                     }}
                     className={[
                       'onboarding-option group flex items-center justify-between rounded-2xl px-4 py-3.5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
@@ -444,7 +506,7 @@ export function ChatStep({
                 ))
               : null}
 
-            {profileSetupStep === 'level'
+            {activeSetupStep === 'level'
               ? WORD_CHAT_LANGUAGE_LEVELS.map((value, index) => {
                   const levelLabel = splitWordChatLevelLabel(
                     value,
@@ -459,11 +521,7 @@ export function ChatStep({
                       disabled={preferencesSaving}
                       onClick={() => {
                         setSetupLanguageLevel(value);
-                        if (salutationGenderApplies) {
-                          setProfileSetupStep('salutation');
-                          return;
-                        }
-                        saveSetupPreferences({ languageLevel: value });
+                        advanceFromSetupStep('level', { languageLevel: value });
                       }}
                       className={[
                         'onboarding-option group flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
@@ -490,7 +548,7 @@ export function ChatStep({
                 })
               : null}
 
-            {profileSetupStep === 'salutation'
+            {activeSetupStep === 'salutation'
               ? (['female', 'male', 'neutral'] as const).map((value, index) => (
                   <button
                     key={value}
@@ -568,14 +626,17 @@ export function ChatStep({
             introAnchorsToBottom ? 'mt-auto' : '',
           ].join(' ')}
         >
-          <p className={showIntro ? 'text-base font-bold' : 'text-sm font-bold'}>
+          {/* Before the first exchange the opener IS the screen's headline, so it
+              carries the heading weight the other steps' titles do; once the
+              transcript starts it steps back to a caption above it. */}
+          <p className={showIntro ? 'text-xl font-black leading-tight' : 'text-sm font-bold'}>
             {/* A first-time opener can type in. Returning copy is already-known
                 context, so reopening the chat must render it immediately. */}
             <TypingText
               text={
                 returning
                   ? t('wordChat.returningGreeting')
-                  : t(introGreetingKey, { language: targetName })
+                  : t(introGreetingKey, { language: targetInForm })
               }
               animate={showIntro && !returning}
             />

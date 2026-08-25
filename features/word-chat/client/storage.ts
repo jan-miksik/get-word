@@ -50,6 +50,11 @@ export type WordChatDraft = {
   proposals: ProposedItem[];
   selectedKeys: string[];
   customItems: { kind: 'sentence' | 'word'; text: string }[];
+  /**
+   * Pairs collected already translated — the words picked off a photo. Optional
+   * so drafts written before the photo tab shared this basket still load.
+   */
+  pretranslatedItems?: ReviewItem[];
   reviewItems: ReviewItem[];
   isPublic: boolean | null;
 };
@@ -184,7 +189,39 @@ export function migrateDraftToLanguagePair(
     listName: personalListName(targetFrom, targetTo),
     proposals: migratedProposals,
     selectedKeys: migratedSelectedKeys,
+    // Both carry a translation and a clip for the language pair being left.
+    pretranslatedItems: [],
     reviewItems: [],
   });
   return true;
+}
+
+/**
+ * The way in the learner used last: typing, a photo, or the conversation.
+ *
+ * Remembered per device rather than per account. Someone who adds words from
+ * photos every week should not have to walk past the typing tab every time, and
+ * the choice is cheap enough to be worth guessing wrong occasionally.
+ */
+export type AddWordsTabPreference = 'manual' | 'photo' | 'ai';
+
+const TAB_STORAGE_KEY = 'get-word-add-words-tab';
+
+export function readAddWordsTab(): AddWordsTabPreference | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(TAB_STORAGE_KEY);
+    return raw === 'manual' || raw === 'photo' || raw === 'ai' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeAddWordsTab(tab: AddWordsTabPreference): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(TAB_STORAGE_KEY, tab);
+  } catch {
+    // A full or blocked localStorage only costs the learner a remembered tab.
+  }
 }

@@ -1,4 +1,5 @@
 import type { SessionBlockProgress } from './dayProgress';
+import { TIME_PHASE_COUNT } from './timeCountdown';
 
 export interface SessionFlowState {
   /** Index into the plan's blocks, or -1 once every block is finished. */
@@ -40,16 +41,52 @@ const EMPTY: SessionFlowState = {
  * but its unanswered items still count against the day, so the day total stays
  * honest about what was planned.
  */
-export function resolveSessionFlow(blocks: readonly SessionBlockProgress[]): SessionFlowState {
-  if (blocks.length === 0) return EMPTY;
+export function resolveSessionFlow(
+  blocks: readonly SessionBlockProgress[],
+  /**
+   * The time stretch the clock has reached on a minutes day. Given, blocks
+   * belonging to a stretch already behind the clock are stepped over even when
+   * they still hold words: the budget for that kind of work has been spent, and
+   * the words themselves are simply still due. Absent — a words day — the plan
+   * is walked block by block as before.
+   */
+  currentPhase?: number,
+): SessionFlowState {
+  if (blocks.length === 0) {
+    return currentPhase !== undefined && currentPhase >= TIME_PHASE_COUNT
+      ? { ...EMPTY, complete: true }
+      : EMPTY;
+  }
 
   const dayDone = blocks.reduce((sum, block) => sum + block.done, 0);
   const dayTotal = blocks.reduce((sum, block) => sum + block.total, 0);
   const dayPending = blocks.reduce((sum, block) => sum + block.pending, 0);
-  const index = blocks.findIndex((block) => block.done < block.total && block.liveRemaining > 0);
+  if (currentPhase !== undefined && currentPhase >= TIME_PHASE_COUNT) {
+    return {
+      ...EMPTY,
+      blocks,
+      blockCount: blocks.length,
+      dayDone,
+      dayTotal,
+      dayPending,
+      complete: true,
+    };
+  }
+  const owesWork = (block: SessionBlockProgress) => block.done < block.total && block.liveRemaining > 0;
+  const index = currentPhase === undefined
+    ? blocks.findIndex(owesWork)
+    // Falls forward, never back: a stretch whose material runs out early hands
+    // the session to the next one instead of ending the day.
+    : blocks.findIndex((block) => (block.phase ?? 0) >= currentPhase && owesWork(block));
 
-  if (index === -1) {
+  if (index === -1 && currentPhase === undefined) {
     return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending, complete: true };
+  }
+  if (index === -1) {
+    // A minutes day can run out of material before it runs out of time. Keep the
+    // clock alive and the session open; the empty-state actions let the learner
+    // add material, while only the terminal time phase closes the goal.
+    return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending };
   }
   return {
     index,

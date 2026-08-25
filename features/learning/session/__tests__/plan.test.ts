@@ -28,7 +28,28 @@ describe('planSession', () => {
     expect(plan.blocks).toEqual([]);
   });
 
-  it('shapes an ordinary day as warm-up, new words, closing review', () => {
+  it('shapes an ordinary words day as warm-up, new words, closing review', () => {
+    const roomy = { ...goal, mode: 'words' as const, wordsPerDay: 40, newWordsPerDay: 10 };
+    const plan = planSession({
+      goal: roomy, priorityWords: [],
+      dueWords: Array.from({ length: 40 }, (_, i) => word(`d${i}`)),
+      newWords: Array.from({ length: 30 }, (_, i) => word(`n${i}`)),
+      progress: Object.fromEntries(
+        Array.from({ length: 40 }, (_, i) => [`d${i}`, { stageIndex: 2, knownCount: 2, unknownCount: 0 }]),
+      ),
+      dayTargets: { resolvedNewTarget: 10, resolvedReviewTarget: 22, resolvedItemBudget: 32 },
+    });
+    expect(plan.blocks.map((block) => block.kind)).toEqual(['review', 'new', 'review']);
+    // New words are capped by their share of the day, the warm-up by its own
+    // ceiling, and the leftover repeats are offered rather than planned.
+    expect(plan.newIds).toHaveLength(10);
+    expect(plan.blocks[0].ids).toHaveLength(7);
+    expect(plan.blocks.at(-1)?.ids).toHaveLength(15);
+    expect(plan.deferredDueCount).toBe(18);
+    expect(plan.shortfall).toBe(0);
+  });
+
+  it('cuts a minutes day into its three time stretches', () => {
     const roomy = { ...goal, wordsPerDay: 40 };
     const plan = planSession({
       goal: roomy, priorityWords: [],
@@ -38,12 +59,11 @@ describe('planSession', () => {
         Array.from({ length: 40 }, (_, i) => [`d${i}`, { stageIndex: 2, knownCount: 2, unknownCount: 0 }]),
       ),
     });
-    expect(plan.blocks.map((block) => block.kind)).toEqual(['review', 'new', 'review']);
-    // New words are capped by their share of the day, the warm-up by its own
-    // ceiling, and the leftover repeats are offered rather than planned.
+    // Repeats, new ground, then the rest of the repeats — but sized by the
+    // clock: three tenths of the day's items, three tenths, and the remainder.
+    expect(plan.blocks.map((block) => [block.kind, block.phase, block.ids.length]))
+      .toEqual([['review', 0, 10], ['new', 1, 10], ['review', 2, 12]]);
     expect(plan.newIds).toHaveLength(10);
-    expect(plan.blocks[0].ids).toHaveLength(7);
-    expect(plan.blocks.at(-1)?.ids).toHaveLength(15);
     expect(plan.deferredDueCount).toBe(18);
     expect(plan.shortfall).toBe(0);
   });

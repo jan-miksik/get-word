@@ -2,8 +2,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import { StudyReminderOnboarding } from '../StudyReminderOnboarding';
+import type { StudyReminderPermissionResult } from '@/features/learning/goals/web-push';
 
-function renderCard(permission: 'granted' | 'denied' | 'unsupported' = 'granted') {
+function renderCard(permission: StudyReminderPermissionResult = 'granted') {
   const onComplete = vi.fn();
   const requestPermission = vi.fn().mockResolvedValue(permission);
   render(
@@ -56,7 +57,32 @@ describe('StudyReminderOnboarding', () => {
     const { onComplete } = renderCard('unsupported');
     fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('not available');
+    expect(await screen.findByRole('status')).toHaveTextContent('cannot show notifications');
+    fireEvent.click(screen.getByRole('button', { name: /continue without reminders/i }));
+    expect(onComplete).toHaveBeenCalledWith({ enabled: false, localMinutes: 19 * 60 });
+  });
+
+  it('says the prompt went unanswered rather than blaming the device', async () => {
+    const { onComplete } = renderCard('dismissed');
+    fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('closed without an answer');
+    fireEvent.click(screen.getByRole('button', { name: /continue without reminders/i }));
+    expect(onComplete).toHaveBeenCalledWith({ enabled: false, localMinutes: 19 * 60 });
+  });
+
+  it('names the missing https instead of calling the browser unsupported', async () => {
+    renderCard('insecure-context');
+    fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('https');
+  });
+
+  it('does not enable reminders when permission exists without a delivery path', async () => {
+    const { onComplete } = renderCard('granted-local');
+    fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('cannot be delivered');
     fireEvent.click(screen.getByRole('button', { name: /continue without reminders/i }));
     expect(onComplete).toHaveBeenCalledWith({ enabled: false, localMinutes: 19 * 60 });
   });

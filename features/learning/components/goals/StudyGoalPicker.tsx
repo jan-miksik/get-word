@@ -128,8 +128,12 @@ function CircularGoalDial({
     onChange(Math.max(DIAL_MIN, Math.min(DIAL_MAX, next)));
   };
 
+  // The dial is the tallest thing on the goal screen, so its size is capped by
+  // the window as well as by its column: on a short laptop window the `vh` half
+  // of the clamp keeps the Save button above the fold instead of pushing it
+  // under. Touch is unaffected — phones are tall.
   return (
-    <div className="mt-6 flex flex-col items-center">
+    <div className="flex flex-col items-center">
       <p className="m-0 text-lg font-black text-[color:var(--ob-ink,#2A2218)]">{label}</p>
       <div
         ref={ringRef}
@@ -148,7 +152,7 @@ function CircularGoalDial({
         onPointerMove={(event) => {
           if (event.currentTarget.hasPointerCapture(event.pointerId)) updateFromPointer(event);
         }}
-        className="relative mt-3 aspect-square w-full max-w-[17rem] touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,#1E6FA8)_28%,transparent)] sm:max-w-[19rem]"
+        className="relative mt-3 aspect-square w-full max-w-[min(17rem,34vh)] touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,#1E6FA8)_28%,transparent)] sm:max-w-[min(19rem,38vh)]"
       >
         <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
           {/* The outline is the same arc drawn wider underneath, so the track
@@ -257,12 +261,18 @@ export function StudyGoalPicker({
   initial,
   onSubmit,
   pending = false,
+  framed = false,
   submitLabel,
 }: {
   pacing: StudyPacing;
   initial?: Partial<GoalPickerValue>;
   onSubmit: (value: GoalPickerValue) => void;
   pending?: boolean;
+  /**
+   * Draw the picker's own card. Off inside `OnboardingScreen`, which already
+   * provides the sheet — a card in a card only costs vertical space.
+   */
+  framed?: boolean;
   submitLabel?: string;
 }) {
   const { t } = useI18n();
@@ -356,7 +366,16 @@ export function StudyGoalPicker({
   ];
 
   return (
-    <section className="onboarding-card mx-auto w-full max-w-2xl p-4 text-left sm:p-7">
+    // A container query, not a breakpoint: the same picker is a full screen in
+    // setup and a narrow section in Settings, and only its own width says which
+    // layout fits. Wide enough, and the dial and the week sit side by side so
+    // the whole goal — including Save — is on screen without scrolling.
+    <section
+      className={[
+        '@container mx-auto w-full text-left',
+        framed ? 'onboarding-card max-w-2xl p-4 sm:p-7' : '',
+      ].join(' ')}
+    >
       <div
         role="radiogroup"
         aria-label={t('goal.pickerLegend')}
@@ -382,91 +401,95 @@ export function StudyGoalPicker({
         ))}
       </div>
 
-      <CircularGoalDial
-        label={t(isWords ? 'goal.newWordsPerDay' : 'goal.minutesPerDay')}
-        unit={t(isWords ? 'goal.wordsUnit' : 'goal.minutesUnit')}
-        customLabel={t('goal.customValueBadge')}
-        editLabel={t('goal.editValue')}
-        value={value}
-        rawValue={rawValue}
-        invalid={invalid}
-        validationMessage={validationMessage}
-        onRawValueChange={updateRawValue}
-        onRawValueCommit={commitRawValue}
-        onChange={setValue}
-      />
+      <div className="mt-6 grid gap-6 @2xl:grid-cols-[17rem_minmax(0,1fr)] @2xl:items-stretch @2xl:gap-8">
+        <CircularGoalDial
+          label={t(isWords ? 'goal.newWordsPerDay' : 'goal.minutesPerDay')}
+          unit={t(isWords ? 'goal.wordsUnit' : 'goal.minutesUnit')}
+          customLabel={t('goal.customValueBadge')}
+          editLabel={t('goal.editValue')}
+          value={value}
+          rawValue={rawValue}
+          invalid={invalid}
+          validationMessage={validationMessage}
+          onRawValueChange={updateRawValue}
+          onRawValueCommit={commitRawValue}
+          onChange={setValue}
+        />
 
-      <fieldset className="mt-7 border-0 p-0">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <legend className="text-sm font-extrabold">{t('goal.studyDays')}</legend>
-          <button
-            type="button"
-            aria-pressed={everyDay}
-            onClick={toggleEveryDay}
-            className={[
-              'rounded-lg border-2 border-[color:var(--ob-ink,#2A2218)] px-3 py-1.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)]',
-              everyDay
-                ? 'bg-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-surface,#F4EFE2)]'
-                : 'bg-[color:var(--ob-surface,#F4EFE2)] text-[color:var(--ob-ink,#2A2218)] hover:bg-[color:var(--ob-surface-hover,#FFF8E8)]',
-            ].join(' ')}
-          >
-            {t('goal.everyDay')}
-          </button>
-        </div>
-        <div className="mt-3 grid grid-cols-7 gap-1.5">
-          {weekdayLabels.map((label, index) => {
-            const day = (index + 1) as GoalWeekday;
-            const selected = weekdays.includes(day);
-            return (
+        <div className="flex flex-col @2xl:justify-between">
+          <fieldset className="border-0 p-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <legend className="text-sm font-extrabold">{t('goal.studyDays')}</legend>
               <button
-                key={day}
                 type="button"
-                aria-pressed={selected}
-                aria-label={label}
-                onClick={() => toggleWeekday(day)}
+                aria-pressed={everyDay}
+                onClick={toggleEveryDay}
                 className={[
-                  'aspect-square rounded-xl border-2 border-[color:var(--ob-ink,#2A2218)] text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)] sm:text-sm',
-                  selected
+                  'rounded-lg border-2 border-[color:var(--ob-ink,#2A2218)] px-3 py-1.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)]',
+                  everyDay
                     ? 'bg-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-surface,#F4EFE2)]'
-                    : 'bg-[color:var(--ob-surface,#F4EFE2)] text-[color:var(--ob-ink-soft,#6B5E48)] hover:bg-[color:var(--ob-surface-hover,#FFF8E8)]',
+                    : 'bg-[color:var(--ob-surface,#F4EFE2)] text-[color:var(--ob-ink,#2A2218)] hover:bg-[color:var(--ob-surface-hover,#FFF8E8)]',
                 ].join(' ')}
               >
-                {label}
+                {t('goal.everyDay')}
               </button>
-            );
-          })}
+            </div>
+            <div className="mt-3 grid grid-cols-7 gap-1.5">
+              {weekdayLabels.map((label, index) => {
+                const day = (index + 1) as GoalWeekday;
+                const selected = weekdays.includes(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    aria-pressed={selected}
+                    aria-label={label}
+                    onClick={() => toggleWeekday(day)}
+                    className={[
+                      'aspect-square rounded-xl border-2 border-[color:var(--ob-ink,#2A2218)] text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)] sm:text-sm',
+                      selected
+                        ? 'bg-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-surface,#F4EFE2)]'
+                        : 'bg-[color:var(--ob-surface,#F4EFE2)] text-[color:var(--ob-ink-soft,#6B5E48)] hover:bg-[color:var(--ob-surface-hover,#FFF8E8)]',
+                    ].join(' ')}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-ink-soft,#6B5E48)]">
+              {t('goal.daysSelected', { count: weekdays.length })}
+            </p>
+          </fieldset>
+
+          {/* Words mode alone gets an estimate. The minutes estimate said how many
+              items fit in the time the learner just chose, which is the one thing
+              they already know. */}
+          {isWords ? (
+            <p className="mb-0 mt-6 text-sm font-semibold leading-relaxed text-[color:var(--ob-ink-soft,#6B5E48)]">
+              {`${t('goal.estimateWords', {
+                fresh: newWordsPerDay,
+                review: estimate.desiredReviewTarget,
+              })} · ${t('goal.estimateMonthly', { count: monthly })}`}
+            </p>
+          ) : null}
+
+          <button
+            type="button"
+            disabled={pending || invalid}
+            onClick={() => onSubmit({
+              mode,
+              weekdays,
+              daysPerWeek: weekdays.length,
+              minutesPerDay,
+              newWordsPerDay,
+            })}
+            className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,#1E6FA8)_28%,transparent)] active:translate-y-0 disabled:cursor-wait disabled:opacity-50"
+          >
+            {submitLabel ?? t('settings.studyGoalSave')}
+          </button>
         </div>
-        <p className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-ink-soft,#6B5E48)]">
-          {t('goal.daysSelected', { count: weekdays.length })}
-        </p>
-      </fieldset>
-
-      {/* Words mode alone gets an estimate. The minutes estimate said how many
-          items fit in the time the learner just chose, which is the one thing
-          they already know. */}
-      {isWords ? (
-        <p className="mb-0 mt-6 text-sm font-semibold leading-relaxed text-[color:var(--ob-ink-soft,#6B5E48)]">
-          {`${t('goal.estimateWords', {
-            fresh: newWordsPerDay,
-            review: estimate.desiredReviewTarget,
-          })} · ${t('goal.estimateMonthly', { count: monthly })}`}
-        </p>
-      ) : null}
-
-      <button
-        type="button"
-        disabled={pending || invalid}
-        onClick={() => onSubmit({
-          mode,
-          weekdays,
-          daysPerWeek: weekdays.length,
-          minutesPerDay,
-          newWordsPerDay,
-        })}
-        className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,#1E6FA8)_28%,transparent)] active:translate-y-0 disabled:cursor-wait disabled:opacity-50"
-      >
-        {submitLabel ?? t('settings.studyGoalSave')}
-      </button>
+      </div>
     </section>
   );
 }

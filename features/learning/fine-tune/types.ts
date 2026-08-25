@@ -98,6 +98,22 @@ export function typingScaffold({
 }
 
 export type ChoiceOptionCount = 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+/**
+ * Which language the options themselves are written in; the prompt is always
+ * the other side.
+ *
+ * `'foreign'` is the harder, productive direction — the learner reads a word
+ * they know and has to recognise its foreign form among lookalikes. `'known'`
+ * is plain recognition: the foreign word is on screen and only its meaning has
+ * to be picked out.
+ */
+export type ChoiceOptionsSide = 'foreign' | 'known';
+
+export const CHOICE_OPTIONS_SIDES = [
+  'foreign',
+  'known',
+] as const satisfies readonly ChoiceOptionsSide[];
 export type MatchPairCount = 2 | 3 | 4 | 5 | 6;
 export type AssemblyVariant = `${'letters' | 'words'}:${SimilarityBand}`;
 
@@ -120,16 +136,17 @@ export function parseAssemblyVariant(variant: AssemblyVariant): {
   return { unit, band };
 }
 
-/** `'4:II'` — four options, distractors that look fairly alike. */
-export type ChoiceVariant = `${ChoiceOptionCount}:${SimilarityBand}`;
+/** `'4:II:foreign'` — four foreign options, distractors that look fairly alike. */
+export type ChoiceVariant = `${ChoiceOptionCount}:${SimilarityBand}:${ChoiceOptionsSide}`;
 /** `'6:III'` — six pairs of near-twins. */
 export type MatchVariant = `${MatchPairCount}:${SimilarityBand}`;
 
 export function choiceVariant(
   options: ChoiceOptionCount,
   band: SimilarityBand,
+  side: ChoiceOptionsSide,
 ): ChoiceVariant {
-  return `${options}:${band}`;
+  return `${options}:${band}:${side}`;
 }
 
 export function matchVariant(pairs: MatchPairCount, band: SimilarityBand): MatchVariant {
@@ -138,9 +155,15 @@ export function matchVariant(pairs: MatchPairCount, band: SimilarityBand): Match
 
 export function parseChoiceVariant(
   variant: ChoiceVariant,
-): { options: ChoiceOptionCount; band: SimilarityBand } {
-  const [count, band] = variant.split(':');
-  return { options: Number(count) as ChoiceOptionCount, band: band as SimilarityBand };
+): { options: ChoiceOptionCount; band: SimilarityBand; side: ChoiceOptionsSide } {
+  const [count, band, side] = variant.split(':');
+  return {
+    options: Number(count) as ChoiceOptionCount,
+    band: band as SimilarityBand,
+    // Variants stored before the direction existed read as the default one, so
+    // a stray legacy string can never render a card with no side at all.
+    side: side === 'known' ? 'known' : 'foreign',
+  };
 }
 
 export function parseMatchVariant(
@@ -170,7 +193,7 @@ export interface StageConfig {
 }
 
 export interface FineTuneConfig {
-  version: 3;
+  version: 4;
   /** Exactly 8 entries, indexed by `STAGES[i].id`. */
   stages: StageConfig[];
 }
@@ -188,6 +211,8 @@ export type ResolvedExercise =
       requestedBand: SimilarityBand;
       /** May be lower than requested when the list ran out of similar words. */
       effectiveBand: SimilarityBand;
+      /** Which language the options are written in. */
+      optionsSide: ChoiceOptionsSide;
       distractors: NormalizedWord[];
     }
   | {

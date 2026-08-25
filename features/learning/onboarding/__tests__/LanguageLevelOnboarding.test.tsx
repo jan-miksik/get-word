@@ -3,13 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import { LanguageLevelOnboarding } from '../LanguageLevelOnboarding';
 
-function renderStep(initialLevel: 'A0' | 'B1' | null = null) {
+function renderStep(initialLevel: 'A0' | 'B1' | null = null, onBack?: () => void) {
   const onSubmit = vi.fn();
   render(
     <I18nProvider language="en">
       <LanguageLevelOnboarding
         targetLanguage="es"
         initialLevel={initialLevel}
+        onBack={onBack}
         onSubmit={onSubmit}
       />
     </I18nProvider>,
@@ -29,7 +30,8 @@ describe('LanguageLevelOnboarding', () => {
   it('names the language being learnt, in the interface language', () => {
     renderStep();
 
-    expect(screen.getByText('Spanish')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'How well do you know Spanish?' }))
+      .toBeInTheDocument();
   });
 
   it('submits the chosen level', () => {
@@ -47,5 +49,22 @@ describe('LanguageLevelOnboarding', () => {
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
     expect(onSubmit).toHaveBeenCalledWith('B1');
+  });
+
+  // Back comes from the shared onboarding frame, so this also covers the level
+  // step being wired into it rather than drawing its own page.
+  it('offers a way back when there is a step to go back to', () => {
+    const onBack = vi.fn();
+    renderStep(null, onBack);
+
+    fireEvent.click(screen.getByRole('button', { name: /back/i }));
+
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('offers no way back when there is nothing before this step', () => {
+    renderStep();
+
+    expect(screen.queryByRole('button', { name: /back/i })).not.toBeInTheDocument();
   });
 });

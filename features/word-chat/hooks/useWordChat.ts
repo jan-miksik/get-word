@@ -142,6 +142,18 @@ function classifyCustomItem(text: string): 'sentence' | 'word' {
   return /\s/.test(text) && text.length > 20 ? 'sentence' : 'word';
 }
 
+/**
+ * Identity of a finished pair, case-insensitively. Used to keep the same word
+ * from landing twice when it arrives from two directions — picked off a photo
+ * and typed by hand — and to match a Review row back to the photo pair it came
+ * from.
+ */
+function pairKey(item: { textKnown: string; textTarget: string }): string {
+  return `${item.textKnown.trim().toLocaleLowerCase()}\u0000${item.textTarget
+    .trim()
+    .toLocaleLowerCase()}`;
+}
+
 function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -336,6 +348,14 @@ export function useWordChat({
   const askVisibility =
     canPublishPublicLists && (manualEntry ? hasPersonalList === false : proposedVisibilityAsk);
 
+  /**
+   * Pairs that arrive already translated — today, the words picked off a photo.
+   * They share the basket and the Check step with typed and proposed words, but
+   * they must never be sent to the translator: the lab has already produced
+   * both sides and voiced them, and re-translating would spend the learner's
+   * monthly allowance on work that is done.
+   */
+  const [pretranslatedItems, setPretranslatedItems] = useState<ReviewItem[]>([]);
   const [reviewItems, setReviewItemsState] = useState<ReviewItem[]>([]);
   // A synchronous mirror of `reviewItems`. Saving waits for the audio jobs to
   // finish and then has to read the rows they just wrote; a `useState` value is
@@ -489,6 +509,7 @@ export function useWordChat({
     setReviewLabel(draft.reviewLabel);
     setManualEntry(draft.reviewLabel === MANUAL_REVIEW_LABEL);
     setReviewItems(draft.reviewItems);
+    setPretranslatedItems(draft.pretranslatedItems ?? []);
     setIsPublic(draft.isPublic);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [languageFrom, languageTo, setReviewItems]);
@@ -514,6 +535,7 @@ export function useWordChat({
       proposals,
       selectedKeys,
       customItems,
+      pretranslatedItems,
       reviewItems,
       isPublic,
     });
@@ -534,6 +556,7 @@ export function useWordChat({
     proposals,
     selectedKeys,
     customItems,
+    pretranslatedItems,
     reviewItems,
     isPublic,
   ]);
@@ -556,6 +579,7 @@ export function useWordChat({
         conversation.length > 0 ||
         proposals.length > 0 ||
         customItems.length > 0 ||
+        pretranslatedItems.length > 0 ||
         reviewItems.length > 0;
       if (!hasWork) return;
 
@@ -576,6 +600,7 @@ export function useWordChat({
         proposals,
         selectedKeys,
         customItems,
+        pretranslatedItems,
         reviewItems,
         isPublic,
       });
@@ -618,6 +643,8 @@ export function useWordChat({
         proposals: migratedProposals,
         selectedKeys: migratedSelectedKeys,
         customItems,
+        // These rows carry a translation and a clip for the old target language.
+        pretranslatedItems: [],
         // These rows contain translations and audio for the previous target.
         reviewItems: [],
         isPublic,
@@ -635,6 +662,7 @@ export function useWordChat({
       languageTo,
       listName,
       messages,
+      pretranslatedItems,
       proposals,
       reviewItems,
       reviewLabel,
@@ -838,13 +866,21 @@ export function useWordChat({
     ];
   }, [audioDisabledKeys, proposals, selectedKeys, customItems]);
 
-  const selectedCount = selectedItems.length;
+  const translatedSelectionCount = selectedItems.length;
+  const selectedCount = translatedSelectionCount + pretranslatedItems.length;
   const overSoftLimit = selectedCount > limits.softItemWarningThreshold;
   const atHardCap = selectedCount >= limits.maxItemsPerSession;
   const monthlyRemaining = Math.max(0, limits.monthlyLimit - limits.monthlyUsed);
-  const selectionLimit = Math.min(limits.maxItemsPerSession, monthlyRemaining);
-  const overMonthlyLimit = selectedCount > monthlyRemaining;
-  const atSelectionLimit = selectedCount >= selectionLimit;
+  const translationSelectionLimit = Math.min(
+    monthlyRemaining,
+    Math.max(0, limits.maxItemsPerSession - pretranslatedItems.length),
+  );
+  const remainingSelections = Math.max(
+    0,
+    translationSelectionLimit - translatedSelectionCount,
+  );
+  const overMonthlyLimit = translatedSelectionCount > monthlyRemaining;
+  const atSelectionLimit = remainingSelections === 0;
 
   const proposeMessages = useCallback(async (
     conversation: WordChatMessage[],
@@ -1045,12 +1081,12 @@ export function useWordChat({
       setSelectedKeys((current) =>
         current.includes(key)
           ? current.filter((entry) => entry !== key)
-          : current.length + customItems.length >= selectionLimit
+          : current.length + customItems.length >= translationSelectionLimit
             ? current
             : [...current, key],
       );
     },
-    [customItems.length, selectionLimit],
+    [customItems.length, translationSelectionLimit],
   );
 
   const isSelected = useCallback(
@@ -1059,9 +1095,9 @@ export function useWordChat({
   );
 
   const selectAll = useCallback(() => {
-    const available = Math.max(0, selectionLimit - customItems.length);
+    const available = Math.max(0, translationSelectionLimit - customItems.length);
     setSelectedKeys(proposals.filter((item) => item.text.trim()).slice(0, available).map(proposalKey));
-  }, [customItems.length, proposals, selectionLimit]);
+  }, [customItems.length, proposals, translationSelectionLimit]);
 
   const clearSelection = useCallback(() => {
     setSelectedKeys([]);
@@ -1118,6 +1154,46 @@ export function useWordChat({
     [atSelectionLimit],
   );
 
+  /**
+   * Words picked off a photo, dropped into the same basket as typed ones.
+   *
+   * They come with both sides and a clip already, so they skip the translator
+   * and wait for the Check step with everything else.
+   */
+  const addPretranslatedItems = useCallback(
+    (incoming: { textKnown: string; textTarget: string; audioHash?: string | null }[]) => {
+      setPretranslatedItems((current) => {
+        const seen = new Set(current.map(pairKey));
+        const next = [...current];
+        for (const item of incoming) {
+          if (next.length + selectedItems.length >= limits.maxItemsPerSession) break;
+          const textKnown = item.textKnown.trim().replace(/\s+/g, ' ');
+          const textTarget = item.textTarget.trim().replace(/\s+/g, ' ');
+          if (!textKnown || !textTarget) continue;
+          const key = pairKey({ textKnown, textTarget });
+          if (seen.has(key)) continue;
+          seen.add(key);
+          next.push({
+            kind: classifyCustomItem(textKnown),
+            textKnown,
+            textTarget,
+            // The lab voiced the target side already; the clip is addressed by
+            // its content hash, which Save resolves to the stored asset.
+            audioHash: item.audioHash ?? null,
+            audioAssetId: null,
+            audioStatus: item.audioHash ? 'ready' : 'idle',
+          });
+        }
+        return next.length === current.length ? current : next;
+      });
+    },
+    [limits.maxItemsPerSession, selectedItems.length],
+  );
+
+  const removePretranslatedItem = useCallback((key: string) => {
+    setPretranslatedItems((current) => current.filter((item) => pairKey(item) !== key));
+  }, []);
+
   const removeCustomItem = useCallback((text: string) => {
     setCustomItems((current) => current.filter((entry) => entry.text !== text));
     setAudioDisabledKeys((current) => current.filter((entry) => entry !== `custom:${text}`));
@@ -1154,7 +1230,7 @@ export function useWordChat({
     // and nobody should have to press + before Translate for a word that is
     // already on screen.
     const seen = new Set(selectedItems.map((item) => item.text.toLowerCase()));
-    const room = Math.max(0, selectionLimit - selectedItems.length);
+    const room = Math.max(0, translationSelectionLimit - selectedItems.length);
     const extras: SelectedTranslationItem[] = [];
     for (const raw of pendingTexts) {
       if (extras.length >= room) break;
@@ -1165,12 +1241,30 @@ export function useWordChat({
     }
     const itemsToTranslate = [...selectedItems, ...extras];
 
-    if (busy || itemsToTranslate.length === 0) return;
+    if (busy) return;
+    if (itemsToTranslate.length === 0 && pretranslatedItems.length === 0) return;
     if (itemsToTranslate.length > monthlyRemaining) return;
     // The target language words its phrases differently depending on who is
     // being spoken to, and nobody has said which. Translating now would produce
     // a guess the learner would have to re-read every row to catch.
-    if (translationRegisterMissing) return;
+    if (itemsToTranslate.length > 0 && translationRegisterMissing) return;
+
+    // Rows the learner picked off a photo arrive with both sides written and a
+    // clip recorded. They join the Check step as they are — never a second time,
+    // and never through the translator.
+    const mergePretranslated = (rows: ReviewItem[]): ReviewItem[] => {
+      const present = new Set(rows.map(pairKey));
+      return [...rows, ...pretranslatedItems.filter((item) => !present.has(pairKey(item)))];
+    };
+
+    // A batch that is only photo words has nothing to translate: it is already
+    // a finished set of rows, so it goes straight to the Check step.
+    if (itemsToTranslate.length === 0) {
+      setError(null);
+      setReviewItems((current) => mergePretranslated(current));
+      setStep('review');
+      return;
+    }
     // Recorded only once the round is actually going ahead, so a refused one
     // does not leave half-added rows behind.
     if (extras.length > 0) setCustomItems((current) => [...current, ...extras]);
@@ -1193,6 +1287,9 @@ export function useWordChat({
       ]),
     });
     if (signature === translatedSignatureRef.current && reviewItems.length > 0) {
+      // Only the photo pairs that are not on the table yet are added; rows the
+      // learner already edited or deleted in Check are left exactly as they are.
+      setReviewItems((current) => mergePretranslated(current));
       setStep('review');
       return;
     }
@@ -1246,7 +1343,7 @@ export function useWordChat({
             .map((row) => [row.text_known, row.warnings]),
         ),
       );
-      setReviewItems(rows);
+      setReviewItems(mergePretranslated(rows));
       translatedSignatureRef.current = signature;
 
       // Reused rows arrive already voiced, as a hash pointing at a clip we do
@@ -1320,10 +1417,11 @@ export function useWordChat({
     modelOverrides.translation,
     monthlyRemaining,
     noteSuccess,
+    pretranslatedItems,
     recordDiagnostics,
     reviewItems.length,
     selectedItems,
-    selectionLimit,
+    translationSelectionLimit,
     sessionId,
     translationRegister,
     translationRegisterMissing,
@@ -1339,6 +1437,7 @@ export function useWordChat({
    */
   const updateReviewItem = useCallback(
     (index: number, patch: Partial<Pick<ReviewItem, 'textKnown' | 'textTarget'>>) => {
+      const original = reviewItemsRef.current[index];
       setReviewItems((current) =>
         current.map((row, rowIndex) => {
           if (rowIndex !== index) return row;
@@ -1361,13 +1460,35 @@ export function useWordChat({
           return next;
         }),
       );
+      if (original) {
+        setPretranslatedItems((items) =>
+          items.map((item) => {
+            if (pairKey(item) !== pairKey(original)) return item;
+            const targetChanged =
+              patch.textTarget !== undefined && patch.textTarget !== item.textTarget;
+            return {
+              ...item,
+              ...patch,
+              ...(targetChanged
+                ? { audioStatus: 'idle' as const, audioAssetId: null, audioHash: null }
+                : {}),
+            };
+          }),
+        );
+      }
     },
     [setReviewItems],
   );
 
   const removeReviewItem = useCallback(
     (index: number) => {
-      setReviewItems((current) => current.filter((_, rowIndex) => rowIndex !== index));
+      setReviewItems((current) => {
+        const removed = current[index];
+        // A photo pair dropped here is dropped from the basket too, or stepping
+        // back and continuing would quietly bring it back.
+        if (removed) setPretranslatedItems((items) => items.filter((item) => pairKey(item) !== pairKey(removed)));
+        return current.filter((_, rowIndex) => rowIndex !== index);
+      });
     },
     [setReviewItems],
   );
@@ -1425,9 +1546,18 @@ export function useWordChat({
     }
     setBusy('commit');
     try {
+      // A list created by a batch that is only photo words keeps Photo Lab's
+      // conservative answer to a question it never asked the learner: those
+      // pairs stay out of the editor review queue. Any typed or proposed word
+      // in the batch means the word chat's own flow asked, so it opts in as
+      // before. An existing list keeps whatever it was created with.
+      const rows = reviewItemsRef.current;
+      const photoKeys = new Set(pretranslatedItems.map(pairKey));
+      const photoOnlyBatch = rows.length > 0 && rows.every((row) => photoKeys.has(pairKey(row)));
       const result = await commitSession({
         creationKey,
         sessionId,
+        reviewOptIn: !photoOnlyBatch,
         languageFrom,
         languageTo,
         chatLanguage,
@@ -1437,7 +1567,7 @@ export function useWordChat({
         topicLabel,
         reviewLabel,
         isPublic: isPublic === true,
-        items: reviewItemsRef.current,
+        items: rows,
         messages: completeTranscript(messages),
       });
       noteSuccess();
@@ -1494,6 +1624,7 @@ export function useWordChat({
     messages,
     noteSuccess,
     onCommitted,
+    pretranslatedItems,
     reviewLabel,
     refreshAfterCommit,
     sessionId,
@@ -1574,6 +1705,7 @@ export function useWordChat({
     setSelectedKeys([]);
     setAudioDisabledKeys([]);
     setCustomItems([]);
+    setPretranslatedItems([]);
     // Who the next batch is for is a fresh question, not a carried-over answer.
     setTranslationRegister(null);
     setListName(personalListName(languageFrom, languageTo));
@@ -1668,6 +1800,8 @@ export function useWordChat({
     debugLog,
     limits,
     selectedCount,
+    translatedSelectionCount,
+    remainingSelections,
     overSoftLimit,
     atHardCap,
     monthlyRemaining,
@@ -1687,6 +1821,9 @@ export function useWordChat({
     updateProposal,
     addCustomItem,
     removeCustomItem,
+    pretranslatedItems,
+    addPretranslatedItems,
+    removePretranslatedItem,
     startManualEntry,
     continueToReview,
     updateReviewItem,

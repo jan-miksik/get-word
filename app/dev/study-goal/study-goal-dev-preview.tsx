@@ -7,6 +7,11 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { StudyCountdown } from '@/features/learning/components/goals/StudyCountdown';
 import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
 import { StudyGoalPicker, type GoalPickerValue } from '@/features/learning/components/goals/StudyGoalPicker';
+import { SessionRail } from '@/features/learning/components/SessionRail';
+import { SessionTimeStrip } from '@/features/learning/components/SessionTimeStrip';
+import { currentIanaTimezone } from '@/lib/local-day';
+import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
+import type { SessionFlowState } from '@/features/learning/session/flow';
 import {
   GOAL_STRIP_VARIANTS,
   useGoalStripVariant,
@@ -34,6 +39,26 @@ const pacing: StudyPacing = {
 
 /** A local day key that cannot collide with the real one in activity storage. */
 const DEV_DAY_KEY = '1999-01-01';
+
+/** Just enough plan for the rails to draw against on this page. */
+const DEV_BLOCKS: SessionBlockProgress[] = [
+  { key: 'r1', kind: 'review', total: 7, done: 7, pending: 0, liveRemaining: 0, unavailable: 0 },
+  { key: 'n1', kind: 'new', total: 10, done: 4, pending: 0, liveRemaining: 6, unavailable: 0 },
+  { key: 'r2', kind: 'review', total: 16, done: 0, pending: 0, liveRemaining: 16, unavailable: 0 },
+];
+
+const DEV_FLOW: SessionFlowState = {
+  index: 1,
+  blocks: DEV_BLOCKS,
+  block: DEV_BLOCKS[1],
+  next: DEV_BLOCKS[2],
+  blockNumber: 2,
+  blockCount: 3,
+  dayDone: 11,
+  dayTotal: 33,
+  dayPending: 0,
+  complete: false,
+};
 
 function goalFrom(value: GoalPickerValue): ReviewLoadInput['goal'] {
   const isWords = value.mode === 'words';
@@ -159,11 +184,38 @@ function CountdownView() {
           </p>
         </div>
       </Card>
-      <Card title="Pruh">
-        <div className="rounded-xl bg-[#f6f1e6] p-4">
-          <StudyCountdown day={day} goal={goal} enabled />
-        </div>
-      </Card>
+      <div className="flex flex-col gap-6">
+        <Card title="Pruh">
+          <div className="rounded-xl bg-[#f6f1e6] p-4">
+            <StudyCountdown day={day} goal={goal} enabled />
+          </div>
+        </Card>
+        <Card title={mode === 'minutes' ? 'Odpočet nad kartami' : 'Raily u okrajů'}>
+          <p className="m-0 mb-3 text-xs text-[#735d43]">
+            U časového cíle nejsou raily žádné — zbývá jen odpočet nad balíčkem,
+            s vlastním miniprogresem a s ryskami tam, kde se den láme na
+            opakování → nová slova → doběh. U slov zůstávají raily beze změny.
+            Posuvník „Aktivní čas“ je tu jen náhled — v aplikaci ho hýbe jen
+            měřený čas, takže odloženou kartu nic neodpočítá.
+          </p>
+          {/* The real study area sits on the fixed warm ground, not on the theme
+              background — the rail track is a dark translucency tuned for it. */}
+          <div className="relative h-72 overflow-hidden rounded-xl bg-[#dcd1b9] text-[#2a2218]">
+            {mode === 'minutes' ? (
+              <SessionTimeStrip
+                goal={{
+                  dayKey: DEV_DAY_KEY,
+                  timezone: currentIanaTimezone(),
+                  budgetMs: 10 * 60_000,
+                  serverActiveMs: activeSeconds * 1000,
+                }}
+              />
+            ) : (
+              <SessionRail flow={DEV_FLOW} />
+            )}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

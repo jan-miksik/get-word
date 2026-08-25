@@ -250,13 +250,11 @@ function ChoiceExercise({
     isTopStage(progress.stageIndex ?? 0) &&
     Boolean(progress.nextDueAt);
 
-  // Asking in the harder direction — known word shown, foreign options to pick
-  // from — is what a longer interval deserves; the easier direction stays for
-  // the shorter ones. Reuse the reveal notion of "foreign shown" via the band:
-  // extreme-band rounds compare foreign spellings, which only works when the
-  // options are the foreign side.
+  // The variant fixes which language the options are written in, so the prompt
+  // is simply the other side: foreign options mean the learner reads the word
+  // they know and has to produce the foreign one, which is the harder way round.
   const promptSide =
-    exercise.effectiveBand === 'III' ? knownSideForRole(role) : learningSideForRole(role);
+    exercise.optionsSide === 'foreign' ? knownSideForRole(role) : learningSideForRole(role);
 
   return (
     <div className="flex h-full flex-col justify-center">

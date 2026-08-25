@@ -24,9 +24,13 @@ export type GoalMinigameFrequency = 'off' | { min: number; max: number };
  * Deliberately structural: the domain package stays independent from the
  * learning feature while still preserving the Fine Tune configuration in a
  * goal-version snapshot.
+ *
+ * The version stays a plain number: this is a snapshot kept for estimating how
+ * long a day's study takes, so it has to accept whatever schema version the
+ * learning feature is on rather than pin one.
  */
 export interface GoalFineTuneConfig {
-  version: 3;
+  version: number;
   stages: Array<{
     reveal: { weight: number; variants: string[] };
     choice: { weight: number; variants: string[] };

@@ -102,6 +102,19 @@ type PhotoLabPageProps = {
   languageTo?: string;
   onLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
   /**
+   * True inside the tabbed "Add your own words" screen, whose header already
+   * carries the study pair for every tab. Without this the lab drew a second
+   * chip directly under the first one.
+   */
+  hideLanguagePair?: boolean;
+  /**
+   * Present inside the tabbed "Add your own words" screen: the picked pairs are
+   * handed to that screen's basket, where they meet the Check step alongside
+   * typed and proposed words, instead of being saved from here. `onSavedToList`
+   * is then never used — the shared flow owns the save and the receipt.
+   */
+  onPickWords?: (items: { known: string; target: string; audioHash?: string | null }[]) => void;
+  /**
    * Embedded, the study view behind the lab is holding a snapshot taken before
    * the save: it has to re-read for the new words (and the category counts) to
    * show up. Absent on the standalone route, where the learning page boots
@@ -117,6 +130,8 @@ export function PhotoLabPage({
   languageFrom,
   languageTo,
   onLanguagePairChange,
+  hideLanguagePair = false,
+  onPickWords,
   onSavedToList,
 }: PhotoLabPageProps) {
   const settingsLanguage = useSettingsLanguage();
@@ -128,6 +143,8 @@ export function PhotoLabPage({
       languageFrom={languageFrom}
       languageTo={languageTo}
       onLanguagePairChange={onLanguagePairChange}
+      hideLanguagePair={hideLanguagePair}
+      onPickWords={onPickWords}
       onSavedToList={onSavedToList}
     />
   );
@@ -146,6 +163,8 @@ function PhotoLabContent({
   languageFrom,
   languageTo,
   onLanguagePairChange,
+  hideLanguagePair = false,
+  onPickWords,
   onSavedToList,
 }: PhotoLabPageProps) {
   const { t } = useI18n();
@@ -193,6 +212,8 @@ function PhotoLabContent({
       languageFrom={languageFrom}
       languageTo={languageTo}
       onLanguagePairChange={onLanguagePairChange}
+      hideLanguagePair={hideLanguagePair}
+      onPickWords={onPickWords}
       onSavedToList={onSavedToList}
     />
   );
@@ -428,6 +449,8 @@ function PhotoLabStudio({
   languageFrom,
   languageTo,
   onLanguagePairChange,
+  hideLanguagePair = false,
+  onPickWords,
   onSavedToList,
 }: PhotoLabPageProps) {
   const { t } = useI18n();
@@ -520,12 +543,14 @@ function PhotoLabStudio({
           }`}
         >
           {variant === 'standalone' ? <BackLink onClose={onClose} /> : null}
-          <LanguagePairSummary
-            from={langFrom}
-            to={langTo}
-            onOpen={openLanguageModal}
-            className="relative z-20"
-          />
+          {hideLanguagePair ? null : (
+            <LanguagePairSummary
+              from={langFrom}
+              to={langTo}
+              onOpen={openLanguageModal}
+              className="relative z-20"
+            />
+          )}
         </div>
       </header>
 
@@ -655,7 +680,7 @@ function PhotoLabStudio({
                 <span aria-hidden="true" className="text-lg leading-none text-[var(--ob-accent)]">
                   ＋
                 </span>
-                {t('photoLab.saveWords')}
+                {t(onPickWords ? 'photoLab.pickWords' : 'photoLab.saveWords')}
               </button>
             </div>
           )}
@@ -747,6 +772,7 @@ function PhotoLabStudio({
         <SaveWordsModal
           session={current.session}
           onClose={() => setSaveOpen(false)}
+          onPick={onPickWords}
           onSaved={onSavedToList}
         />
       )}

@@ -11,9 +11,7 @@
  * the chat is only one of its readers.
  */
 export {
-  requestProposal,
   requestSimilarWords,
-  translateSelection,
   commitSession,
 } from './client/api';
 

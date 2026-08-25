@@ -27,7 +27,7 @@ export function useSaveStudyGoal({ revision, pacing, onSaved }: {
 }) {
   const [pending, setPending] = useState(false);
   const save = useCallback(async (value: GoalPickerValue, options: SaveStudyGoalOptions = {}) => {
-    if (revision === undefined || pending) return;
+    if (revision === undefined || pending) return false;
     const enabled = options.enabled ?? true;
     setPending(true);
     try {
@@ -48,10 +48,12 @@ export function useSaveStudyGoal({ revision, pacing, onSaved }: {
       }, { emitEvent: false });
       window.dispatchEvent(new Event('get-word:reschedule-reminders'));
       await onSaved();
+      return true;
     } catch (error) {
       // A failed goal write is not worth tearing the settings panel down for;
       // the summary refresh below leaves the UI showing what the server has.
       console.error('[study-goal] failed to save goal:', error);
+      return false;
     } finally {
       setPending(false);
     }

@@ -23,6 +23,26 @@ export const ACTIVITY_SURFACES = [
 export type ActivitySurface = (typeof ACTIVITY_SURFACES)[number];
 
 /**
+ * The surfaces whose measured time counts towards a study goal.
+ *
+ * Only studying. Adding words, photographing a menu and browsing lists are all
+ * work on the app, but a session goal is a promise about time spent learning,
+ * and a clock that ran while words were being typed in would let the day be
+ * earned without a single answer. Everything else is still measured — it is
+ * simply not what the goal is about.
+ *
+ * Both the day rollup (`getLocalDayActivity`) and the clock the learner watches
+ * (`lib/activity/runtime`) read this one list: a countdown that credited a
+ * surface the day total ignores would run down against a server that disagreed
+ * and never caught up.
+ */
+export const GOAL_CREDITED_SURFACES = ['study'] as const;
+
+export function isGoalCreditedSurface(surface: ActivitySurface): boolean {
+  return (GOAL_CREDITED_SURFACES as readonly string[]).includes(surface);
+}
+
+/**
  * Upper bound on a single segment. The tracker force-closes at this length, and
  * the server clamps to it, so neither a stalled client nor a modified build can
  * post an unbounded duration.

@@ -158,6 +158,29 @@ describe('ChatStep', () => {
     });
   });
 
+  it('does not ask for the level again when onboarding already stored it', () => {
+    const { onPreferencesChange } = renderChatStep({
+      addressRegister: 'casual',
+      languageLevel: 'A2',
+      salutationGender: null,
+      preferencesComplete: false,
+    });
+
+    // The level came from the onboarding step before this screen, so the setup
+    // is down to the two questions nobody has answered yet.
+    expect(screen.queryByRole('button', { name: /A1/ })).not.toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use formal address' }));
+    expect(screen.queryByRole('button', { name: /A1/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Neutral' }));
+    expect(onPreferencesChange).toHaveBeenCalledWith({
+      addressRegister: 'formal',
+      salutationGender: 'neutral',
+    });
+  });
+
   it('shows missing profile setup even when an older transcript was restored', () => {
     renderChatStep({
       preferencesComplete: false,
@@ -181,7 +204,7 @@ describe('ChatStep', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Tykej mi' }));
-    expect(screen.getByRole('heading', { name: 'Kolik už toho v jazyce umíš?' }))
+    expect(screen.getByRole('heading', { name: 'Jak dobře umíš vietnamsky?' }))
       .toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^A0/ }));

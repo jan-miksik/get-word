@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
 import { SettingsIcon, ShareIcon } from '@/components/icons/AppIcons';
 import { ShareVisibilityDialog } from '@/features/lists/components/ShareVisibilityDialog';
+import { HeadingMenu, HeadingMenuItem } from './HeadingMenu';
 import type { WordList } from '@/features/lists/types';
 import type { WordChatPreferencePatch } from '../hooks/useWordChat';
 import type {
@@ -54,6 +55,15 @@ type Props = {
    * one the cluster falls back to the card's top-right corner.
    */
   headerSlot?: HTMLElement | null;
+  /**
+   * Fold the controls into one overflow menu instead of a row of icons. Set by
+   * the tabbed "Add your own words" screen, where the typing tab already has
+   * such a menu in that corner — two loose icons there made the header
+   * rearrange itself every time the learner changed tabs. Onboarding leaves it
+   * off: there is only the gear to show, and hiding one button behind another
+   * is a click for nothing.
+   */
+  asOverflowMenu?: boolean;
   /** Whether the surface holding this button is the one on screen. */
   active?: boolean;
   /**
@@ -95,6 +105,7 @@ export function WordChatSettingsControls({
   onLanguagePairChange,
   placement = 'inline',
   headerSlot,
+  asOverflowMenu = false,
   active = true,
   open: controlledOpen,
   onOpenChange,
@@ -198,7 +209,23 @@ export function WordChatSettingsControls({
   }
 
   if (placement === 'screen-header') {
-    const cluster = (
+    // One overflow menu, exactly where the typing step puts its own (see
+    // `SelectStep`). As two loose icons these sat where the typing step has a
+    // kebab, so the header rearranged itself every time the learner changed
+    // tabs — and settings that are an occasional errand took the most
+    // prominent spot on the screen.
+    const cluster = asOverflowMenu ? (
+      <HeadingMenu label={t('wordChat.moreActions')}>
+        <HeadingMenuItem onClick={() => setOpen(true)} icon={<SettingsIcon size={16} />}>
+          {t('common.settings')}
+        </HeadingMenuItem>
+        {shareList ? (
+          <HeadingMenuItem onClick={() => setShareOpen(true)} icon={<ShareIcon size={16} />}>
+            {t('share.manageTitle')}
+          </HeadingMenuItem>
+        ) : null}
+      </HeadingMenu>
+    ) : (
       <>
         {shareButton}
         {button}

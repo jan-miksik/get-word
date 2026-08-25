@@ -55,7 +55,7 @@ export function useHomeScreenInvite(): boolean {
   return !installed && isMobileViewport && onMobileDevice;
 }
 
-export function useMobileViewport(): boolean {
+function useMobileViewport(): boolean {
   const { canInstallPwa } = usePlatformCapabilities();
   return useSyncExternalStore(
     subscribeToMobileViewport,

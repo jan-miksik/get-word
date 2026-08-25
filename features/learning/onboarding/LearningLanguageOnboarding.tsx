@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { isReverseDirectionList } from '@/features/learning/onboarding/listRecommendations';
 import { formatNumber } from '@/features/learning/onboarding/commonListAudioGeneration';
 import { useI18n } from '@/components/I18nProvider';
-import { RisingLettersBackground } from '@/components/RisingLettersBackground';
-import { SupportButton, SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
+import { SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
 import { OnboardingGenerationOverlay } from './OnboardingGenerationOverlay';
-import { OnboardingProgress } from './OnboardingProgress';
+import { OnboardingScreen } from './OnboardingScreen';
 import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
 import { OnboardingLanguageSwitcher } from './OnboardingLanguageSwitcher';
 import { useLearningOnboardingActions } from './useLearningOnboardingActions';
@@ -48,6 +47,11 @@ type Props = {
    * menu must not be stuck here because they changed their mind.
    */
   onExit?: () => void;
+  /**
+   * Return to the previous setup step. Only the `words` phase has one: choosing
+   * the languages is where the flow starts.
+   */
+  onBack?: () => void;
   onComplete: (languageFrom: string, languageTo: string) => void | Promise<void>;
   onSelectList: (listId: string) => void;
 };
@@ -61,6 +65,7 @@ export function LearningLanguageOnboarding({
   accountEmail,
   onSignOut,
   onExit,
+  onBack,
   onComplete,
   onSelectList,
 }: Props) {
@@ -113,6 +118,10 @@ export function LearningLanguageOnboarding({
   const [wordChatChangedPair, setWordChatChangedPair] =
     useState<{ from: string; to: string } | null>(null);
   const [wordChatBackAction, setWordChatBackAction] = useState<(() => void) | null>(null);
+  // Where the chat's gear and share button render. Without a slot they pin
+  // themselves to the card's top-right corner, which is where the onboarding
+  // progress bar lives — the two landed on top of each other.
+  const [wordChatHeaderSlot, setWordChatHeaderSlot] = useState<HTMLDivElement | null>(null);
   // Above the keyed WordChatFlow, so the settings modal survives the remount a
   // language-pair change forces.
   const [wordChatSettingsOpen, setWordChatSettingsOpen] = useState(false);
@@ -194,24 +203,16 @@ export function LearningLanguageOnboarding({
   };
 
   return (
-    <div
-      className={[
-        'onboarding-screen min-h-screen flex items-start justify-center bg-[#F4EFE2]! py-8 sm:py-14',
-        wordChatOpen ? 'px-1 sm:px-4' : 'px-4',
-      ].join(' ')}
+    <OnboardingScreen
+      width="wide"
+      step={showProgress ? (wordChatOpen ? 'words' : 'language') : null}
+      // While the chat is open it carries its own back control, one that knows
+      // how to step through the conversation. Two Backs on one screen would
+      // disagree about what "the previous step" means.
+      onBack={wordChatOpen ? undefined : onBack}
+      gutter={wordChatOpen ? 'tight' : 'default'}
+      overlay={generationStatus ? <OnboardingGenerationOverlay status={generationStatus} /> : null}
     >
-      <RisingLettersBackground variant="ambient" className="z-0" />
-      <SupportButton />
-      {generationStatus ? <OnboardingGenerationOverlay status={generationStatus} /> : null}
-      <section
-        className={[
-          'onboarding-card relative z-10 w-full max-w-3xl border-[#DED2BD]! bg-[#FFF8E8]! shadow-[0_20px_60px_rgba(73,58,37,0.13)]! sm:p-7',
-          wordChatOpen ? 'p-4' : 'p-5',
-        ].join(' ')}
-      >
-        {showProgress ? (
-          <OnboardingProgress step={wordChatOpen ? 'words' : 'language'} />
-        ) : null}
         {!wordChatOpen ? (
         <div className="mb-4 flex items-center justify-between gap-3">
           {accountEmail && onSignOut ? (
@@ -312,7 +313,10 @@ export function LearningLanguageOnboarding({
               ) : (
                 <span />
               )}
-              <span />
+              <div
+                ref={setWordChatHeaderSlot}
+                className="flex items-center justify-end gap-2 justify-self-end"
+              />
             </div>
             {wordChatChangedPair ? (
               <LanguagePairChangedBanner
@@ -333,6 +337,7 @@ export function LearningLanguageOnboarding({
               onStepChange={setWordChatStep}
               onHeaderBackActionChange={updateWordChatBackAction}
               settingsPlacement="screen-header"
+              headerSlot={wordChatHeaderSlot}
               settingsOpen={wordChatSettingsOpen}
               onSettingsOpenChange={setWordChatSettingsOpen}
               onUseReadyMade={() => {
@@ -681,7 +686,6 @@ export function LearningLanguageOnboarding({
             </p>
           </div>
         ) : null}
-      </section>
-    </div>
+    </OnboardingScreen>
   );
 }

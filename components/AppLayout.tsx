@@ -40,8 +40,6 @@ interface AppLayoutProps {
   school?: SchoolMembership | null;
   /** Opens the word chat from the menu without a full page load. */
   onOpenWordChat?: () => void;
-  /** Opens photo lab in place, the same way. */
-  onOpenPhotoLab?: () => void;
   /** Globally persisted study language pair. */
   learningLanguagePair?: { from: string; to: string } | null;
   /** Persists a new study language pair. */
@@ -69,7 +67,6 @@ export function AppLayout({
   accountSlotOverride,
   school,
   onOpenWordChat,
-  onOpenPhotoLab,
   learningLanguagePair,
   onLearningLanguagePairChange,
   activeSurface = 'study',
@@ -99,7 +96,6 @@ export function AppLayout({
     activeListId,
     setActiveListId,
     syncedWords,
-    photoLabEnabled,
     quickAddEnabled,
   } = useAppStateContext();
   const [pendingAudioListId, setPendingAudioListId] = useState<string | null>(() =>
@@ -168,10 +164,8 @@ export function AppLayout({
           activeListLanguagePair={activeListLanguagePair}
           learningLanguagePair={learningLanguagePair}
           onLearningLanguagePairChange={onLearningLanguagePairChange}
-          photoLabEnabled={photoLabEnabled}
           school={school}
           onOpenWordChat={onOpenWordChat}
-          onOpenPhotoLab={onOpenPhotoLab}
           activeSurface={activeSurface}
           onSurfaceChange={onSurfaceChange}
           quickAddEnabled={quickAddEnabled}

@@ -1,21 +1,22 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import {
-  KebabIcon,
   PencilIcon,
   RobotIcon,
   SettingsIcon,
   ShareIcon,
 } from '@/components/icons/AppIcons';
 import { ShareVisibilityDialog } from '@/features/lists/components/ShareVisibilityDialog';
+import { HeadingMenu, HeadingMenuItem } from './HeadingMenu';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
 import type { WordList } from '@/features/lists/types';
 import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
-import type { ProposedItem, WordChatTranslationRegister } from '../types';
+import type { ProposedItem, ReviewItem, WordChatTranslationRegister } from '../types';
 import type { WordChatLimits } from '../hooks/useWordChat';
 
 type Props = {
@@ -38,8 +39,20 @@ type Props = {
   customItems: { kind: 'sentence' | 'word'; text: string }[];
   onAddCustom: (text: string) => void;
   onRemoveCustom: (text: string) => void;
+  /**
+   * Pairs that arrived already translated — the words picked off a photo. They
+   * sit in the same basket as everything else, showing both sides because both
+   * are already written; nothing here can be sent to the translator again.
+   */
+  pretranslatedItems?: ReviewItem[];
+  /** Removes one such pair, addressed by `known\u0000target` in lower case. */
+  onRemovePretranslated?: (key: string) => void;
   limits: WordChatLimits;
   selectedCount: number;
+  /** Rows in the basket that still consume the translation allowance. */
+  translatedSelectionCount?: number;
+  /** Additional untranslated rows that fit both the session and monthly caps. */
+  remainingSelections?: number;
   overSoftLimit: boolean;
   atHardCap: boolean;
   monthlyRemaining: number;
@@ -67,6 +80,25 @@ type Props = {
   registerApplies: boolean;
   register: WordChatTranslationRegister | null;
   onRegisterChange: (value: WordChatTranslationRegister) => void;
+  /**
+   * The screen around this step already carries its heading — the tabbed
+   * "Add your own words" surface does. Drawing a second one here would name the
+   * same screen twice, so only the line of guidance is kept.
+   */
+  titleInHost?: boolean;
+  /**
+   * The screen header this step's overflow menu belongs in. Given one, the menu
+   * is portalled there so it sits in the same place on every tab; without one
+   * it stays in this step's own heading row, which is what onboarding uses.
+   */
+  headerSlot?: HTMLElement | null;
+  /**
+   * True while another tab is showing. The step stays mounted — a half-typed
+   * batch is not thrown away for a look at the photo tab — but its menu is
+   * portalled into a header that is still on screen, so the entries that only
+   * make sense next to the typing field have to stand down.
+   */
+  offScreen?: boolean;
   /** Omitted when this step is the first one: there is nothing behind it. */
   onBack?: () => void;
   /** Manual entry only: hand the word-finding over to the conversation. */
@@ -79,81 +111,6 @@ type Props = {
    */
   onContinue: (pendingTexts: string[]) => void;
 };
-
-/**
- * The heading's overflow menu, sitting in the top-right corner of the card.
- *
- * Everything it holds — the settings, pasting a prepared batch, handing the list
- * out — is an occasional errand. As buttons on the step itself they competed for
- * attention with the one thing this step is for: typing a word and adding it.
- */
-function HeadingMenu({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-label={label}
-        title={label}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="onboarding-option-secondary flex h-8 w-8 items-center justify-center rounded-full"
-      >
-        <KebabIcon size={16} />
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          className="onboarding-combobox-list absolute right-0 z-30 mt-1 w-60 max-w-[calc(100vw-2rem)] overflow-hidden p-1"
-        >
-          {children}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function HeadingMenuItem({
-  onClick,
-  icon,
-  children,
-}: {
-  onClick: () => void;
-  icon?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      className="onboarding-combobox-option flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-bold"
-    >
-      {icon ? <span className="shrink-0">{icon}</span> : null}
-      <span className="min-w-0">{children}</span>
-    </button>
-  );
-}
 
 function getProposalKey(item: ProposedItem) {
   return item.source === 'corpus' ? `corpus:${item.corpusItemId}` : `gen:${item.draftId ?? item.text}`;
@@ -179,8 +136,12 @@ export function SelectStep({
   customItems,
   onAddCustom,
   onRemoveCustom,
+  pretranslatedItems = [],
+  onRemovePretranslated,
   limits,
   selectedCount,
+  translatedSelectionCount: translatedSelectionCountFromBasket,
+  remainingSelections: remainingSelectionsFromBasket,
   overSoftLimit,
   atHardCap,
   monthlyRemaining,
@@ -195,6 +156,9 @@ export function SelectStep({
   register,
   onRegisterChange,
   onBack,
+  titleInHost = false,
+  headerSlot,
+  offScreen = false,
   onStartChat,
   onOpenSettings,
   onContinue,
@@ -216,7 +180,8 @@ export function SelectStep({
   // otherwise, so nothing on this step waits on an answer.
   const monthlyExhausted = monthlyRemaining <= 0;
   const registerMissing = registerApplies && !register;
-  const remainingSelections = Math.max(
+  const translatedSelectionCount = translatedSelectionCountFromBasket ?? selectedCount;
+  const remainingSelections = remainingSelectionsFromBasket ?? Math.max(
     0,
     Math.min(limits.maxItemsPerSession, monthlyRemaining) - selectedCount,
   );
@@ -239,6 +204,7 @@ export function SelectStep({
   const existingTexts = new Set(
     [
       ...customItems.map((item) => item.text),
+      ...pretranslatedItems.map((item) => item.textKnown),
       ...proposals.filter(isSelected).map((item) => item.text),
     ].map((text) => normalizeCustomText(text).toLowerCase()),
   );
@@ -251,6 +217,7 @@ export function SelectStep({
     })
     .map((entry) => entry.text);
   const projectedSelectedCount = selectedCount + pendingEntries.length;
+  const projectedTranslatedCount = translatedSelectionCount + pendingEntries.length;
   const overSelectionLimit = projectedSelectedCount > selectionLimit;
   const inputInvalid = Boolean(firstOverlongLine) || overSelectionLimit;
   const canAddTyped = Boolean(customInput.trim()) && !atSelectionLimit && !inputInvalid;
@@ -302,15 +269,63 @@ export function SelectStep({
     node.style.height = `${node.scrollHeight}px`;
   }, [editedText, editingKey]);
 
+  // Beside the study pair in the screen header, which every tab shares. The menu
+  // used to sit in this step's own heading row, so it moved whenever the tab
+  // changed — and on the conversation tab it was two loose icons instead.
+  //
+  // Nothing to offer when there is no settings modal to open, no bulk field to
+  // switch to and no saved list to hand out: an empty menu is worse than none.
+  const overflowMenu =
+    onOpenSettings || (mode === 'manual' && !offScreen) || shareList ? (
+      <HeadingMenu label={t('wordChat.moreActions')}>
+        {onOpenSettings ? (
+          <HeadingMenuItem onClick={onOpenSettings} icon={<SettingsIcon size={16} />}>
+            {/* Short here on purpose: the gear's own long label spelled out
+                which settings these are because it was an icon with no text. In
+                a menu on this screen, that is already clear. */}
+            {t('common.settings')}
+          </HeadingMenuItem>
+        ) : null}
+        {mode === 'manual' && !offScreen ? (
+          <HeadingMenuItem onClick={() => setBulkEntry((current) => !current)}>
+            {t(bulkEntry ? 'wordChat.manualSingleToggle' : 'wordChat.manualBulkToggle')}
+          </HeadingMenuItem>
+        ) : null}
+        {shareList ? (
+          <HeadingMenuItem onClick={() => setShareOpen(true)} icon={<ShareIcon size={16} />}>
+            {t('share.manageTitle')}
+          </HeadingMenuItem>
+        ) : null}
+      </HeadingMenu>
+    ) : null;
+
   return (
-    <div className="space-y-4">
-      <div>
-        {/* One control in the corner, not two: the settings that used to float
-            here as a gear are the first item of this menu now. */}
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 className="min-w-0 flex-1 truncate whitespace-nowrap text-sm font-extrabold sm:text-base">
-            {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
-          </h2>
+    <div className="space-y-5">
+      {overflowMenu && headerSlot ? createPortal(overflowMenu, headerSlot) : null}
+      <div className="space-y-3">
+        {/* The step's own title, at the size the onboarding screens give theirs.
+            It used to be a truncated `text-sm` line squeezed between the study
+            pair and an overflow menu, which read as a toolbar label rather than
+            as the heading of the screen the learner is on. Hosts with a header
+            of their own supply both the title and the place the overflow menu
+            goes; onboarding has neither, so it keeps them here. */}
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="min-w-0 flex-1">
+            {titleInHost ? null : (
+              <h2 className="text-2xl font-black leading-tight sm:text-3xl">
+                {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
+              </h2>
+            )}
+            <p className={`text-sm leading-relaxed onboarding-text-soft ${titleInHost ? '' : 'mt-1.5'}`}>
+              {t(
+                mode !== 'manual'
+                  ? 'wordChat.selectHint'
+                  : bulkEntry
+                    ? 'wordChat.manualHint'
+                    : 'wordChat.manualHintSingle',
+              )}
+            </p>
+          </div>
           {languageFrom && onOpenLanguagePair ? (
             <LanguagePairSummary
               from={languageFrom}
@@ -319,43 +334,8 @@ export function SelectStep({
               className="!gap-0.5 !border !px-2 !py-1.5 !text-xs sm:!gap-1"
             />
           ) : null}
-          {/* Nothing to offer when there is no settings modal to open, no bulk
-              field to switch to and no saved list to hand out — an empty menu is
-              worse than none. */}
-          {onOpenSettings || mode === 'manual' || shareList ? (
-            <HeadingMenu label={t('wordChat.moreActions')}>
-              {onOpenSettings ? (
-                <HeadingMenuItem onClick={onOpenSettings} icon={<SettingsIcon size={16} />}>
-                  {/* Short here on purpose: the gear's own long label spelled
-                      out which settings these are because it was an icon with
-                      no text. In a menu on this card, that is already clear. */}
-                  {t('common.settings')}
-                </HeadingMenuItem>
-              ) : null}
-              {mode === 'manual' ? (
-                <HeadingMenuItem onClick={() => setBulkEntry((current) => !current)}>
-                  {t(bulkEntry ? 'wordChat.manualSingleToggle' : 'wordChat.manualBulkToggle')}
-                </HeadingMenuItem>
-              ) : null}
-              {shareList ? (
-                <HeadingMenuItem
-                  onClick={() => setShareOpen(true)}
-                  icon={<ShareIcon size={16} />}
-                >
-                  {t('share.manageTitle')}
-                </HeadingMenuItem>
-              ) : null}
-            </HeadingMenu>
-          ) : null}
+          {overflowMenu && !headerSlot ? overflowMenu : null}
         </div>
-        {/* The single-entry step needs no line of instruction — the field and
-            its + say it. Only the suggestions list and the bulk paste box carry
-            a hint. */}
-        {mode !== 'manual' || bulkEntry ? (
-          <p className="mt-1 text-sm onboarding-text-soft">
-            {t(mode !== 'manual' ? 'wordChat.selectHint' : 'wordChat.manualHint')}
-          </p>
-        ) : null}
         {/* The other way to get words: letting the AI bot propose them. It sits
             directly under the heading, as the alternative to the whole step
             rather than an afterthought under the field. */}
@@ -363,9 +343,9 @@ export function SelectStep({
           <button
             type="button"
             onClick={onStartChat}
-            className="onboarding-option-secondary mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
+            className="onboarding-option-secondary inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold"
           >
-            <RobotIcon size={14} />
+            <RobotIcon size={15} />
             <span>{t('wordChat.chatStart')}</span>
           </button>
         ) : null}
@@ -529,6 +509,37 @@ export function SelectStep({
             </button>
           </li>
         ))}
+
+        {/* Both sides on the chip: these came off a photo with the translation
+            already made, so hiding the target would make them look like the
+            typed ones that still have to go through the translator. */}
+        {pretranslatedItems.map((item) => {
+          const key = `${item.textKnown.trim().toLocaleLowerCase()}\u0000${item.textTarget
+            .trim()
+            .toLocaleLowerCase()}`;
+          return (
+            <li
+              key={`photo-${key}`}
+              className="onboarding-option onboarding-option-highlight group relative rounded-xl"
+            >
+              <span className="block min-w-0 py-2 pl-3 pr-10 text-sm leading-tight">
+                <span className="block truncate">{item.textKnown}</span>
+                <span className="block truncate text-xs opacity-80">{item.textTarget}</span>
+              </span>
+              {onRemovePretranslated ? (
+                <button
+                  type="button"
+                  onClick={() => onRemovePretranslated(key)}
+                  className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-lg leading-none opacity-80 transition-opacity hover:bg-black/10 sm:opacity-0 sm:group-hover:opacity-80 sm:focus:opacity-80"
+                  aria-label={t('wordChat.remove')}
+                  title={t('wordChat.remove')}
+                >
+                  ×
+                </button>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
 
       {/* Typing a word here is a loop — type, add, watch it join the list — so
@@ -686,13 +697,13 @@ export function SelectStep({
         ) : null}
       </div>
 
-      <div className="flex gap-2 pt-4">
+      <div className="flex gap-2 pt-2">
         {onBack ? (
           <button
             type="button"
             onClick={onBack}
             disabled={busy}
-            className="onboarding-option-secondary shrink-0 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-50"
+            className="onboarding-option-secondary shrink-0 rounded-xl px-4 py-3.5 text-sm font-extrabold disabled:opacity-50"
           >
             {t('wordChat.back')}
           </button>
@@ -711,13 +722,13 @@ export function SelectStep({
             busy ||
             !listName.trim() ||
             projectedSelectedCount === 0 ||
-            monthlyExhausted ||
+            (monthlyExhausted && projectedTranslatedCount > 0) ||
             overMonthlyLimit ||
-            projectedSelectedCount > monthlyRemaining ||
+            projectedTranslatedCount > monthlyRemaining ||
             inputInvalid ||
-            registerMissing
+            (registerMissing && projectedTranslatedCount > 0)
           }
-          className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3 text-center text-base font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
+          className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3.5 text-center text-base font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {busy ? t('wordChat.translating') : t('wordChat.continueToReview')}
         </button>
@@ -726,7 +737,7 @@ export function SelectStep({
       {/* The monthly allowance is a running total, not an action — it belongs
           under the button that spends it, where it reads as a receipt rather
           than a gate. */}
-      <p className="text-xs onboarding-text-soft">
+      <p className="text-center text-xs onboarding-text-soft">
         {monthlyExhausted
           ? t('wordChat.monthlyReached', { limit: limits.monthlyLimit })
           : t('wordChat.monthlyUsage', {

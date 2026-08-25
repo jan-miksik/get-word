@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import type { WordList } from '@/features/lists/types';
 import { ChatStep } from './ChatStep';
@@ -70,6 +70,49 @@ type Props = {
    * on the conversation.
    */
   entryStep?: 'chat' | 'manual';
+  /**
+   * The host renders the screen's title and a tab bar for the ways in — typing,
+   * a photo, the conversation. The flow then drops the chrome that would repeat
+   * those tabs: its own step title, the "suggest with AI" button and the
+   * chat's "write your own" escape hatch.
+   */
+  hostEntryTabs?: boolean;
+  /**
+   * Hands the host the two actions its tabs need. Called with `null` on
+   * unmount so a stale closure cannot outlive this flow.
+   */
+  onEntryActionsChange?: (actions: WordChatEntryActions | null) => void;
+  /**
+   * True while the host is showing a different tab. The flow stays mounted and
+   * keeps its draft, but anything it lends to the shared header has to account
+   * for the fact that its own step is not the one being looked at.
+   */
+  offScreen?: boolean;
+  /**
+   * Offered on the confirmation step, under the receipt: a short practice with
+   * the words that just landed. Built by the host — this flow only knows where
+   * it goes.
+   */
+  practiceOffer?: ReactNode;
+  /**
+   * Any change to this value clears the flow back to a fresh, empty first step
+   * without leaving the surface. The host uses it to hand the learner the
+   * add-words screen again after a detour (a practice round, for instance).
+   */
+  restartSignal?: number;
+};
+
+/**
+ * What the host's tab bar needs from the flow: the two doors it opens, and the
+ * way in for pairs that arrive already translated (the words picked off a
+ * photo), which join the same basket as everything else.
+ */
+export type WordChatEntryActions = {
+  startManual: () => void;
+  startChat: () => void;
+  addPretranslatedItems: (
+    items: { textKnown: string; textTarget: string; audioHash?: string | null }[],
+  ) => void;
 };
 
 export function WordChatFlow({
@@ -91,6 +134,11 @@ export function WordChatFlow({
   active = true,
   embedded = false,
   entryStep = 'chat',
+  hostEntryTabs = false,
+  offScreen = false,
+  onEntryActionsChange,
+  practiceOffer,
+  restartSignal,
 }: Props) {
   const { t } = useI18n();
   const chat = useWordChat({
@@ -104,6 +152,16 @@ export function WordChatFlow({
     entryStep,
   });
   const resetChat = chat.reset;
+
+  // The first value is where the flow already is, so only later changes mean
+  // anything. Without the ref an initial `restartSignal` would wipe a draft the
+  // learner had restored on mount.
+  const lastRestartSignalRef = useRef(restartSignal);
+  useEffect(() => {
+    if (lastRestartSignalRef.current === restartSignal) return;
+    lastRestartSignalRef.current = restartSignal;
+    resetChat();
+  }, [resetChat, restartSignal]);
 
   // The select step opens the settings from its overflow menu rather than a gear
   // of its own, so the flow needs a handle on the modal's open state even when
@@ -132,13 +190,29 @@ export function WordChatFlow({
     onStepChange?.(chat.step);
   }, [chat.step, onStepChange]);
 
+  // The tab bar lives in the host, but the two doors it opens are this flow's.
+  const startManualEntry = chat.startManualEntry;
+  const openChat = chat.openChat;
+  const addPretranslatedItems = chat.addPretranslatedItems;
+  useEffect(() => {
+    if (!onEntryActionsChange) return;
+    onEntryActionsChange({
+      startManual: startManualEntry,
+      startChat: openChat,
+      addPretranslatedItems,
+    });
+    return () => onEntryActionsChange(null);
+  }, [addPretranslatedItems, onEntryActionsChange, openChat, startManualEntry]);
+
   // Back moves one step inside the flow — but only where there is a step to move
   // to. Entering on manual entry means nothing is behind it until the learner
   // has actually opened the chat, so the host keeps its own close action.
   useEffect(() => {
     const action =
       chat.step === 'select'
-        ? chat.canReturnToChat
+        ? // With a tab bar the conversation is a tab, not a step behind this
+          // one: Back would take the learner somewhere the tabs already go.
+          chat.canReturnToChat && !hostEntryTabs
           ? chat.openChat
           : null
         : chat.step === 'review'
@@ -151,6 +225,7 @@ export function WordChatFlow({
     chat.canReturnToChat,
     chat.openChat,
     chat.step,
+    hostEntryTabs,
     onHeaderBackActionChange,
   ]);
 
@@ -320,10 +395,11 @@ export function WordChatFlow({
           onShareListUpdated={chat.updateExistingList}
           settingsPlacement={settingsPlacement}
           headerSlot={headerSlot}
+          settingsAsMenu={hostEntryTabs}
           busy={chat.busy === 'chat' || chat.busy === 'propose' ? chat.busy : null}
           history={chat.history}
           onSend={chat.sendMessage}
-          onStartManualEntry={chat.startManualEntry}
+          onStartManualEntry={hostEntryTabs ? undefined : chat.startManualEntry}
           settingsOpen={settingsIsOpen}
           onSettingsOpenChange={setSettingsIsOpen}
           keyboardOpen={keyboardOpen}
@@ -342,15 +418,21 @@ export function WordChatFlow({
           audioDisabledKeys={chat.audioDisabledKeys}
           onToggleAudioDisabled={chat.toggleAudioDisabled}
           languageFrom={languageFrom}
-          onOpenLanguagePair={openSettings}
+          // The screen header already carries the pair on hosts that have one;
+          // a second copy inside the card's heading row only repeated it.
+          onOpenLanguagePair={settingsPlacement === 'screen-header' ? undefined : openSettings}
           onUpdateProposal={chat.updateProposal}
           onSelectAll={chat.selectAll}
           onClearSelection={chat.clearSelection}
           customItems={chat.customItems}
           onAddCustom={chat.addCustomItem}
           onRemoveCustom={chat.removeCustomItem}
+          pretranslatedItems={chat.pretranslatedItems}
+          onRemovePretranslated={chat.removePretranslatedItem}
           limits={chat.limits}
           selectedCount={chat.selectedCount}
+          translatedSelectionCount={chat.translatedSelectionCount}
+          remainingSelections={chat.remainingSelections}
           overSoftLimit={chat.overSoftLimit}
           atHardCap={chat.atHardCap}
           monthlyRemaining={chat.monthlyRemaining}
@@ -364,8 +446,13 @@ export function WordChatFlow({
           registerApplies={chat.translationRegisterApplies}
           register={chat.translationRegister}
           onRegisterChange={chat.setTranslationRegister}
-          onBack={chat.canReturnToChat ? chat.openChat : undefined}
-          onStartChat={manualMode ? chat.openChat : undefined}
+          titleInHost={hostEntryTabs}
+          // Same corner as the conversation's own menu, on hosts that have a
+          // header to hold it.
+          headerSlot={settingsPlacement === 'screen-header' ? headerSlot : null}
+          offScreen={offScreen}
+          onBack={chat.canReturnToChat && !hostEntryTabs ? chat.openChat : undefined}
+          onStartChat={manualMode && !hostEntryTabs ? chat.openChat : undefined}
           onOpenSettings={openSettings}
           onContinue={chat.continueToReview}
         />
@@ -394,6 +481,8 @@ export function WordChatFlow({
           result={chat.commitResult}
           refreshStatus={chat.refreshStatus}
           onRetryRefresh={chat.retryRefresh}
+          practiceOffer={practiceOffer}
+          onAddMore={resetChat}
           onDone={onDone ? completeDoneStep : undefined}
         />
       ) : null}

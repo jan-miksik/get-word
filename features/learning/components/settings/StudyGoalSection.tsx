@@ -16,7 +16,11 @@ import {
   type StudyPacing,
 } from '@/packages/domain/goals/goal';
 import { syncUserData } from '@/lib/sync';
-import { requestStudyReminderPermission, unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
+import {
+  reminderPermissionEnablesReminders,
+  requestStudyReminderPermission,
+  unsubscribeFromStudyWebPush,
+} from '@/features/learning/goals/web-push';
 import { StudyGoalHistory } from './StudyGoalHistory';
 
 /**
@@ -76,8 +80,11 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
     if (!summary || isPending) return;
     setReminderPending(true);
     try {
+      // Permission alone is not enough: without a native or web-push transport
+      // there is nothing that can deliver a reminder while the app is closed,
+      // so the saved toggle must reflect the capability that actually exists.
       const effectiveEnabled = enabled
-        ? await requestStudyReminderPermission() === 'granted'
+        ? reminderPermissionEnablesReminders(await requestStudyReminderPermission())
         : false;
       await syncUserData({
         goal_reminder_enabled: effectiveEnabled,

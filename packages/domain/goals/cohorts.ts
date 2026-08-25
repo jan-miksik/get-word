@@ -1,6 +1,6 @@
 import { simulateReviewLoad, type ReviewLoadDay, type ReviewLoadInput } from './forecast';
 
-export type LearnerArchetypeId = 'drifter' | 'wobbler' | 'steady' | 'returner' | 'daily';
+type LearnerArchetypeId = 'drifter' | 'wobbler' | 'steady' | 'returner' | 'daily';
 
 export interface LearnerArchetype {
   id: LearnerArchetypeId;
@@ -85,11 +85,11 @@ export const LEARNER_ARCHETYPES: LearnerArchetype[] = [
   },
 ];
 
-export const ARCHETYPE_SLICE_DAYS = [30, 90, 365] as const;
+const ARCHETYPE_SLICE_DAYS = [30, 90, 365] as const;
 /** Rates are read off a trailing fortnight; a lifetime average hides the trend. */
 const TRAILING_WINDOW_DAYS = 14;
 
-export interface ArchetypeSlice {
+interface ArchetypeSlice {
   day: number;
   studyDays: number;
   /** Averages over the *studied* days in the trailing window; 0 if there were none. */

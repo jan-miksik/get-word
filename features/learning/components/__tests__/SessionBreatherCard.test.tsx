@@ -50,3 +50,39 @@ describe('SessionBreatherCard on a closed day', () => {
     expect(screen.getByRole('button', { name: /that's enough for today/i })).toBeInTheDocument();
   });
 });
+
+const between = () => {
+  const blocks: SessionBlockProgress[] = [
+    { key: 'review-0', kind: 'review', phase: 0, done: 9, total: 10, pending: 0, liveRemaining: 1, unavailable: 0 },
+    { key: 'new-0', kind: 'new', phase: 1, done: 3, total: 10, pending: 0, liveRemaining: 7, unavailable: 0 },
+    { key: 'review-1', kind: 'review', phase: 2, done: 0, total: 12, pending: 0, liveRemaining: 12, unavailable: 0 },
+  ];
+  const flow = resolveSessionFlow(blocks, 2);
+  return { kind: 'between' as const, finished: blocks[1], next: blocks[2], flow };
+};
+
+function renderBetween(props: Partial<React.ComponentProps<typeof SessionBreatherCard>> = {}) {
+  return render(
+    <I18nProvider language="en">
+      <SessionBreatherCard breather={between()} onContinue={() => {}} {...props} />
+    </I18nProvider>,
+  );
+}
+
+describe('SessionBreatherCard at the seam between two stretches', () => {
+  it('says what the day has amounted to so far, in both units', () => {
+    renderBetween();
+
+    expect(screen.getByText('9 words and phrases reviewed')).toBeInTheDocument();
+    expect(screen.getByText('3 new words')).toBeInTheDocument();
+  });
+
+  it('drops the item bar on a minutes day, where the countdown already answers it', () => {
+    const { container } = renderBetween({ showDayProgress: false });
+
+    expect(container.querySelector('[role="progressbar"]')?.closest('.sr-only')).not.toBeNull();
+    expect(screen.queryByText(/left of/i)).not.toBeInTheDocument();
+    // The recap is not part of that bargain: it is what the pause is for.
+    expect(screen.getByText('9 words and phrases reviewed')).toBeInTheDocument();
+  });
+});

@@ -23,6 +23,7 @@ type IncomingItem = {
   corpus_item_id?: unknown;
   takeover?: unknown;
   audio_asset_id?: unknown;
+  audio_hash?: unknown;
   known_audio_asset_id?: unknown;
 };
 
@@ -53,6 +54,8 @@ function toReviewItem(item: IncomingItem): ReviewItem | null {
         }
       : {}),
     audioAssetId: typeof item.audio_asset_id === "string" ? item.audio_asset_id : null,
+    // A row that came off a photo names its clip by hash; commit resolves it.
+    audioHash: typeof item.audio_hash === "string" ? item.audio_hash : null,
     knownAudioAssetId:
       typeof item.known_audio_asset_id === "string" ? item.known_audio_asset_id : null,
   };

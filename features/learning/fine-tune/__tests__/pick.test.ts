@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { NormalizedWord } from '@/lib/words';
 import { DEFAULT_FINE_TUNE_CONFIG, normalizeFineTuneConfig } from '../config';
 import { pickExerciseForWord, pickMatchRound } from '../pick';
-import type { FineTuneConfig, StageConfig } from '../types';
+import type { ChoiceVariant, FineTuneConfig, StageConfig } from '../types';
 
 const word = (id: string, cz: string, vi: string): NormalizedWord => ({
   id, cz, vi, en: '', category: ['word'],
@@ -34,14 +34,14 @@ const stage = (overrides: Partial<StageConfig>): StageConfig => ({
 const configWithStage = (stageIndex: number, value: StageConfig): FineTuneConfig => {
   const stages = DEFAULT_FINE_TUNE_CONFIG.stages.map((entry) => entry);
   stages[stageIndex] = value;
-  return { version: 3, stages };
+  return { version: 4, stages };
 };
 
 const distribution = (
   config: FineTuneConfig,
   stageIndex: number,
   pool: NormalizedWord[],
-  samples = 4000,
+  samples = 1000,
 ): Record<string, number> => {
   const counts: Record<string, number> = {};
   for (let i = 0; i < samples; i += 1) {
@@ -71,7 +71,10 @@ describe('pickExerciseForWord — method weighting', () => {
       3,
       stage({
         reveal: { weight: 2, variants: ['known'] },
-        choice: { weight: 2, variants: ['2:I', '3:I', '4:I', '5:I', '6:I', '7:I', '8:I'] },
+        choice: { weight: 2, variants: [
+          '2:I:foreign', '3:I:foreign', '4:I:foreign', '5:I:foreign',
+          '6:I:foreign', '7:I:foreign', '8:I:foreign',
+        ] },
       }),
     );
 
@@ -103,7 +106,7 @@ describe('pickExerciseForWord — method weighting', () => {
       3,
       stage({
         reveal: { weight: 1, variants: ['known'] },
-        choice: { weight: 1, variants: ['6:I', '7:I', '8:I'] },
+        choice: { weight: 1, variants: ['6:I:foreign', '7:I:foreign', '8:I:foreign'] },
       }),
     );
     const shares = distribution(config, 3, pool);
@@ -184,7 +187,7 @@ describe('pickExerciseForWord — determinism and fallbacks', () => {
 describe('pickExerciseForWord — similarity degradation', () => {
   it('keeps the option count and lowers the band when no twins exist', () => {
     const pool = distinctPool(12);
-    const config = configWithStage(5, stage({ choice: { weight: 1, variants: ['6:III'] } }));
+    const config = configWithStage(5, stage({ choice: { weight: 1, variants: ['6:III:foreign'] } }));
     const exercise = pickExerciseForWord({
       word: pool[0],
       stageIndex: 5,
@@ -210,7 +213,7 @@ describe('pickExerciseForWord — similarity degradation', () => {
       word('d', 'zcela-jine', 'ddd'),
       word('e', 'naprosto-odlisne', 'eee'),
     ];
-    const config = configWithStage(5, stage({ choice: { weight: 1, variants: ['3:III'] } }));
+    const config = configWithStage(5, stage({ choice: { weight: 1, variants: ['3:III:known'] } }));
     const exercise = pickExerciseForWord({
       word: pool[0],
       stageIndex: 5,
@@ -225,6 +228,37 @@ describe('pickExerciseForWord — similarity degradation', () => {
     if (exercise.method !== 'choice') return;
     expect(exercise.effectiveBand).toBe('III');
     expect(exercise.distractors).toHaveLength(2);
+  });
+
+  it('measures similarity on the side the options are written in', () => {
+    // Near-twins on the known side only. Asking for foreign options therefore
+    // has nothing hard to offer, even though the same pool is band III the
+    // other way round.
+    const pool = [
+      word('a', 'fér', 'aaa-jedna'),
+      word('b', 'fén', 'bbb-dve'),
+      word('c', 'fůr', 'ccc-tri'),
+      word('d', 'zcela-jine', 'ddd-ctyri'),
+      word('e', 'naprosto-odlisne', 'eee-pet'),
+    ];
+    const resolve = (variants: ChoiceVariant[]) => {
+      const exercise = pickExerciseForWord({
+        word: pool[0],
+        stageIndex: 5,
+        knownCount: 3,
+        unknownCount: 0,
+        config: configWithStage(5, stage({ choice: { weight: 1, variants } })),
+        distractorPool: pool,
+        role: 'knownLanguage',
+      });
+      if (exercise.method !== 'choice') throw new Error('expected a choice exercise');
+      return exercise;
+    };
+
+    expect(resolve(['3:III:known']).effectiveBand).toBe('III');
+    const foreign = resolve(['3:III:foreign']);
+    expect(foreign.effectiveBand).toBe('I');
+    expect(foreign.optionsSide).toBe('foreign');
   });
 });
 

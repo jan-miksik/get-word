@@ -2,8 +2,10 @@ import type { NormalizedWord } from '@/lib/words';
 import {
   bandAtLeast,
   similarityBand,
+  similarityBandOnSide,
   type SimilarityBand,
 } from '@/features/learning/minigames/similarity';
+import type { WordSide } from '@/features/learning/state/learningRole';
 import { hasDistinctVisibleAnswers, sharesLearningScope } from '@/features/learning/minigames/word-pool';
 
 /**
@@ -61,7 +63,16 @@ function scanSlice(pool: NormalizedWord[], targetId: string): NormalizedWord[] {
   return pool.slice(start, start + DISTRACTOR_SCAN_LIMIT);
 }
 
-function scoreCandidates(target: NormalizedWord, pool: NormalizedWord[]): ScoredCandidate[] {
+/**
+ * `side` names the language the options will be written in. Passing it scores
+ * candidates on that side alone; leaving it out keeps the pair-wide reading,
+ * which is what direction-agnostic rounds (matching, bubbles) want.
+ */
+function scoreCandidates(
+  target: NormalizedWord,
+  pool: NormalizedWord[],
+  side?: WordSide,
+): ScoredCandidate[] {
   const seen = new Set<string>([target.id]);
   const scored: ScoredCandidate[] = [];
 
@@ -71,7 +82,7 @@ function scoreCandidates(target: NormalizedWord, pool: NormalizedWord[]): Scored
     if (!hasDistinctVisibleAnswers(target, word)) continue;
     scored.push({
       word,
-      band: similarityBand(target, word),
+      band: side ? similarityBandOnSide(target, word, side) : similarityBand(target, word),
       inScope: sharesLearningScope(target, word),
     });
   }
@@ -107,6 +118,7 @@ export function resolveVariantDistractors({
   band,
   minInBand,
   random,
+  side,
 }: {
   target: NormalizedWord;
   pool: NormalizedWord[];
@@ -114,12 +126,14 @@ export function resolveVariantDistractors({
   band: SimilarityBand;
   minInBand: (count: number) => number;
   random: () => number;
+  /** The side the options are shown on, when the exercise fixes one. */
+  side?: WordSide;
 }): ResolvedDistractors | null {
   if (count <= 0) {
     return { distractors: [], requestedBand: band, effectiveBand: band };
   }
 
-  const candidates = scoreCandidates(target, pool);
+  const candidates = scoreCandidates(target, pool, side);
   if (candidates.length < count) return null;
 
   const required = minInBand(count + 1);

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import { getBestKnownDayActiveMs, seedActivityDayTotal } from '@/lib/activity/runtime';
+import { useActiveDayMs } from './useActiveDayMs';
 import type { GoalSummary } from '@/packages/contracts/src/goals';
 import { estimateSecondsPerItem } from '@/packages/domain/goals/calibration';
 import type { StudyGoalVersion, StudyPacing } from '@/packages/domain/goals/goal';
@@ -61,23 +61,9 @@ export function useStudyCountdown(
   day: GoalDay | null,
   goal: StudyGoalVersion | null,
   enabled: boolean,
+  timezone?: string | null,
 ): StudyCountdown {
-  const dayKey = day?.dayKey;
-  const serverActiveMs = day?.activeMs;
-  const [activeMs, setActiveMs] = useState(() => serverActiveMs ?? 0);
-
-  useEffect(() => {
-    if (!dayKey || serverActiveMs === undefined) return;
-    seedActivityDayTotal(dayKey, serverActiveMs);
-  }, [dayKey, serverActiveMs]);
-
-  useEffect(() => {
-    if (!enabled || !dayKey) return;
-    const update = () => setActiveMs(getBestKnownDayActiveMs(dayKey));
-    update();
-    const timer = window.setInterval(update, 1000);
-    return () => window.clearInterval(timer);
-  }, [dayKey, enabled]);
+  const activeMs = useActiveDayMs(day?.dayKey, timezone, day?.activeMs, enabled);
 
   return useMemo(() => {
     const isWords = (day?.goalMode ?? goal?.mode) === 'words';

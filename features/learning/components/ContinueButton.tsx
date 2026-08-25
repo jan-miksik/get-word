@@ -16,8 +16,7 @@ import { useI18n } from '@/components/I18nProvider';
  * and leaves only the *skin* to the variant, so the variants stay honestly
  * comparable and any of them can drop into any card without per-card tuning.
  *
- * The learning flow currently uses the `solid` variant. `/dev/continue-button`
- * keeps the other skins available for side-by-side comparison.
+ * The learning flow currently uses the `solid` variant.
  *
  * The palette is written out in literal hex rather than taken from `--accent` /
  * `--text` on purpose. Games and study cards re-map those tokens inside their
@@ -26,11 +25,9 @@ import { useI18n } from '@/components/I18nProvider';
  * literals also keep every class statically visible to the Tailwind scanner.
  */
 
-export const CONTINUE_BUTTON_VARIANTS = ['solid', 'ink', 'lift', 'outline'] as const;
+export type ContinueButtonVariant = 'solid' | 'ink' | 'lift' | 'outline';
 
-export type ContinueButtonVariant = (typeof CONTINUE_BUTTON_VARIANTS)[number];
-
-export const CONTINUE_BUTTON_DEFAULT_VARIANT: ContinueButtonVariant = 'solid';
+const CONTINUE_BUTTON_DEFAULT_VARIANT: ContinueButtonVariant = 'solid';
 
 /** Height, radius, typography and padding — identical for every variant. */
 const SHAPE = [

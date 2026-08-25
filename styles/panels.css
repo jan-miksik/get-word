@@ -1043,7 +1043,7 @@
   --ob-ink-soft: #6B5E48;
   --ob-accent: #1E6FA8;
   --ob-danger: #B91C1C;
-  background: #dcd1b9;
+  background: var(--ob-surface);
   color: var(--ob-ink);
   /* The onboarding screen renders outside `.app`, and in standalone/PWA mode
      `html, body` are locked to `overflow: hidden` (see tokens.css). Give this
@@ -1066,6 +1066,49 @@
   border-radius: 16px;
   color: var(--ob-ink, #2A2218);
   box-shadow: none;
+}
+
+/* The sheet every onboarding step is drawn on. One rule for the frame, so the
+   steps cannot drift apart: softer than `.onboarding-card` because it floats
+   over the rising-letters background instead of sitting on a flat surface. */
+.onboarding-page-card {
+  background: var(--ob-surface-hover, #FFF8E8);
+  border: 2px solid #DED2BD;
+  border-radius: 16px;
+  color: var(--ob-ink, #2A2218);
+  box-shadow: 0 20px 60px rgba(73, 58, 37, 0.13);
+}
+
+/* The decorative glyph at the top of a step. One rule for all of them, and
+   the only place that knows it is the first thing to give way when the window
+   is too short to hold the step's own controls. */
+.onboarding-step-icon {
+  display: block;
+  margin-inline: auto;
+  height: 3.5rem;
+  width: 3.5rem;
+}
+
+@media (max-height: 720px) {
+  .onboarding-step-icon {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+}
+
+/* Back, on every step that has one. Quiet enough not to compete with the
+   step's own primary action, but a full 44px target on touch. */
+.onboarding-back {
+  color: var(--ob-ink-soft, #6B5E48);
+  border-radius: 12px;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+@media (hover: hover) {
+  .onboarding-back:hover {
+    background: var(--ob-surface, #F4EFE2);
+    color: var(--ob-ink, #2A2218);
+  }
 }
 
 .onboarding-spinner {

@@ -403,6 +403,7 @@ describe('LearningLanguageOnboarding', () => {
       <LearningLanguageOnboarding
         initialFrom="en"
         initialTo="vi"
+        showProgress
         onComplete={onComplete}
         onSelectList={onSelectList}
       />,
@@ -424,6 +425,14 @@ describe('LearningLanguageOnboarding', () => {
     expect(
       screen.queryByRole('button', { name: /Use a ready-made list instead/i }),
     ).not.toBeInTheDocument();
+
+    // The gear belongs to the chat's own header row. Left to place itself it
+    // pins to the card's top-right corner, on top of the onboarding progress
+    // bar that lives there during setup.
+    const headerRow = screen.getByRole('button', { name: 'Back' }).parentElement;
+    expect(headerRow).toContainElement(
+      screen.getByRole('button', { name: 'Settings for adding words' }),
+    );
 
     expect(onComplete).not.toHaveBeenCalled();
     expect(onSelectList).not.toHaveBeenCalled();

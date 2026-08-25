@@ -75,3 +75,55 @@ export function resolveLearningOnboardingStep({
   if (!reminderOnboardingAnswered) return 'reminder';
   return settingUp ? 'words' : 'app';
 }
+
+/**
+ * The order Back walks, which is the order the steps are met in. `loading` and
+ * `app` are not positions in the flow, so they are absent.
+ */
+const ONBOARDING_STEP_ORDER = ['language', 'level', 'goal', 'reminder', 'words'] as const;
+
+/**
+ * Which step a Back press on `step` should show, given whether this is a full
+ * first-time setup run.
+ *
+ * The level question is only ever asked during setup, so for a returning
+ * learner who is only being asked for a goal, Back stops there rather than
+ * offering a step they never saw. `null` means this step has no Back.
+ */
+export function onboardingBackTarget(
+  step: LearningOnboardingStep,
+  { isSettingUp }: { isSettingUp: boolean },
+): LearningOnboardingStep | null {
+  switch (step) {
+    case 'level':
+      return 'language';
+    case 'goal':
+      return isSettingUp ? 'level' : null;
+    case 'reminder':
+      return 'goal';
+    case 'words':
+      return 'reminder';
+    default:
+      return null;
+  }
+}
+
+/**
+ * The step to render, once a Back press is taken into account.
+ *
+ * Steps are resolved from stored answers, not from a cursor, which is what
+ * makes the flow resumable — and what makes going back need an override: the
+ * answers still say "move on". The override only ever moves the flow backwards,
+ * so a step that has since been answered cannot trap anyone; callers drop it as
+ * soon as a step is submitted.
+ */
+export function applyOnboardingBack(
+  step: LearningOnboardingStep,
+  back: LearningOnboardingStep | null,
+): LearningOnboardingStep {
+  if (!back || step === 'loading') return step;
+  const stepIndex = ONBOARDING_STEP_ORDER.indexOf(step as (typeof ONBOARDING_STEP_ORDER)[number]);
+  const backIndex = ONBOARDING_STEP_ORDER.indexOf(back as (typeof ONBOARDING_STEP_ORDER)[number]);
+  if (backIndex < 0 || stepIndex < 0) return step;
+  return backIndex < stepIndex ? back : step;
+}

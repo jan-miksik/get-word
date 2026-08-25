@@ -525,6 +525,13 @@ export function commitSession(input: {
   topicLabel: string;
   reviewLabel: string;
   isPublic: boolean;
+  /**
+   * Whether the words in this batch may reach the editor review queue. Left
+   * unset it stays true, as every typed or proposed batch has been; the photo
+   * tab passes false so pairs the learner was never asked about keep Photo
+   * Lab's own conservative answer.
+   */
+  reviewOptIn?: boolean;
   items: ReviewItem[];
   messages: WordChatMessage[];
 }) {
@@ -540,7 +547,7 @@ export function commitSession(input: {
     topic_label: input.topicLabel,
     review_label: input.reviewLabel,
     is_public: input.isPublic,
-    review_opt_in: true,
+    review_opt_in: input.reviewOptIn !== false,
     items: input.items.map((item) => ({
       kind: item.kind,
       text_known: item.textKnown,
@@ -548,6 +555,9 @@ export function commitSession(input: {
       corpus_item_id: item.corpusItemId ?? null,
       takeover: item.takeover ?? null,
       audio_asset_id: item.audioAssetId ?? null,
+      // Photo rows only know the clip's content hash; the server turns it into
+      // the asset id so the saved word keeps the sound it already had.
+      audio_hash: item.audioHash ?? null,
       known_audio_asset_id: item.knownAudioAssetId ?? null,
     })),
     messages: input.messages,

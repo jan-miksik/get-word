@@ -9,7 +9,7 @@ export function StudyGoalIcon() {
     <svg
       aria-hidden
       viewBox="0 0 64 64"
-      className="mx-auto h-14 w-14"
+      className="onboarding-step-icon"
       fill="none"
     >
       <circle

@@ -55,7 +55,7 @@ export function onBeforeInstallPromptCaptured(fn: () => void): () => void {
   };
 }
 
-export function isStandalone() {
+function isStandalone() {
   if (typeof window === 'undefined') return false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nav: any = navigator;
@@ -77,7 +77,7 @@ const TWA_SESSION_KEY = 'get-word-twa';
  * browser around it: there is no menu to install from, and the app is already
  * on the home screen, so every install invitation is noise there.
  */
-export function isTrustedWebActivity() {
+function isTrustedWebActivity() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return false;
   const launchedByApp = document.referrer.startsWith('android-app://');
   try {

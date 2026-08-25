@@ -1,32 +1,10 @@
-import type { Metadata, Viewport } from 'next';
-import { photoDisplayFont } from '@/features/photo-lab/font';
-import { PhotoLabPage } from '@/features/photo-lab/components/PhotoLabPage';
-
-export const metadata: Metadata = {
-  title: 'Photo lab',
-  robots: { index: false },
-};
-
-// Route-level viewport replaces (not merges) the root layout's, so the base
-// fields are repeated; themeColor matches the warm shell instead of the navy
-// app body so mobile Safari's collapsing toolbars blend with this page.
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  interactiveWidget: 'resizes-content',
-  viewportFit: 'cover',
-  themeColor: '#F4EFE2',
-};
+import { redirect } from 'next/navigation';
 
 /**
- * Standalone entry: bookmarks, shared links, and the settings link. Opening the
- * lab from the study view renders the same page in place instead (see
- * `features/learning/components/HomeClient.tsx`), so the deck is still there on the way back.
+ * The photo lab is no longer a screen of its own: it is a tab on "Add your own
+ * words", beside typing and the conversation. Bookmarks and older links land
+ * there instead of on a page that would duplicate the same flow.
  */
 export default function PhotoLabRoute() {
-  return (
-    <div className={photoDisplayFont.variable}>
-      <PhotoLabPage />
-    </div>
-  );
+  redirect('/?surface=photo');
 }

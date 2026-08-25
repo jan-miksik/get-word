@@ -1,6 +1,9 @@
 import { sql } from 'drizzle-orm';
 
-import type { ActivitySurface } from '@/packages/contracts/src/activity';
+import {
+  GOAL_CREDITED_SURFACES,
+  type ActivitySurface,
+} from '@/packages/contracts/src/activity';
 import { db } from '../client';
 import {
   includedUserCondition,
@@ -74,7 +77,7 @@ export async function getLocalDayActivity(
       WHERE user_id = ${userId}::uuid
         AND ended_at > (${fromDay}::date - interval '1 day')::timestamp AT TIME ZONE ${timezone}
         AND started_at < (${toDay}::date + interval '1 day')::timestamp AT TIME ZONE ${timezone}
-        AND surface IN ('study', 'word_chat', 'photo_lab')
+        AND surface = ANY(${sqlTextArray([...GOAL_CREDITED_SURFACES])})
     ), pieces AS (
       SELECT day_value::date AS day_key,
              greatest(s.started_at, day_value::timestamp AT TIME ZONE s.tz) AS piece_start,

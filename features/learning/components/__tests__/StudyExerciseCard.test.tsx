@@ -3,7 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { StudyExerciseCard } from '../StudyExerciseCard';
 import type { ProgressData } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
-import type { ResolvedExercise } from '@/features/learning/fine-tune/types';
+import type {
+  ChoiceOptionsSide,
+  ResolvedExercise,
+} from '@/features/learning/fine-tune/types';
 
 vi.mock('@/lib/audio-availability', () => ({
   getCachedPlayableAudioUrl: () => null,
@@ -57,13 +60,20 @@ function renderCard(exercise: ResolvedExercise, overrides?: { onOutcome?: () => 
   return { onOutcome, onScore };
 }
 
-const choiceExercise = (band: 'I' | 'II' | 'III'): ResolvedExercise => ({
+const choiceExercise = (
+  band: 'I' | 'II' | 'III',
+  side: ChoiceOptionsSide = 'foreign',
+): ResolvedExercise => ({
   method: 'choice',
-  variant: `4:${band}`,
+  variant: `4:${band}:${side}`,
   requestedBand: band,
   effectiveBand: band,
+  optionsSide: side,
   distractors: DISTRACTORS,
 });
+
+const optionTexts = () =>
+  Array.from(document.querySelectorAll('[data-option-state]')).map((option) => option.textContent);
 
 describe('StudyExerciseCard — choice', () => {
   it('renders the round without the outer game frame', () => {
@@ -85,10 +95,8 @@ describe('StudyExerciseCard — choice', () => {
   });
 
   it('reports a right first answer as a completed review', () => {
-    // Bands I and II ask the easy way round: the foreign word is the prompt and
-    // the options are in the learner's own language.
     const { onOutcome, onScore } = renderCard(choiceExercise('I'));
-    fireEvent.click(screen.getByText('pes'));
+    fireEvent.click(screen.getByText('con chó'));
     expect(onScore).toHaveBeenCalled();
     // The stage only moves once the learner has seen the result and moved on.
     expect(onOutcome).not.toHaveBeenCalled();
@@ -98,21 +106,25 @@ describe('StudyExerciseCard — choice', () => {
 
   it('reports a wrong answer so the word steps back', () => {
     const { onOutcome } = renderCard(choiceExercise('I'));
-    fireEvent.click(screen.getByText('kočka'));
+    fireEvent.click(screen.getByText('con mèo'));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onOutcome).toHaveBeenCalledWith('unknown');
   });
 
-  it('asks in the harder direction once the distractors are near twins', () => {
-    // Band III is about telling near-identical foreign spellings apart, which
-    // only works when the options are the foreign side.
-    renderCard(choiceExercise('III'));
-    const options = Array.from(document.querySelectorAll('[data-option-state]')).map(
-      (option) => option.textContent,
-    );
+  it('asks in the productive direction: known word shown, foreign options', () => {
+    renderCard(choiceExercise('II'));
+    const options = optionTexts();
     expect(options).toContain('con chó');
     expect(options).toContain('con mèo');
     expect(options).not.toContain('pes');
+  });
+
+  it('turns the round around when the variant asks for known-language options', () => {
+    renderCard(choiceExercise('II', 'known'));
+    const options = optionTexts();
+    expect(options).toContain('pes');
+    expect(options).toContain('kočka');
+    expect(options).not.toContain('con chó');
   });
 });
 
@@ -225,8 +237,8 @@ describe('StudyExerciseCard — choice audio', () => {
 
   it('speaks the answer on a correct pick by default', async () => {
     renderSpokenChoice();
-    // Band I prompts with the foreign word, so the option to pick is the known side.
-    fireEvent.click(screen.getByText('pes'));
+    // The options are the foreign side, so the correct pick is the one spoken.
+    fireEvent.click(screen.getByText('con chó'));
     await waitFor(() => expect(playCalls).toBe(1));
     expect(audioSources).toContain('/speech/vi/con-cho.mp3');
   });
@@ -234,8 +246,8 @@ describe('StudyExerciseCard — choice audio', () => {
   it('honours the sound toggle the learner flipped on a minigame card', async () => {
     localStorage.setItem('get-word-skip-sound', 'true');
     renderSpokenChoice();
-    // Band I prompts with the foreign word, so the option to pick is the known side.
-    fireEvent.click(screen.getByText('pes'));
+    // The options are the foreign side, so the correct pick is the one spoken.
+    fireEvent.click(screen.getByText('con chó'));
     await Promise.resolve();
     expect(playCalls).toBe(0);
   });

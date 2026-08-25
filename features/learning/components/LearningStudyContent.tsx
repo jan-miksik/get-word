@@ -5,6 +5,7 @@ import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
 import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
 import { SessionRail } from './SessionRail';
+import { SessionTimeStrip, type SessionTimeGoal } from './SessionTimeStrip';
 import { SessionDoneCard } from './SessionDoneCard';
 import type { SchoolMembership } from '@/features/auth/public.client';
 import { useI18n } from '@/components/I18nProvider';
@@ -28,7 +29,11 @@ interface LearningStudyContentProps {
   onSignOut: () => void | Promise<void>;
   /** Opens the word chat from the menu, in place. */
   onOpenWordChat?: () => void;
-  /** Opens photo lab over the study view instead of navigating to `/photo-lab`. */
+  /**
+   * Opens the add-words screen on its photo tab — offered from the empty deck
+   * and the end-of-session card, which is where a learner is most likely to
+   * want a fast way to more words.
+   */
   onOpenPhotoLab?: () => void;
   learningLanguagePair?: { from: string; to: string } | null;
   onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
@@ -43,8 +48,12 @@ interface LearningStudyContentProps {
   photoLabAvailable?: boolean;
   activeSurface?: AppSurface;
   onSurfaceChange?: (surface: AppSurface) => void;
+  /**
+   * The add-words screen: one surface with a tab for each way in. It stays
+   * mounted behind the deck once visited, so a half-typed batch and an analyzed
+   * photo both survive a detour back to studying.
+   */
   chatContent?: React.ReactNode;
-  photoContent?: React.ReactNode;
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
   phrasesCallbackRef: (node: HTMLElement | null) => void;
@@ -57,6 +66,11 @@ interface LearningStudyContentProps {
   isSwipeBlockedForWord?: (wordId: string) => boolean;
   streamGroups: LearningStreamGroup[];
   sessionFlow?: SessionFlowState;
+  /**
+   * Present only for a `minutes` goal, and then the rails count the day's time
+   * down instead of its cards.
+   */
+  sessionTimeGoal?: SessionTimeGoal | null;
   renderCardForDeck: (
     word: NormalizedWord,
     stageIndex: number,
@@ -96,7 +110,6 @@ export function LearningStudyContent({
   activeSurface = 'study',
   onSurfaceChange,
   chatContent,
-  photoContent,
   categories,
   progressStats,
   phrasesCallbackRef,
@@ -109,6 +122,7 @@ export function LearningStudyContent({
   isSwipeBlockedForWord,
   streamGroups,
   sessionFlow,
+  sessionTimeGoal,
   renderCardForDeck,
   renderMiniGameForDeck,
   renderCard,
@@ -158,19 +172,16 @@ export function LearningStudyContent({
   ) : null;
 
   // The deck emptying is never a dead end: the same card that says there is
-  // nothing due also carries the ways to keep going. `noPersonalWordsState`
-  // still wins where the pair has no words at all, because that needs its own
-  // explanation before the same offers make sense.
+  // nothing due also carries a way to keep going. `noPersonalWordsState` still
+  // wins where the pair has no words at all, because that needs its own
+  // explanation and offers.
   const sessionDoneState = (title?: string) => (
     <SessionDoneCard
       title={title}
       settlingCount={settlingCount}
       dueNowCount={dueNowCount}
       onStudyExtra={onStudyExtra}
-      showNotReady={showNotReady}
-      onToggleShowNotReady={onToggleShowNotReady}
       onOpenWordChat={onOpenWordChat}
-      onOpenPhotoLab={showPhotoLabOffer ? onOpenPhotoLab : undefined}
     />
   );
 
@@ -185,7 +196,6 @@ export function LearningStudyContent({
       authAddress={authAddress}
       onSignOut={onSignOut}
       onOpenWordChat={onOpenWordChat}
-      onOpenPhotoLab={onOpenPhotoLab}
       learningLanguagePair={learningLanguagePair}
       onLearningLanguagePairChange={onLearningLanguagePairChange}
       activeSurface={activeSurface}
@@ -197,7 +207,18 @@ export function LearningStudyContent({
         className="app-workspace-main relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
         aria-live="polite"
       >
-        {sessionFlow && activeSurface === 'study' ? <SessionRail flow={sessionFlow} /> : null}
+        {/* A minutes day is measured by the clock and a words day by its
+            cards, so exactly one of the two ever appears: the countdown strip
+            above the deck, or the rails at the edges of the study area. Both
+            get out of the way once the day is walked — a clock still ticking
+            beside the closing card paces work that no longer exists, and the
+            card carries the day's settled time itself. */}
+        {activeSurface === 'study' && sessionTimeGoal && sessionTimeGoal.budgetMs > 0 && !sessionFlow?.complete ? (
+          <SessionTimeStrip goal={sessionTimeGoal} />
+        ) : null}
+        {sessionFlow && activeSurface === 'study' && !sessionTimeGoal ? (
+          <SessionRail flow={sessionFlow} />
+        ) : null}
         <AppSurfacePanel
           surface="study"
           active={activeSurface === 'study'}
@@ -261,22 +282,17 @@ export function LearningStudyContent({
             </div>
           )}
         </AppSurfacePanel>
+        {/* One panel for all three ways of adding words. The photo tab still has
+            its own `?surface=photo` address — old bookmarks and the menu link
+            point at it — but it is a tab on this screen, not a screen of its
+            own. */}
         {chatContent ? (
           <AppSurfacePanel
             surface="chat"
-            active={activeSurface === 'chat'}
-            label={t('wordChat.addWords')}
+            active={activeSurface !== 'study'}
+            label={t('addWords.title')}
           >
             {chatContent}
-          </AppSurfacePanel>
-        ) : null}
-        {photoContent ? (
-          <AppSurfacePanel
-            surface="photo"
-            active={activeSurface === 'photo'}
-            label={t('photoLab.title')}
-          >
-            {photoContent}
           </AppSurfacePanel>
         ) : null}
       </main>

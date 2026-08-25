@@ -115,6 +115,25 @@ function AutoGrowingText({
     node.style.height = `${node.scrollHeight}px`;
   }, [value]);
 
+  // …and on every change to the width it is measured against. The first
+  // measurement happens before the flex row around it has settled, where a
+  // one-line translation reports the eight lines it would take in a column a
+  // few characters wide — and since the text then never changes, that bogus
+  // height used to stand for the life of the step.
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    let lastWidth = node.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (node.clientWidth === lastWidth) return;
+      lastWidth = node.clientWidth;
+      node.style.height = 'auto';
+      node.style.height = `${node.scrollHeight}px`;
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <textarea
       ref={ref}
@@ -204,20 +223,24 @@ export function ReviewStep({
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-base font-extrabold">{t('wordChat.reviewTitle')}</h2>
+        {/* Same heading treatment as the step before it, so walking forward
+            through the flow does not change the size of its own title. */}
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="min-w-0 text-2xl font-black leading-tight sm:text-3xl">
+            {t('wordChat.reviewTitle')}
+          </h2>
           <button
             type="button"
             onClick={() => void copyAll()}
             disabled={items.length === 0}
-            className="onboarding-option-secondary shrink-0 rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+            className="onboarding-option-secondary min-h-9 shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold disabled:opacity-50"
           >
             {copied ? t('wordChat.copiedAll') : t('wordChat.copyAll')}
           </button>
         </div>
-        <p className="mt-1 text-sm font-bold">
+        <p className="mt-1.5 text-sm font-bold onboarding-text-soft">
           {categoryName ? `${listName} · ${categoryName}` : listName}
         </p>
         <p className="onboarding-notice mt-2 rounded-md px-3 py-2 text-xs leading-relaxed">
@@ -339,7 +362,7 @@ export function ReviewStep({
           type="button"
           onClick={onBack}
           disabled={busy}
-          className="onboarding-option-secondary shrink-0 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-50"
+          className="onboarding-option-secondary shrink-0 rounded-xl px-4 py-3.5 text-sm font-extrabold disabled:opacity-50"
         >
           {t('wordChat.back')}
         </button>
@@ -347,7 +370,7 @@ export function ReviewStep({
           type="button"
           onClick={onSave}
           disabled={busy || items.length === 0 || audioPending}
-          className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3 text-center text-base font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
+          className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3.5 text-center text-base font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {busy
             ? waitingForAudio
