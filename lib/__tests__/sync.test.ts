@@ -8,7 +8,13 @@ vi.mock('../session-id', () => ({
   getSessionId: () => 'session-1',
 }));
 
-import { fetchUserData, resetSyncIdentity, SyncRequestError, syncUserData } from '../sync';
+import {
+  fetchUserData,
+  getSyncOwner,
+  resetSyncIdentity,
+  SyncRequestError,
+  syncUserData,
+} from '../sync';
 
 const nextErrorHtml = `<!DOCTYPE html><html><body><div id="__next"></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"statusCode":500}},"page":"/_error","err":{"name":"Internal Server Error.","message":"500 - Internal Server Error.","statusCode":500}}</script></body></html>`;
 
@@ -79,6 +85,29 @@ describe('sync client errors', () => {
 
     await expect(fetchUserData()).rejects.toThrow(/timed out after \d+ms/);
     expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('announces the account learned by the hydration GET', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({
+        success: true,
+        user: { id: 'user-from-hydration' },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })),
+    );
+    const listener = vi.fn();
+    window.addEventListener('get-word:sync-owner-changed', listener);
+
+    await fetchUserData();
+
+    expect(getSyncOwner()).toBe('user-from-hydration');
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({
+      detail: { owner: 'user-from-hydration' },
+    }));
+    window.removeEventListener('get-word:sync-owner-changed', listener);
   });
 
   it('includes submitted review events in the local server-sync event detail', async () => {

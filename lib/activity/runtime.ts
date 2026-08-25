@@ -40,6 +40,7 @@ import {
 const INSTANCE_KEY = 'get_word_activity_instance';
 const CHECKPOINT_PREFIX = 'get_word_activity_segment:';
 const CHANNEL_NAME = 'get-word:activity';
+const SYNC_OWNER_CHANGED_EVENT = 'get-word:sync-owner-changed';
 
 const CHECKPOINT_WRITE_MS = 10_000;
 const INTERACTION_THROTTLE_MS = 1_000;
@@ -691,13 +692,15 @@ export function startActivityTracking(): () => void {
   };
   const onHide = () => handlePageHide(current);
   const onInteraction = () => noteInteraction(current);
-  // The sync layer learns the account id from the server response, so this is
-  // the earliest and most reliable point at which identity is known. Reading it
-  // here keeps ownership out of React and correct on both platforms.
-  const onServerSync = () => setActivityOwner(getSyncOwner());
+  // Hydration announces identity separately because its GET snapshot is fed
+  // straight into SyncEngine and never becomes a `server-sync` event. Keep the
+  // broader event too: POST responses and older callers still publish it, and
+  // re-reading the owner is idempotent.
+  const onSyncOwnerChanged = () => setActivityOwner(getSyncOwner());
 
   document.addEventListener('visibilitychange', onVisibility);
-  window.addEventListener('get-word:server-sync', onServerSync);
+  window.addEventListener(SYNC_OWNER_CHANGED_EVENT, onSyncOwnerChanged);
+  window.addEventListener('get-word:server-sync', onSyncOwnerChanged);
   window.addEventListener('focus', onFocus);
   window.addEventListener('blur', onBlur);
   window.addEventListener('pagehide', onHide);
@@ -711,7 +714,8 @@ export function startActivityTracking(): () => void {
 
   current.teardown.push(() => {
     document.removeEventListener('visibilitychange', onVisibility);
-    window.removeEventListener('get-word:server-sync', onServerSync);
+    window.removeEventListener(SYNC_OWNER_CHANGED_EVENT, onSyncOwnerChanged);
+    window.removeEventListener('get-word:server-sync', onSyncOwnerChanged);
     window.removeEventListener('focus', onFocus);
     window.removeEventListener('blur', onBlur);
     window.removeEventListener('pagehide', onHide);

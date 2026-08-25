@@ -267,6 +267,24 @@ describe('account scoping', () => {
     expect(appendOp).toHaveBeenCalled();
   });
 
+  it('starts measuring when the hydration layer announces the account', async () => {
+    syncOwner = null;
+    stop = startActivityTracking();
+    setActivitySurface('study');
+
+    syncOwner = 'user-1';
+    window.dispatchEvent(new CustomEvent('get-word:sync-owner-changed', {
+      detail: { owner: 'user-1' },
+    }));
+    window.dispatchEvent(new Event('pointerdown'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    window.dispatchEvent(new Event('pagehide'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(appendOp).toHaveBeenCalled();
+  });
+
   it('stamps queued segments with the owner they were measured under', async () => {
     syncOwner = 'user-1';
     stop = startActivityTracking();

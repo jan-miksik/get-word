@@ -20,6 +20,25 @@ let hasServerSnapshot = false;
 
 const AUTH_REQUIRED_TEXT = "Authentication required";
 
+/**
+ * Activity measurement cannot start until sync has named the account that will
+ * own its segments. A hydration GET is deliberately consumed by SyncEngine
+ * rather than published as a `get-word:server-sync` event, so identity needs a
+ * smaller signal of its own or the tracker stays signed out for the whole page
+ * lifetime after a cold boot.
+ */
+const SYNC_OWNER_CHANGED_EVENT = 'get-word:sync-owner-changed';
+
+function setSyncOwner(owner: string | null): void {
+  if (lastKnownUserId === owner) return;
+  lastKnownUserId = owner;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent(SYNC_OWNER_CHANGED_EVENT, { detail: { owner } }),
+    );
+  }
+}
+
 async function readResponseError(
   response: Response,
   fallback: string
@@ -105,7 +124,7 @@ export function isAuthRequiredError(error: unknown): boolean {
 
 /** Clears in-memory user hint so subsequent syncs don't attach to the previous user. */
 export function resetSyncIdentity(): void {
-  lastKnownUserId = null;
+  setSyncOwner(null);
   authRequired = false;
   hasServerSnapshot = false;
 }
@@ -223,7 +242,7 @@ export async function fetchUserData(options?: {
       throw new Error(data.error || 'Failed to fetch user data: Unknown error');
     }
     if (data.user?.id) {
-      lastKnownUserId = data.user.id;
+      setSyncOwner(data.user.id);
       authRequired = false;
     }
     return data;
@@ -298,7 +317,7 @@ export async function syncUserData(
 
   const result = await response.json();
   if (result.user?.id) {
-    lastKnownUserId = result.user.id;
+    setSyncOwner(result.user.id);
     authRequired = false;
   }
   if (options.emitEvent !== false) publishSyncResponse(result, data.review_events);
