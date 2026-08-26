@@ -1,0 +1,24 @@
+# Keep these tracked, low-signal artifacts out of semantic codebase search.
+# They remain available to the agent when opened explicitly.
+
+# Generated and static data
+/lib/i18n/generated-bundled-messages.ts
+/lib/i18n/locales/cs.ts
+/lib/i18n/locales/uk.ts
+/lib/i18n/locales/vi.ts
+/lib/landing-demo-word-data.ts
+/components/scratch-field/motifs.ts
+/drizzle/migrations/meta/**
+/wordbook/**
+/docs/A1.txt
+/docs/A2.txt
+
+# Legacy styling is intentionally read only for a task that modifies it.
+/styles/**
+
+# Store/release artwork and native wrapper assets are not runtime source.
+/app-store-assets/**
+/public/app-preview/**
+/public/google-play/screenshots/**
+/android-twa/app/src/main/res/**
+/mobile/ios/App/App/Assets.xcassets/**

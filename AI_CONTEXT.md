@@ -39,6 +39,20 @@ subsystem decisions and data-model notes.
 - Supported-language client loading: `features/shared/languages/useSupportedLanguages.ts`
 - Pre-login language-pair hand-off: `features/shared/languages/landingPairStorage.ts`
 
+### Add words and word chat
+
+- Feature guide and invariants: `features/word-chat/README.md`
+- Add-words surface/tabs: `features/word-chat/components/AddWordsScreen.tsx`
+- Flow composition: `features/word-chat/components/WordChatFlow.tsx`
+- Client workflow controller: `features/word-chat/hooks/useWordChat.ts`
+- Durable interrupted-session draft: `features/word-chat/client/storage.ts`
+- HTTP client and transport DTO inference: `features/word-chat/client/api.ts`
+- Shared feature types: `features/word-chat/types.ts`
+- Chat/proposal/translation/commit services: `features/word-chat/server/{chat,propose,translate,commit}.ts`
+- Prompt assembly: `features/word-chat/server/prompt.ts`
+- Public cross-feature client surface: `features/word-chat/public.client.ts`
+- HTTP route shells: `app/api/word-chat/*/route.ts`
+
 ### Public landing
 
 - Feature guide: `features/landing/README.md`
@@ -157,10 +171,12 @@ subsystem decisions and data-model notes.
 - `styles/*.css`: legacy styling. New styling should use Tailwind. Read these only when modifying existing legacy classes.
 - `ralph/`: autonomous CLI orchestrator (`planner.js`/`executor.js`/`progress.js`). Unrelated to the runtime app.
 - `schema_only.sql`: historical schema snapshot. Source of truth is `lib/db/schema.ts`.
-- `lib/i18n/messages.ts`: ~940-line translation table; treat as data.
+- `lib/i18n/locales/*.ts`: bundled UI translation catalogs; search for a key and read only the relevant range.
+- `lib/landing-demo-word-data.ts`, `components/scratch-field/motifs.ts`: generated/static data; do not hand-edit.
 
 ## Current Hotspots
 
+- `features/word-chat/hooks/useWordChat.ts` is the word-chat workflow controller. It currently coordinates draft restore, preferences, chat, selection, translation/audio, review, commit, and retry behavior. Extend focused helpers where possible; do not add another lifecycle to the central hook.
 - `features/lists/screens/ListsScreen.tsx` is the shared web/mobile composition shell. Lists UI lives under `features/lists/components`, while page data, maintenance actions, pending-audio state, forking, and wizard state live in focused `features/lists/hooks/*` hooks. Consumers enter through `features/lists/public.client.ts`.
 - `features/lists/components/translation-step/TranslationStep.tsx` remains the largest lists shell. Provider workflow, pure transformations, row UI, editors, and dialogs are separate modules in the same folder; extend those modules instead of adding another responsibility to the shell.
 - `app/api/sync/route.ts` is the stable HTTP/auth shell. Legacy item/word ID mutation compatibility lives in `features/sync/server/apply-mutations.ts`; conditional/delta/full reads live in `features/sync/server/read-payload.ts`.
@@ -198,10 +214,14 @@ subsystem decisions and data-model notes.
 ## Test Map
 
 - General: `pnpm test`
+- Compact full suite for agents: `pnpm run test:agent`
+- Tests affected by the current diff: `pnpm run test:changed`
+- Focused file/directory: `pnpm run test:agent -- <path>`
 - Lint: `pnpm run lint`
 - Learning state/minigames: `features/learning/**/__tests__`, `lib/__tests__/minigames.test.ts`
 - Lists: `features/lists/**/__tests__`, `app/api/lists/__tests__`
 - Audio: `app/api/audio/__tests__`, `lib/__tests__/audio*.test.ts`
 - Sync: `app/api/sync/__tests__/sync.test.ts`, `lib/__tests__/sync*.test.ts`, `features/learning/state/__tests__`
 - Auth/providers: `app/api/auth/__tests__`, `app/api/providers/openrouter/__tests__`, `lib/providers/__tests__`
+- Word chat: `features/word-chat/**/__tests__`, `app/api/word-chat/**/__tests__`
 - Landing/Photo Lab/admin: `features/landing/**/__tests__`, `features/photo-lab/**/__tests__`, `features/admin/**/__tests__`, `app/api/audio/demo/__tests__`, `app/api/admin/stats/__tests__`

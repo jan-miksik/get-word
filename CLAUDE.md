@@ -11,8 +11,13 @@ notes in `docs/`; do not add another general codebase map.
 - `pnpm run typecheck` — TypeScript without emitting or updating incremental state.
 - `pnpm run lint` — repository ESLint baseline.
 - `pnpm test` — complete Vitest suite.
+- `pnpm run test:agent` — complete suite with compact output; hides console noise from passing tests.
+- `pnpm run test:changed` — compact Vitest run for tests affected by the working-tree diff.
 - `pnpm run check:dead-code` — report-only Knip analysis; never use automated deletion.
 - `pnpm run check` — full local verification, including the production build.
+
+During implementation, prefer a focused test path first, then `test:changed`.
+Run the complete suite before handing off a cross-cutting or high-risk change.
 
 ## Styling
 
