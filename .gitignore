@@ -27,6 +27,16 @@ node_modules/
 # Local Google Play release package (contains the private upload key and passwords)
 /google-play-package/
 
+# Local Android/TWA build state and generated release outputs
+/android-twa/.gradle/
+/android-twa/local.properties
+/android-twa/build/
+/android-twa/app/build/
+/android-twa/.idea/
+/android-twa/**/*.iml
+/android-twa/**/*.jks
+/android-twa/**/*.keystore
+
 # misc
 .DS_Store
 *.pem
