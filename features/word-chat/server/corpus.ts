@@ -250,6 +250,7 @@ export async function loadCorpusItems(ids: string[]) {
     acceptedTarget: string[];
     notes: string | null;
     comment: typeof wordListItems.$inferSelect.comment;
+    addressForm: typeof wordListItems.$inferSelect.addressForm;
   }>();
 
   const rows = await db
@@ -269,6 +270,7 @@ export async function loadCorpusItems(ids: string[]) {
       acceptedTarget: wordListItems.acceptedTarget,
       notes: wordListItems.notes,
       comment: wordListItems.comment,
+      addressForm: wordListItems.addressForm,
     })
     .from(wordListItems)
     .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))

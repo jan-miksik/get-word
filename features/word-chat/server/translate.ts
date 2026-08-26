@@ -1,4 +1,4 @@
-import { findExistingTranslations } from "@/lib/db";
+import { findExistingTranslationMatches } from "@/lib/db";
 import { openRouterTranslate } from "@/lib/translation";
 import {
   OpenRouterChatError,
@@ -8,6 +8,11 @@ import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { DailyLimitError, reserveDailyBuckets } from "@/lib/rate-limit/daily-bucket";
 import { validateTranslation } from "@/lib/translation-validate";
 import { polishPair } from "@/lib/formatting-polish";
+import {
+  hasBinaryAddressForms,
+  normalizeWordItemAddressForm,
+  type AddressFormValue,
+} from "@/lib/word-item-address-form";
 import {
   TRANSLATION_SYSTEM_PROMPT,
   buildOpenRouterTranslationPrompt,
@@ -36,7 +41,6 @@ import { toPlainItemText } from "../plainItemText";
 import type {
   ReviewItem,
   TakeoverReference,
-  WordChatAddressRegister,
 } from "../types";
 
 /**
@@ -64,6 +68,13 @@ export type TranslatedRow = ReviewItem & {
   warnings: string[];
   /** True when the pair came from an existing item instead of a model call. */
   reused: boolean;
+  /**
+   * The second address-form rendering of the same source, when the target has a
+   * binary system and the source left the choice open. The client turns this
+   * into a second review row; it is never a row on its own here, because
+   * `resolved` below is keyed by source text and two rows share that key.
+   */
+  addressAlternative?: { textTarget: string; form: AddressFormValue };
 };
 
 export type TranslationDiagnostics = WordChatCallDiagnostics;
@@ -91,11 +102,6 @@ export async function translateSelection(input: {
     corpusItemId?: string;
     takeoverCandidate?: TakeoverReference;
   }[];
-  /**
-   * Which address form the target should use where the source does not mark
-   * one. Null for targets that draw no such distinction.
-   */
-  addressRegister?: WordChatAddressRegister | null;
   /** Editor override from the debug panel; falls back to the configured model. */
   model?: string;
   /** Include the exact request in the diagnostics. Editors only. */
@@ -109,6 +115,10 @@ export async function translateSelection(input: {
 
   const languageFrom = normalizeLanguageCode(input.languageFrom);
   const languageTo = normalizeLanguageCode(input.languageTo);
+  // Whether this target may report a form of address per item and offer the
+  // second variant. Strictly narrower than "marks address somehow" — see
+  // hasBinaryAddressForms for why Vietnamese and Polish are not in it.
+  const addressForms = hasBinaryAddressForms(languageTo);
 
   const items = input.items
     .map((item) => ({
@@ -149,9 +159,8 @@ export async function translateSelection(input: {
     .filter((id): id is string => Boolean(id));
   const [corpusItems, existing] = await Promise.all([
     loadCorpusItems([...new Set(corpusIds)]),
-    findExistingTranslations(
+    findExistingTranslationMatches(
       items.map((item) => item.text),
-      "textKnown",
       languageFrom,
       languageTo,
     ),
@@ -194,11 +203,17 @@ export async function translateSelection(input: {
         reviewKey === sourceKey
           ? item.takeoverCandidate
           : undefined;
+      // The learner picked this exact published pair. Its stored form of address
+      // travels with it (null on rows written before this feature), but no
+      // alternative is generated: this is not a fresh translation, and inventing
+      // a twin for a row somebody chose by hand would add a word they never asked for.
+      const corpusForm = normalizeWordItemAddressForm(corpusRow.addressForm);
       resolved.set(item.text, {
         kind: item.kind,
         textKnown: item.text,
         textTarget: corpusRow.textTarget,
         corpusItemId: corpusRow.id,
+        ...(corpusForm ? { addressForm: { form: corpusForm.form } } : {}),
         audioAssetId: corpusRow.audioAssetId,
         audioHash: corpusRow.audioHash,
         knownAudioAssetId: corpusRow.knownAudioAssetId,
@@ -213,17 +228,31 @@ export async function translateSelection(input: {
 
   // 2. Whatever is left may still exist elsewhere in the same direction.
   if (pending.length > 0) {
-    const existingByText = new Map(existing.map((row) => [row.text, row.translatedText]));
+    // Group-aware by design: a complete familiar/polite pair already in the
+    // database comes back as a pair, anything else as a single row with no
+    // alternative. `findExistingTranslationMatches` refuses to glue two rows
+    // from different groups together, so reuse can never invent a pair.
+    const existingByText = new Map(existing.map((row) => [row.text, row]));
     for (let index = pending.length - 1; index >= 0; index -= 1) {
       const item = pending[index];
-      const translated = existingByText.get(item.text);
-      if (!translated) continue;
+      const match = existingByText.get(item.text);
+      if (!match) continue;
+      const reuseForm = addressForms ? match.addressForm : null;
+      const reuseAlternative =
+        addressForms && reuseForm && match.alternative
+          ? {
+              textTarget: match.alternative.translatedText,
+              form: match.alternative.addressForm,
+            }
+          : undefined;
       resolved.set(item.text, {
         kind: item.kind,
         textKnown: item.text,
-        textTarget: translated,
+        textTarget: match.translatedText,
         warnings: [],
         reused: true,
+        ...(reuseForm ? { addressForm: { form: reuseForm } } : {}),
+        ...(reuseAlternative ? { addressAlternative: reuseAlternative } : {}),
       });
       pending.splice(index, 1);
     }
@@ -238,7 +267,7 @@ export async function translateSelection(input: {
         fromLang: languageFrom,
         toLang: languageTo,
         previousPairs: [],
-        addressRegister: input.addressRegister ?? null,
+        addressForms,
       });
       paidUsage = await runReservedWordChatCall(
         {
@@ -269,6 +298,7 @@ export async function translateSelection(input: {
               maxAttempts: OPENROUTER_MAX_ATTEMPTS,
               onResponse,
               onAttemptStart,
+              addressForms,
             },
           ),
       );
@@ -300,12 +330,38 @@ export async function translateSelection(input: {
           toLang: languageTo,
           isSentence,
         });
+        // The second address form, when the source left the choice open. It gets
+        // the same plain-text strip and formatting polish as the primary, and is
+        // dropped if that leaves the two wordings identical — a "pair" of two
+        // identical cards is worse than no pair at all.
+        let addressAlternative: { textTarget: string; form: AddressFormValue } | undefined;
+        if (addressForms && result?.register && result.alternative) {
+          const altTarget = toPlainItemText(result.alternative.translated);
+          if (altTarget) {
+            const altPolished = polishPair(
+              { text: item.text, lang: languageFrom },
+              { text: altTarget, lang: languageTo },
+              { isSentence },
+            );
+            if (altPolished.target.fixed !== polished.target.fixed) {
+              addressAlternative = {
+                textTarget: altPolished.target.fixed,
+                form: result.alternative.register,
+              };
+            }
+          }
+        }
+
         resolved.set(item.text, {
           kind: item.kind,
           textKnown: polished.source.fixed,
           textTarget: polished.target.fixed,
           warnings: validation.map((warning) => warning.message),
           reused: false,
+          ...(addressForms && result?.register
+            ? { addressForm: { form: result.register } }
+            : {}),
+          ...(addressAlternative ? { addressAlternative } : {}),
         });
       });
     } catch (err) {
@@ -365,7 +421,7 @@ export async function translateSelection(input: {
                     fromLang: languageFrom,
                     toLang: languageTo,
                     previousPairs: [],
-                    addressRegister: input.addressRegister ?? null,
+                    addressForms,
                   }),
                 },
               ],

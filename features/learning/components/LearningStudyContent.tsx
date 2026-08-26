@@ -55,6 +55,13 @@ interface LearningStudyContentProps {
    * photo both survive a detour back to studying.
    */
   chatContent?: React.ReactNode;
+  /**
+   * The bonus block, when one is running. It covers the study surface rather
+   * than replacing it: the deck and the card that closes the day stay mounted
+   * underneath, so ending the block puts the learner back exactly where they
+   * were instead of on a freshly rebuilt deck.
+   */
+  practiceRun?: React.ReactNode;
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
   phrasesCallbackRef: (node: HTMLElement | null) => void;
@@ -92,6 +99,10 @@ interface LearningStudyContentProps {
   newNowCount?: number;
   /** Lifts the day's cap so those leftovers join the stream. */
   onStudyExtra?: () => void;
+  /** Starts a block of games that writes nothing back. See `SessionDoneCard`. */
+  onPractice?: () => void;
+  /** How many rounds that block is, for the offer's own copy. */
+  practiceSize?: number;
   /**
    * The day's plan. A complete one turns the emptied deck from "nothing due"
    * into the card that closes the day — which is the only place that card
@@ -127,6 +138,7 @@ export function LearningStudyContent({
   activeSurface = 'study',
   onSurfaceChange,
   chatContent,
+  practiceRun,
   categories,
   progressStats,
   phrasesCallbackRef,
@@ -149,6 +161,8 @@ export function LearningStudyContent({
   dueNowCount = 0,
   newNowCount = 0,
   onStudyExtra,
+  onPractice,
+  practiceSize = 0,
   dayFlow = null,
   dayScore = null,
   shortfall = 0,
@@ -212,6 +226,8 @@ export function LearningStudyContent({
       dayResult={dayResult}
       streak={streak}
       onStudyExtra={onStudyExtra}
+      onPractice={onPractice}
+      practiceSize={practiceSize}
       onOpenWordChat={onOpenWordChat}
     />
   );
@@ -245,10 +261,10 @@ export function LearningStudyContent({
             get out of the way once the day is walked — a clock still ticking
             beside the closing card paces work that no longer exists, and the
             card carries the day's settled time itself. */}
-        {activeSurface === 'study' && sessionTimeGoal && sessionTimeGoal.budgetMs > 0 && !sessionFlow?.complete ? (
+        {activeSurface === 'study' && !practiceRun && sessionTimeGoal && sessionTimeGoal.budgetMs > 0 && !sessionFlow?.complete ? (
           <SessionTimeStrip goal={sessionTimeGoal} />
         ) : null}
-        {sessionFlow && activeSurface === 'study' && !sessionTimeGoal ? (
+        {sessionFlow && activeSurface === 'study' && !practiceRun && !sessionTimeGoal ? (
           <SessionRail flow={sessionFlow} />
         ) : null}
         <AppSurfacePanel
@@ -330,6 +346,15 @@ export function LearningStudyContent({
           >
             {chatContent}
           </AppSurfacePanel>
+        ) : null}
+        {/* Neither a surface nor a card: the block belongs to the day that just
+            ended, so it is laid over the study area and takes the rails' room
+            with it, rather than becoming a fourth thing the back button has to
+            know about. */}
+        {activeSurface === 'study' && practiceRun ? (
+          <div className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto">
+            {practiceRun}
+          </div>
         ) : null}
       </main>
     </AppLayout>

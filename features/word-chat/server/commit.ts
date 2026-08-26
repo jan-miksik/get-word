@@ -17,6 +17,12 @@ import { buildContentKeyInput, computeContentKey } from "@/lib/progress-key";
 import { personalListName } from "../personal-list-name";
 import { firstMeaningfulTopicLabel } from "../topicLabels";
 import type { LearnerBrief } from "@/lib/learner-brief";
+import { randomUUID } from "node:crypto";
+import { isAddressFormValue, makeAddressForm } from "@/lib/word-item-address-form";
+import {
+  limitKeepingPrimaries,
+  validAddressFormGroups,
+} from "../addressFormPairs";
 import {
   MAX_ITEMS_PER_SESSION,
   MAX_WORD_CHAT_ID_CHARS,
@@ -59,10 +65,30 @@ function isTransientDbError(err: unknown): boolean {
   return typeof code === "string" && TRANSIENT_DB_CODES.has(code);
 }
 
-/** Drop empty and exact duplicate pairs before entering the transaction. */
-export function sanitizeReviewItems(items: ReviewItem[]): ReviewItem[] {
+/**
+ * Drop empty and exact duplicate pairs, then fit the batch inside the limit.
+ *
+ * The ORDER of the stages matters and is the whole point:
+ *
+ *   1. normalize + dedupe
+ *   2. re-validate the address-form groups the client declared
+ *   3. apply the limit, primaries first
+ *   4. mint a persistent `groupId` — only for pairs that survived all of that
+ *
+ * Minting in step 4 rather than step 2 is what stops a primary row from keeping
+ * a `groupId` pointing at a pair that no longer exists, whether its twin was
+ * removed by dedupe or squeezed out by the limit. In that case the row keeps its
+ * `form`, which is still true of it, and simply stands alone.
+ *
+ * `limit` is the caller's effective cap (session cap ∩ remaining monthly
+ * balance). It defaults to the session cap so existing callers are unchanged.
+ */
+export function sanitizeReviewItems(
+  items: ReviewItem[],
+  limit: number = MAX_ITEMS_PER_SESSION,
+): ReviewItem[] {
   const seen = new Set<string>();
-  const result: ReviewItem[] = [];
+  const deduped: ReviewItem[] = [];
   for (const item of items) {
     const textKnown =
       item.textKnown?.trim().replace(/\s+/g, " ").slice(0, MAX_WORD_CHAT_ITEM_CHARS) ?? "";
@@ -76,10 +102,70 @@ export function sanitizeReviewItems(items: ReviewItem[]): ReviewItem[] {
     });
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    result.push({ ...item, textKnown, textTarget });
-    if (result.length >= MAX_ITEMS_PER_SESSION) break;
+    const normalized: ReviewItem = { ...item, textKnown, textTarget };
+    if (!isAddressFormValue(item.addressForm?.form)) {
+      delete normalized.addressForm;
+      delete normalized.variantGroupKey;
+    } else {
+      normalized.addressForm = { form: item.addressForm.form };
+      const groupKey =
+        typeof item.variantGroupKey === "string"
+          ? item.variantGroupKey.trim().slice(0, MAX_WORD_CHAT_ID_CHARS)
+          : "";
+      if (groupKey) normalized.variantGroupKey = groupKey;
+      else delete normalized.variantGroupKey;
+    }
+    deduped.push(normalized);
   }
-  return result;
+
+  // A group key the client sent is only a claim. Anything that fails the
+  // invariants — wrong size, mismatched source, identical targets, two of the
+  // same form — is stripped now, so the limit below treats those rows as the
+  // independent items they actually are.
+  const validAfterDedupe = validAddressFormGroups(deduped);
+  const claimed = deduped.map((item) =>
+    item.variantGroupKey && validAfterDedupe.has(item.variantGroupKey)
+      ? item
+      : stripGroupKey(item),
+  );
+
+  const limited = limitKeepingPrimaries(claimed, Math.max(0, Math.min(limit, MAX_ITEMS_PER_SESSION)));
+
+  // Re-checked against what actually survived: a pair whose twin lost its place
+  // to the limit is no longer a pair.
+  const surviving = validAddressFormGroups(limited);
+  return limited.map((item) =>
+    item.variantGroupKey && surviving.has(item.variantGroupKey)
+      ? item
+      : stripGroupKey(item),
+  );
+}
+
+/** Keep the form (still true of this row), drop the group claim. */
+function stripGroupKey(item: ReviewItem): ReviewItem {
+  if (!item.variantGroupKey) return item;
+  const rest = { ...item };
+  delete rest.variantGroupKey;
+  return rest;
+}
+
+/**
+ * Persistent group ids for the pairs that survived `sanitizeReviewItems`.
+ * Keyed by the transient client key; every row without an entry is stored with
+ * a bare `{ form }` or nothing at all.
+ */
+export function mintAddressFormGroupIds(items: ReviewItem[]): Map<string, string> {
+  const ids = new Map<string, string>();
+  const validGroups = validAddressFormGroups(items);
+  for (const item of items) {
+    if (
+      !item.variantGroupKey ||
+      !validGroups.has(item.variantGroupKey) ||
+      ids.has(item.variantGroupKey)
+    ) continue;
+    ids.set(item.variantGroupKey, randomUUID());
+  }
+  return ids;
 }
 
 async function findCommit(executor: Executor, creationKey: string) {
@@ -254,7 +340,17 @@ export async function commitWordChatSession(input: {
   });
   if (existingCommit) return existingCommit;
 
-  const items = sanitizeReviewItems(request.items ?? []);
+  // The monthly balance is enforced HERE, not on the client: a stale tab, a
+  // second tab, or a hand-made request must not be able to overshoot it. This
+  // matters more now that one translated row can become two saved items.
+  const usageBeforeCommit = await getMonthlyItemUsage({
+    userId: input.userId,
+    role: input.role,
+  });
+  const monthlyRemaining = Math.max(0, usageBeforeCommit.limit - usageBeforeCommit.used);
+  const effectiveLimit = Math.min(MAX_ITEMS_PER_SESSION, monthlyRemaining);
+
+  const items = sanitizeReviewItems(request.items ?? [], effectiveLimit);
   if (items.length === 0) throw new WordChatCommitError("There is nothing to save.");
 
   // Rows picked off a photo name their clip by content hash: the lab generated
@@ -491,6 +587,13 @@ export async function commitWordChatSession(input: {
 
       let categoryId: string | null = null;
       if (inserts.length > 0) {
+        // Database dedupe can remove one member even after the request-level
+        // pair survived. Mint ids from the rows that will ACTUALLY be inserted,
+        // so an existing primary never leaves its newly inserted alternative
+        // pointing at a twin that was not part of this write.
+        const addressFormGroupIds = mintAddressFormGroupIds(
+          inserts.map(({ item }) => item),
+        );
         await reserveMonthlyItems({
           userId: input.userId,
           role: input.role,
@@ -539,6 +642,14 @@ export async function commitWordChatSession(input: {
             acceptedTarget: takeover?.acceptedTarget ?? [],
             notes: takeover?.notes ?? null,
             comment: takeover?.comment ?? null,
+            addressForm: item.addressForm
+              ? makeAddressForm(
+                  item.addressForm.form,
+                  item.variantGroupKey
+                    ? addressFormGroupIds.get(item.variantGroupKey)
+                    : undefined,
+                )
+              : null,
             translationStatus: "translated" as const,
             audioAssetId: audioAssetIdFor(item) ?? takeover?.audioAssetId ?? null,
             audioStatus:

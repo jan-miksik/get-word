@@ -8,9 +8,10 @@ import { getBaseLanguage } from '@/lib/i18n/languages';
  * Shared by the client intro copy and the server chat prompt so the UI never
  * promises a question the model was told not to ask.
  *
- * Register is prompt context ONLY — never a persisted per-item field (that
- * column was deliberately dropped in migration 0033). It reaches the generation
- * prompt and `learner_brief.preferredRegister`, nothing else.
+ * This answers "does the language mark address at all?" — a deliberately loose
+ * question that is fine for one sentence of intro copy. It is NOT the predicate
+ * for generating familiar/polite item pairs: that one is much narrower and
+ * lives in `lib/word-item-address-form.ts` as `hasBinaryAddressForms`.
  */
 const REGISTER_SENSITIVE_LANGUAGES = new Set([
   'cs', 'sk', 'pl', 'ru', 'uk', 'vi', 'de', 'fr', 'es', 'pt', 'it', 'nl',

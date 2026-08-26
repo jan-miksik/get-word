@@ -52,18 +52,6 @@ type Props = {
   photoTabActive?: boolean;
   /** Asks the host to show another tab. See `photoTabActive` for why it is theirs. */
   onTabChange?: (tab: AddWordsTab) => void;
-  /**
-   * The short-practice offer shown on the confirmation step, built by the host
-   * from the words that actually landed. Rendered as-is: this screen has no
-   * business knowing what a study exercise is.
-   */
-  practiceOffer?: ReactNode;
-  /**
-   * Bumped by the host to hand the learner a fresh, empty add-words screen —
-   * after a practice round, for instance. Any other value change resets the
-   * flow; the initial value never does.
-   */
-  restartSignal?: number;
   onCommitted: (result: {
     listId: string;
     categoryId: string | null;
@@ -97,8 +85,6 @@ export function AddWordsScreen({
   photoTabAvailable = false,
   photoTabActive = false,
   onTabChange,
-  practiceOffer,
-  restartSignal,
   onCommitted,
 }: Props) {
   const { t } = useI18n();
@@ -402,8 +388,6 @@ export function AddWordsScreen({
             hostEntryTabs
             offScreen={photoTabActive}
             onEntryActionsChange={handleEntryActionsChange}
-            practiceOffer={practiceOffer}
-            restartSignal={restartSignal}
             keyboardOpen={keyboardOpen}
             active={active && !photoTabActive}
             embedded

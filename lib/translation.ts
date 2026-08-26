@@ -21,13 +21,36 @@ import {
   type TranslationValidationWarning,
 } from "@/lib/translation-validate";
 import {
+  isAddressFormValue,
+  oppositeAddressForm,
+  type AddressFormValue,
+} from "@/lib/word-item-address-form";
+import {
   recordGoogleApiUsageEvent,
   type GoogleApiUsageContext,
 } from "@/lib/google-api-usage-events";
 
+/**
+ * The second address-form rendering of the same source, when the target has a
+ * binary system and the source left the choice open. Its presence is what turns
+ * one input row into a pair of study items.
+ */
+type TranslationAlternative = {
+  translated: string;
+  register: AddressFormValue;
+};
+
 export type TranslationResult = {
   text: string;
   translated: string | null;
+  /**
+   * Form of address this translation uses. Set whenever the translation visibly
+   * picks one — including when the source itself fixed it, in which case there
+   * is deliberately no `alternative`.
+   */
+  register?: AddressFormValue;
+  /** Present only when a second item should be created; see the type above. */
+  alternative?: TranslationAlternative;
   status: "ok" | "error";
   error?: string;
   /** Soft signal: first warning's message (legacy string field), kept output. */
@@ -37,6 +60,50 @@ export type TranslationResult = {
 };
 
 const OPENROUTER_TRANSLATION_BATCH_SIZE = 100;
+
+type ParsedTranslationRow = {
+  translated: string;
+  register?: AddressFormValue;
+  alternative?: TranslationAlternative;
+};
+
+/** Same-text comparison for rejecting an "alternative" that is not one. */
+function sameWording(a: string, b: string): boolean {
+  const normalize = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+  return normalize(a) === normalize(b);
+}
+
+/**
+ * Read the optional address-form fields off one model row.
+ *
+ * Deliberately strict, and degrades in one direction only: a malformed
+ * `alternative` is dropped while the primary translation survives, because a
+ * bad second variant must never cost the learner the row they asked for.
+ * `alternative` is rejected unless the row has a valid `register`, the
+ * alternative names the OPPOSITE one, and the two wordings actually differ.
+ */
+function parseAddressFormFields(row: Record<string, unknown>): {
+  register?: AddressFormValue;
+  alternative?: TranslationAlternative;
+} {
+  const register = row.register;
+  if (!isAddressFormValue(register)) return {};
+
+  const raw = row.alternative;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return { register };
+
+  const candidate = raw as Record<string, unknown>;
+  const translated = candidate.translated;
+  const altRegister = candidate.register;
+  if (typeof translated !== "string" || !translated.trim()) return { register };
+  if (!isAddressFormValue(altRegister)) return { register };
+  if (altRegister !== oppositeAddressForm(register)) return { register };
+
+  return {
+    register,
+    alternative: { translated: translated.trim(), register: altRegister },
+  };
+}
 
 /**
  * Translate texts via Google Cloud Translation API v2.
@@ -156,9 +223,15 @@ export async function openRouterTranslate(
     maxAttempts?: number;
     onResponse?: (meta: OpenRouterChatMeta) => void;
     onAttemptStart?: () => void;
+    /**
+     * Ask for per-item address forms. Callers pass `hasBinaryAddressForms(toLang)`;
+     * off by default so the list translator and school flow keep their old output.
+     */
+    addressForms?: boolean;
   } = {},
 ): Promise<TranslationResult[]> {
   const results: TranslationResult[] = [];
+  const addressForms = requestOptions.addressForms === true;
   // Larger batches give the model more of the list at once (helps teaching-anchor
   // consistency) without hitting a rate limit. Kept moderate because BYOK runs
   // arbitrary, sometimes weaker models where long structured output is less
@@ -177,6 +250,7 @@ export async function openRouterTranslate(
       fromLang,
       toLang,
       previousPairs,
+      addressForms,
     });
 
     try {
@@ -204,20 +278,28 @@ export async function openRouterTranslate(
             : Array.isArray((parsed as { items?: unknown } | null)?.items)
               ? (parsed as { items: unknown[] }).items
               : [];
-          const byIndex = new Map<number, string>();
-          const byText = new Map<string, string>();
+          const byIndex = new Map<number, ParsedTranslationRow>();
+          const byText = new Map<string, ParsedTranslationRow>();
           for (const row of rows) {
             if (!row || typeof row !== "object") continue;
-            const translated = (row as { translated?: unknown }).translated;
+            const record = row as Record<string, unknown>;
+            const translated = record.translated;
             if (typeof translated !== "string" || !translated.trim()) continue;
-            const idx = (row as { index?: unknown }).index;
+            const text = translated.trim();
+            const addressFields = addressForms ? parseAddressFormFields(record) : {};
+            // An "alternative" identical to the primary is not an alternative.
+            if (addressFields.alternative && sameWording(addressFields.alternative.translated, text)) {
+              delete addressFields.alternative;
+            }
+            const parsed: ParsedTranslationRow = { translated: text, ...addressFields };
+            const idx = record.index;
             if (typeof idx === "number" && Number.isInteger(idx)) {
-              byIndex.set(idx, translated.trim());
+              byIndex.set(idx, parsed);
             }
             // Tolerate older { original, translated } shapes as a fallback.
-            const original = (row as { original?: unknown }).original;
+            const original = record.original;
             if (typeof original === "string" && original.trim()) {
-              byText.set(original.toLowerCase().trim(), translated.trim());
+              byText.set(original.toLowerCase().trim(), parsed);
             }
           }
           if (byIndex.size === 0 && byText.size === 0) {
@@ -230,8 +312,9 @@ export async function openRouterTranslate(
 
       batch.forEach((text, idx) => {
         const key = text.toLowerCase().trim();
-        const translated = byIndex.get(idx + 1) ?? byText.get(key) ?? null;
-        if (translated) {
+        const row = byIndex.get(idx + 1) ?? byText.get(key) ?? null;
+        if (row) {
+          const translated = row.translated;
           const validationWarnings = validateTranslation({
             source: text,
             target: translated,
@@ -242,6 +325,8 @@ export async function openRouterTranslate(
             text,
             translated,
             status: "ok",
+            ...(row.register ? { register: row.register } : {}),
+            ...(row.alternative ? { alternative: row.alternative } : {}),
             ...(validationWarnings.length > 0
               ? {
                   warning: validationWarnings[0].message,

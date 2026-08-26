@@ -445,6 +445,90 @@ describe('POST /api/lists/[id]/fork', () => {
     expect(result?.cleared_sides).toEqual([])
   })
 
+  it('copies address-form pairs with a fresh group id on an exact fork', async () => {
+    mockGetListItems.mockResolvedValue([
+      {
+        id: 'item-familiar',
+        categoryId: 'cat-1',
+        textKnown: 'How are you?',
+        textTarget: 'Wie geht es dir?',
+        notes: null,
+        addressForm: { version: 1, form: 'familiar', groupId: 'source-group' },
+      },
+      {
+        id: 'item-polite',
+        categoryId: 'cat-1',
+        textKnown: 'How are you?',
+        textTarget: 'Wie geht es Ihnen?',
+        notes: null,
+        addressForm: { version: 1, form: 'polite', groupId: 'source-group' },
+      },
+    ])
+    mockGetListById.mockResolvedValue({
+      id: 'seed-list',
+      ownerId: null,
+      name: 'EN / DE',
+      description: null,
+      languageFrom: 'en',
+      languageTo: 'de',
+      isPublic: true,
+    })
+
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'en',
+        language_to: 'de',
+        translation_provider: 'none',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
+
+    expect(res.status).toBe(200)
+    const inserted = (mockValues.mock.calls as unknown[][])[0]?.[0] as Array<{
+      addressForm: { version: number; form: string; groupId?: string } | null
+    }>
+    expect(inserted.map((item) => item.addressForm?.form)).toEqual(['familiar', 'polite'])
+    expect(inserted[0].addressForm?.groupId).toBeTruthy()
+    expect(inserted[0].addressForm?.groupId).not.toBe('source-group')
+    expect(inserted[1].addressForm?.groupId).toBe(inserted[0].addressForm?.groupId)
+  })
+
+  it('drops target-side address forms when the fork changes languages', async () => {
+    mockGetListItems.mockResolvedValue([
+      {
+        id: 'item-1',
+        categoryId: 'cat-1',
+        textKnown: 'ahoj',
+        textTarget: 'xin chao',
+        notes: null,
+        addressForm: { version: 1, form: 'polite', groupId: 'source-group' },
+      },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'google',
+        source_language: 'cs',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
+
+    expect(res.status).toBe(200)
+    expect(mockValues).toHaveBeenCalledWith([
+      expect.objectContaining({ addressForm: null }),
+    ])
+  })
+
   it('clears the changed target side and audio when no fork translation provider is selected', async () => {
     const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
       method: 'POST',

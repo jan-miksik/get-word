@@ -58,7 +58,7 @@ export async function getContentRevision(userId: string): Promise<string> {
       select
         id, list_id, updated_at, known_audio_asset_id, audio_asset_id,
         source_item_id, takeover_source_item_id, text_known, text_target,
-        ignore_case, accepted_known, accepted_target, notes, comment
+        ignore_case, accepted_known, accepted_target, notes, comment, address_form
       from word_list_items
       where list_id in (select id from relevant_lists)
         and text_known is not null
@@ -70,7 +70,7 @@ export async function getContentRevision(userId: string): Promise<string> {
       select distinct audio_asset_id as id from relevant_items
       where audio_asset_id is not null
     )
-    select 'v4:' || md5(concat_ws('|',
+    select 'v5:' || md5(concat_ws('|',
       coalesce((
         select jsonb_agg(
           jsonb_build_array(
@@ -85,7 +85,8 @@ export async function getContentRevision(userId: string): Promise<string> {
           jsonb_build_array(
             id, list_id, updated_at, source_item_id, takeover_source_item_id,
             text_known, text_target, ignore_case, accepted_known,
-            accepted_target, notes, comment, known_audio_asset_id, audio_asset_id
+            accepted_target, notes, comment, address_form,
+            known_audio_asset_id, audio_asset_id
           )
           order by id
         )::text
@@ -109,5 +110,5 @@ export async function getContentRevision(userId: string): Promise<string> {
   const row = rows[0] as
     | { revision: string }
     | undefined;
-  return row?.revision ?? "v4:empty";
+  return row?.revision ?? "v5:empty";
 }

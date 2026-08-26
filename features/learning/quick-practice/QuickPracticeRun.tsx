@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import type { LearningRole } from '@/features/learning/state/learningRole';
-import type { NormalizedWord } from '@/lib/words';
+import type { MiniGameConfig } from '@/features/learning/minigames';
 import { MiniGameCard } from '@/features/learning/components/MiniGameCard';
-import { buildQuickPracticeRounds, type QuickPracticeMethodId } from './rounds';
 
 /**
- * A handful of rounds with the words that were just added, then straight back
- * to adding more.
+ * A block of rounds played on top of a finished day, then straight back to the
+ * card that closed it.
  *
  * Every round is an ordinary `MiniGameCard` — the same component the study
  * stream injects — so no exercise is implemented twice. What is deliberately
@@ -20,35 +19,23 @@ import { buildQuickPracticeRounds, type QuickPracticeMethodId } from './rounds';
  * a plain × rather than a confirmation.
  */
 export function QuickPracticeRun({
-  method,
-  words,
-  pool,
+  rounds,
   role,
-  seed,
   onFinish,
 }: {
-  method: QuickPracticeMethodId;
-  /** The words that just landed; every round is anchored to one of them. */
-  words: NormalizedWord[];
-  /** Wider pool the distractors may also come from. */
-  pool?: NormalizedWord[];
+  /** The block, built and frozen by the caller before the run opened. */
+  rounds: MiniGameConfig[];
   role: LearningRole;
-  /** Fixes the round order for this run; change it to reshuffle. */
-  seed: number;
   onFinish: () => void;
 }) {
   const { t } = useI18n();
   const [index, setIndex] = useState(0);
-  const rounds = useMemo(
-    () => buildQuickPracticeRounds(method, { fresh: words, pool, seed }),
-    [method, pool, seed, words],
-  );
 
   const round = rounds[index];
 
-  // Nothing playable — the words changed underneath the run, or the offer that
-  // started it was stale. Hand the learner back rather than show an empty
-  // screen; in an effect, because finishing is the caller's state, not ours.
+  // Nothing playable — the block was emptied underneath the run. Hand the
+  // learner back rather than show an empty screen; in an effect, because
+  // finishing is the caller's state, not ours.
   useEffect(() => {
     if (!round) onFinish();
   }, [onFinish, round]);
@@ -58,7 +45,7 @@ export function QuickPracticeRun({
   return (
     <div
       style={warmPaletteVars}
-      className="flex min-h-0 w-full flex-1 flex-col text-[color:var(--ob-ink)]"
+      className="flex min-h-0 w-full flex-1 flex-col bg-[color:var(--ob-surface)] text-[color:var(--ob-ink)]"
     >
       <div className="mx-auto flex w-full max-w-[800px] shrink-0 items-center gap-3 px-3 pb-4 pt-3 sm:px-4">
         <div className="min-w-0 flex-1">

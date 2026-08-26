@@ -43,6 +43,7 @@ function item(input: Partial<WordListItem> & Pick<WordListItem, "id" | "textKnow
     audioStatus: input.audioStatus ?? "none",
     notes: input.notes ?? null,
     comment: input.comment ?? null,
+    addressForm: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
   };

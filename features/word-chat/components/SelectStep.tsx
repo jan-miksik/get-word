@@ -12,11 +12,10 @@ import {
 } from '@/components/icons/AppIcons';
 import { ShareVisibilityDialog } from '@/features/lists/components/ShareVisibilityDialog';
 import { HeadingMenu, HeadingMenuItem } from './HeadingMenu';
-import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
 import type { WordList } from '@/features/lists/types';
 import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
-import type { ProposedItem, ReviewItem, WordChatTranslationRegister } from '../types';
+import type { ProposedItem, ReviewItem } from '../types';
 import type { WordChatLimits } from '../hooks/useWordChat';
 
 type Props = {
@@ -69,17 +68,6 @@ type Props = {
   onShareListUpdated?: (list: WordList) => void;
   /** The study pair's target, named in the register question. */
   languageTo: string;
-  /**
-   * Whether the target language words a phrase differently depending on who is
-   * being addressed. When it does, the choice below is required before anything
-   * can be translated — the model would otherwise have to guess, on every row.
-   *
-   * This describes THIS batch of words, not the learner: it is asked again for
-   * every batch, because the next set can be for a different audience.
-   */
-  registerApplies: boolean;
-  register: WordChatTranslationRegister | null;
-  onRegisterChange: (value: WordChatTranslationRegister) => void;
   /**
    * The screen around this step already carries its heading — the tabbed
    * "Add your own words" surface does. Drawing a second one here would name the
@@ -152,9 +140,6 @@ export function SelectStep({
   shareList,
   onShareListUpdated,
   languageTo,
-  registerApplies,
-  register,
-  onRegisterChange,
   onBack,
   titleInHost = false,
   headerSlot,
@@ -163,7 +148,7 @@ export function SelectStep({
   onOpenSettings,
   onContinue,
 }: Props) {
-  const { t, language: uiLanguage } = useI18n();
+  const { t } = useI18n();
   const [customInput, setCustomInput] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
   // Typing one word, adding it, seeing it land is the whole loop for most
@@ -179,7 +164,6 @@ export function SelectStep({
   // is asked (and changed) behind the settings gear, private until told
   // otherwise, so nothing on this step waits on an answer.
   const monthlyExhausted = monthlyRemaining <= 0;
-  const registerMissing = registerApplies && !register;
   const translatedSelectionCount = translatedSelectionCountFromBasket ?? selectedCount;
   const remainingSelections = remainingSelectionsFromBasket ?? Math.max(
     0,
@@ -629,56 +613,6 @@ export function SelectStep({
         ) : null}
       </form>
 
-      {/* Who these phrases are spoken to decides how the target words them, so
-          it is asked here — right above the button that spends a translation —
-          rather than being guessed row by row. Never pre-filled: it describes
-          this batch, and the next batch can be for someone else entirely. */}
-      {registerApplies ? (
-        <section
-          role="radiogroup"
-          aria-label={t('wordChat.targetRegisterTitle')}
-          className="space-y-2 rounded-xl border-2 border-dashed border-[color:color-mix(in_srgb,var(--ob-ink)_30%,transparent)] p-3"
-        >
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-wide onboarding-text-soft">
-              {t('wordChat.targetRegisterTitle')}
-            </h3>
-            <p className="mt-1 text-xs leading-relaxed onboarding-text-soft">
-              {t('wordChat.targetRegisterHint', {
-                language:
-                  getLocalizedLanguageName(languageTo, uiLanguage) ?? languageTo.toUpperCase(),
-              })}
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(['casual', 'formal'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={register === value}
-                onClick={() => onRegisterChange(value)}
-                className={[
-                  'onboarding-option min-h-12 rounded-xl px-3 py-2.5 text-left',
-                  register === value ? 'onboarding-option-highlight' : '',
-                ].join(' ')}
-              >
-                <span className="block text-sm font-extrabold">
-                  {value === 'casual'
-                    ? t('wordChat.targetRegisterCasual')
-                    : t('wordChat.targetRegisterFormal')}
-                </span>
-                <span className="mt-0.5 block text-[11px] leading-snug onboarding-text-soft">
-                  {value === 'casual'
-                    ? t('wordChat.targetRegisterCasualHint')
-                    : t('wordChat.targetRegisterFormalHint')}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       <div className="space-y-2 text-xs">
         {overSoftLimit ? (
           <p className="onboarding-notice rounded-md px-3 py-2 leading-relaxed">
@@ -725,8 +659,7 @@ export function SelectStep({
             (monthlyExhausted && projectedTranslatedCount > 0) ||
             overMonthlyLimit ||
             projectedTranslatedCount > monthlyRemaining ||
-            inputInvalid ||
-            (registerMissing && projectedTranslatedCount > 0)
+            inputInvalid
           }
           className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3.5 text-center text-base font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >

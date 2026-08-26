@@ -1,26 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { I18nProvider } from '@/components/I18nProvider';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { WordChatProgress } from '@/features/word-chat/components/WordChatProgress';
 import { SelectStep } from '@/features/word-chat/components/SelectStep';
 import { ReviewStep } from '@/features/word-chat/components/ReviewStep';
 import { DoneStep } from '@/features/word-chat/components/DoneStep';
-import { QuickPracticeOffer } from '@/features/learning/quick-practice/QuickPracticeOffer';
-import { QuickPracticeRun } from '@/features/learning/quick-practice/QuickPracticeRun';
-import {
-  availableQuickPracticeMethods,
-  type QuickPracticeMethodId,
-} from '@/features/learning/quick-practice/rounds';
-import type { NormalizedWord } from '@/lib/words';
 import type { ReviewItem } from '@/features/word-chat/types';
 
 /**
- * Workbench for the in-app "Add words" flow and the short practice it now ends
- * on. Every step is rendered from static props, so the whole thing can be
- * compared side by side without a signed-in session, a language pair or a live
- * model behind it.
+ * Workbench for the in-app "Add words" flow. Every step is rendered from static
+ * props, so the whole thing can be compared side by side without a signed-in
+ * session, a language pair or a live model behind it.
  */
 
 const SAMPLE = [
@@ -32,22 +24,33 @@ const SAMPLE = [
   ['ještě jednou', 'one more time'],
 ] as const;
 
-const words: NormalizedWord[] = SAMPLE.map(([known, target], index) => ({
-  id: `dev-${index}`,
-  cz: known,
-  vi: target,
-  en: '',
-  category: ['Moje slovíčka'],
-  languageFrom: 'cs',
-  languageTo: 'en',
-}));
-
-const reviewItems: ReviewItem[] = SAMPLE.map(([known, target]) => ({
-  kind: 'word',
-  textKnown: known,
-  textTarget: target,
-  audioStatus: 'idle',
-}));
+const reviewItems: ReviewItem[] = [
+  ...SAMPLE.map(([known, target]): ReviewItem => ({
+    kind: 'word',
+    textKnown: known,
+    textTarget: target,
+    audioStatus: 'idle',
+  })),
+  // One address-form pair, so the chips are visible here without spending a
+  // real translation. Both rows ask the same question on purpose — that is
+  // exactly why each needs its label.
+  {
+    kind: 'sentence',
+    textKnown: 'How are you?',
+    textTarget: 'Wie geht es dir?',
+    audioStatus: 'idle',
+    addressForm: { form: 'familiar' },
+    variantGroupKey: 'dev:address',
+  },
+  {
+    kind: 'sentence',
+    textKnown: 'How are you?',
+    textTarget: 'Wie geht es Ihnen?',
+    audioStatus: 'idle',
+    addressForm: { form: 'polite' },
+    variantGroupKey: 'dev:address',
+  },
+];
 
 const limits = {
   maxItemsPerSession: 30,
@@ -98,13 +101,6 @@ export function AddWordsDevPreview() {
     { kind: 'word', text: 'snídaně' },
     { kind: 'sentence', text: 'objednat si kávu' },
   ]);
-  const [method, setMethod] = useState<QuickPracticeMethodId | null>(null);
-  const [seed, setSeed] = useState(1);
-
-  const methods = useMemo(
-    () => availableQuickPracticeMethods({ fresh: words, pool: [], seed }),
-    [seed],
-  );
 
   return (
     <I18nProvider language="cs">
@@ -117,13 +113,10 @@ export function AddWordsDevPreview() {
             <button
               key={value}
               type="button"
-              onClick={() => {
-                setMethod(null);
-                setScreen(value);
-              }}
+              onClick={() => setScreen(value)}
               className={[
                 'onboarding-option rounded-full px-4 py-2 text-xs font-extrabold',
-                screen === value && !method ? 'onboarding-option-highlight' : '',
+                screen === value ? 'onboarding-option-highlight' : '',
               ].join(' ')}
             >
               {label}
@@ -131,21 +124,7 @@ export function AddWordsDevPreview() {
           ))}
         </div>
 
-        {method ? (
-          <div className="mx-auto flex min-h-[75vh] w-full max-w-[800px] flex-col px-4">
-            <QuickPracticeRun
-              method={method}
-              words={words}
-              role="knownLanguage"
-              seed={seed}
-              onFinish={() => {
-                setMethod(null);
-                setSeed((current) => current + 1);
-                setScreen('select');
-              }}
-            />
-          </div>
-        ) : screen === 'select' ? (
+        {screen === 'select' ? (
           <Frame step="select">
             <SelectStep
               mode="manual"
@@ -170,9 +149,6 @@ export function AddWordsDevPreview() {
               atSelectionLimit={false}
               busy={false}
               languageTo="en"
-              registerApplies={false}
-              register={null}
-              onRegisterChange={() => {}}
               onStartChat={() => {}}
               onOpenSettings={() => {}}
               onContinue={() => setScreen('review')}
@@ -184,7 +160,7 @@ export function AddWordsDevPreview() {
               items={reviewItems}
               listName="Moje slovíčka — angličtina"
               categoryName="Kavárna"
-              warningsByKnown={{}}
+              warningsByPair={{}}
               translationDiagnostics={null}
               isPublic={false}
               busy={false}
@@ -201,9 +177,6 @@ export function AddWordsDevPreview() {
               result={commitResult}
               refreshStatus="success"
               onRetryRefresh={async () => {}}
-              practiceOffer={
-                <QuickPracticeOffer methods={methods} onStart={(next) => setMethod(next)} />
-              }
               onAddMore={() => setScreen('select')}
               onDone={() => setScreen('select')}
             />

@@ -767,6 +767,142 @@ describe('useWordChat', () => {
     expect(result.current.selectedCount).toBe(1);
   });
 
+  it('turns a row that offers the other address form into two review rows', async () => {
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'sentence',
+          text_known: 'Jak se máš?',
+          text_target: 'Wie geht es dir?',
+          corpus_item_id: 'corpus-1',
+          audio_asset_id: 'asset-1',
+          audio_hash: 'hash-1',
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+          address_form: 'familiar',
+          address_alternative: { text_target: 'Wie geht es Ihnen?', address_form: 'polite' },
+        },
+      ],
+      translation_diagnostics: {
+        model: 'm',
+        input_tokens: 1,
+        output_tokens: 1,
+        estimated_cost_usd: 0,
+      },
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'de', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('Pozdravy'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    await act(() => result.current.continueToReview());
+
+    const [primary, twin] = result.current.reviewItems;
+    expect(result.current.reviewItems).toHaveLength(2);
+
+    expect(primary.textTarget).toBe('Wie geht es dir?');
+    expect(primary.addressForm).toEqual({ form: 'familiar' });
+    expect(twin.textTarget).toBe('Wie geht es Ihnen?');
+    expect(twin.addressForm).toEqual({ form: 'polite' });
+
+    // Both belong to the same transient group, which the server re-validates.
+    expect(primary.variantGroupKey).toBeDefined();
+    expect(twin.variantGroupKey).toBe(primary.variantGroupKey);
+
+    // The twin says something different, so it cannot borrow the primary's clip,
+    // its corpus origin, or its takeover claim.
+    expect(twin.audioAssetId).toBeNull();
+    expect(twin.audioHash).toBeNull();
+    expect(twin.corpusItemId).toBeUndefined();
+    expect(twin.audioStatus).toBe('pending');
+  });
+
+  it('dissolves an address-form pair when one wording is edited', async () => {
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'sentence',
+          text_known: 'Jak se máš?',
+          text_target: 'Wie geht es dir?',
+          corpus_item_id: null,
+          audio_asset_id: null,
+          audio_hash: null,
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+          address_form: 'familiar',
+          address_alternative: { text_target: 'Wie geht es Ihnen?', address_form: 'polite' },
+        },
+      ],
+      translation_diagnostics: {
+        model: 'm',
+        input_tokens: 1,
+        output_tokens: 1,
+        estimated_cost_usd: 0,
+      },
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'de', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('Pozdravy'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    await act(() => result.current.continueToReview());
+
+    act(() => result.current.updateReviewItem(0, { textTarget: 'Hallo!' }));
+
+    expect(result.current.reviewItems[0].addressForm).toBeUndefined();
+    expect(result.current.reviewItems[0].variantGroupKey).toBeUndefined();
+    expect(result.current.reviewItems[1].addressForm).toEqual({ form: 'polite' });
+    expect(result.current.reviewItems[1].variantGroupKey).toBeUndefined();
+  });
+
+  it('leaves a row alone when no second form was offered', async () => {
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'sentence',
+          text_known: 'Jak se máte?',
+          text_target: 'Wie geht es Ihnen?',
+          corpus_item_id: null,
+          audio_asset_id: null,
+          audio_hash: null,
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+          // The source already fixed the form: labelled, but not a pair.
+          address_form: 'polite',
+          address_alternative: null,
+        },
+      ],
+      translation_diagnostics: {
+        model: 'm',
+        input_tokens: 1,
+        output_tokens: 1,
+        estimated_cost_usd: 0,
+      },
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'de', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('Pozdravy'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    await act(() => result.current.continueToReview());
+
+    expect(result.current.reviewItems).toHaveLength(1);
+    expect(result.current.reviewItems[0].addressForm).toEqual({ form: 'polite' });
+    expect(result.current.reviewItems[0].variantGroupKey).toBeUndefined();
+  });
+
   it('opens review while fresh audio is still generating in the background', async () => {
     let resolveAudio: (value: unknown) => void = () => {};
     const audioPromise = new Promise((resolve) => {
@@ -805,7 +941,6 @@ describe('useWordChat', () => {
     act(() => result.current.toggleSelected(result.current.proposals[1]));
     // Vietnamese words a phrase differently depending on who it is for, so
     // the batch has to say who before anything can be translated.
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(result.current.step).toBe('review');
@@ -883,7 +1018,6 @@ describe('useWordChat', () => {
 
     await act(() => result.current.sendMessage('Kavárna'));
     act(() => result.current.toggleSelected(result.current.proposals[1]));
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(result.current.reviewItems[0].audioStatus).toBe('pending');
@@ -969,7 +1103,6 @@ describe('useWordChat', () => {
     act(() => result.current.addCustomItem('Zavolej Anně.'));
     // Vietnamese words a phrase differently depending on who it is for, so
     // the batch has to say who before anything can be translated.
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(mocks.generateAudio).toHaveBeenCalledTimes(1);
@@ -1019,7 +1152,6 @@ describe('useWordChat', () => {
     act(() => result.current.addCustomItem('čaj'));
     // Only the second item is muted; the first is the one the server drops.
     act(() => result.current.toggleAudioDisabled('custom:čaj'));
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(result.current.reviewItems).toHaveLength(1);
@@ -1150,7 +1282,6 @@ describe('useWordChat', () => {
     act(() => result.current.toggleSelected(result.current.proposals[1]));
     // Vietnamese words a phrase differently depending on who it is for, so
     // the batch has to say who before anything can be translated.
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     expect(mocks.translateSelection).toHaveBeenCalledTimes(1);
 
@@ -1159,7 +1290,6 @@ describe('useWordChat', () => {
     act(() => result.current.backToSelect());
     // Vietnamese words a phrase differently depending on who it is for, so
     // the batch has to say who before anything can be translated.
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(mocks.translateSelection).toHaveBeenCalledTimes(1);
@@ -1169,7 +1299,6 @@ describe('useWordChat', () => {
     act(() => result.current.toggleSelected(result.current.proposals[0]));
     // Vietnamese words a phrase differently depending on who it is for, so
     // the batch has to say who before anything can be translated.
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     expect(mocks.translateSelection).toHaveBeenCalledTimes(2);
   });
@@ -1219,7 +1348,6 @@ describe('useWordChat', () => {
     });
     // Vietnamese words a phrase differently depending on who it is for, so
     // the batch has to say who before anything can be translated.
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     await act(() => result.current.commit());
 
@@ -1291,7 +1419,6 @@ describe('useWordChat', () => {
     act(() => result.current.toggleSelected(result.current.proposals[1]));
     // Vietnamese words a phrase differently depending on who it is for, so
     // the batch has to say who before anything can be translated.
-    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     await act(() => result.current.commit());
 
@@ -1304,63 +1431,5 @@ describe('useWordChat', () => {
     expect(result.current.refreshStatus).toBe('success');
     expect(refreshAfterCommit).toHaveBeenCalledTimes(2);
     expect(mocks.commitSession).toHaveBeenCalledTimes(1);
-  });
-  it("will not translate into a register-sensitive target until the batch says who it is for", async () => {
-    const { result } = renderHook(
-      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
-      { wrapper },
-    );
-    await waitForPreferences(result);
-
-    await act(() => result.current.sendMessage('Kavárna'));
-    act(() => result.current.toggleSelected(result.current.proposals[1]));
-
-    expect(result.current.translationRegisterApplies).toBe(true);
-    expect(result.current.translationRegister).toBeNull();
-
-    await act(() => result.current.continueToReview());
-    expect(mocks.translateSelection).not.toHaveBeenCalled();
-    expect(result.current.step).toBe('select');
-
-    act(() => result.current.setTranslationRegister('formal'));
-    await act(() => result.current.continueToReview());
-
-    expect(result.current.step).toBe('review');
-    expect(mocks.translateSelection.mock.calls[0][0]).toMatchObject({
-      addressRegister: 'formal',
-    });
-  });
-
-  it('asks again for the next batch instead of reusing the last answer', async () => {
-    const { result } = renderHook(
-      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
-      { wrapper },
-    );
-    await waitForPreferences(result);
-
-    act(() => result.current.setTranslationRegister('casual'));
-    expect(result.current.translationRegister).toBe('casual');
-
-    act(() => result.current.reset());
-    expect(result.current.translationRegister).toBeNull();
-  });
-
-  it('leaves the register question out for a target that does not mark one', async () => {
-    const { result } = renderHook(
-      () => useWordChat({ languageFrom: 'fi', languageTo: 'et', onCommitted: vi.fn() }),
-      { wrapper },
-    );
-    await waitForPreferences(result);
-
-    expect(result.current.translationRegisterApplies).toBe(false);
-
-    await act(() => result.current.sendMessage('Kavárna'));
-    act(() => result.current.toggleSelected(result.current.proposals[1]));
-    await act(() => result.current.continueToReview());
-
-    expect(result.current.step).toBe('review');
-    expect(mocks.translateSelection.mock.calls[0][0]).toMatchObject({
-      addressRegister: null,
-    });
   });
 });

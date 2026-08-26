@@ -1,6 +1,11 @@
 // Word normalization and utility functions
 
 import { normalizeWordItemComment, type WordItemComment } from '@/lib/word-item-comment';
+import {
+  normalizeWordItemAddressForm,
+  oppositeAddressForm,
+  type AddressFormValue,
+} from '@/lib/word-item-address-form';
 import { normalizeAcceptedAnswersForDisplay } from '@/lib/word-item-accepted-answers';
 
 export interface Word {
@@ -37,6 +42,54 @@ export interface NormalizedWord extends Word {
   acceptedKnown?: string[];
   acceptedTarget?: string[];
   comment?: WordItemComment | null;
+  /**
+   * Form of address plus, when the twin is present, its wording. `counterpart`
+   * is derived here rather than stored: keeping a copy of the sibling's text in
+   * the database would go stale the moment either row is edited, the twin is
+   * deleted, or the list is forked.
+   */
+  addressForm?: { form: AddressFormValue; counterpart?: string } | null;
+}
+
+/**
+ * Attach the runtime address form: the stored `{ form }` plus the sibling's
+ * target text when the pair is still intact. A group whose twin was deleted (or
+ * simply is not in this list) yields a form with no counterpart — the form is
+ * true of the row on its own.
+ */
+function resolveAddressForm(
+  item: { id: string; textKnown: string | null; textTarget: string | null; addressForm?: unknown },
+  itemsByGroup: Map<string, AddressFormGroupEntry[]>,
+): { form: AddressFormValue; counterpart?: string } | null {
+  const stored = normalizeWordItemAddressForm(item.addressForm);
+  if (!stored) return null;
+  if (!stored.groupId) return { form: stored.form };
+
+  const members = itemsByGroup.get(stored.groupId);
+  if (members?.length !== 2) return { form: stored.form };
+  const [first, second] = members;
+  if (normalizeAddressPairText(first.textKnown) !== normalizeAddressPairText(second.textKnown)) {
+    return { form: stored.form };
+  }
+  if (normalizeAddressPairText(first.textTarget) === normalizeAddressPairText(second.textTarget)) {
+    return { form: stored.form };
+  }
+  if (second.form !== oppositeAddressForm(first.form)) return { form: stored.form };
+
+  const sibling = members.find((entry) => entry.id !== item.id);
+
+  return sibling ? { form: stored.form, counterpart: sibling.textTarget } : { form: stored.form };
+}
+
+type AddressFormGroupEntry = {
+  id: string;
+  textKnown: string;
+  textTarget: string;
+  form: AddressFormValue;
+};
+
+function normalizeAddressPairText(text: string): string {
+  return text.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 // Audio used to ship as static files under public/speech/. The app now serves
@@ -308,6 +361,7 @@ export function wordListItemsToNormalizedWords(
     languageTo?: string;
     notes: string | null;
     comment?: unknown;
+    addressForm?: unknown;
     position: number;
     ignoreCase?: boolean;
   }>,
@@ -347,6 +401,24 @@ export function wordListItemsToNormalizedWords(
       czAudio: word.czAudio,
       viAudio: word.viAudio,
     });
+  }
+
+  // The two rows of an address-form pair share a groupId, and each needs the
+  // OTHER one's target text — `sibling.textTarget`, never `textKnown`, which is
+  // identical on both and would render the card's own prompt back at it.
+  const addressItemsByGroup = new Map<string, AddressFormGroupEntry[]>();
+  for (const item of items) {
+    const stored = normalizeWordItemAddressForm(item.addressForm);
+    if (!stored?.groupId || !item.textKnown || !item.textTarget) continue;
+    const group = addressItemsByGroup.get(stored.groupId);
+    const entry = {
+      id: item.id,
+      textKnown: item.textKnown,
+      textTarget: item.textTarget,
+      form: stored.form,
+    };
+    if (group) group.push(entry);
+    else addressItemsByGroup.set(stored.groupId, [entry]);
   }
 
   return items
@@ -429,6 +501,7 @@ export function wordListItemsToNormalizedWords(
         acceptedTarget: normalizeAcceptedAnswersForDisplay(item.acceptedTarget, item.textTarget),
         // Defensive normalization on hydrate: drop malformed/legacy comments.
         comment: normalizeWordItemComment(item.comment),
+        addressForm: resolveAddressForm(item, addressItemsByGroup),
       } as NormalizedWord;
     });
 }

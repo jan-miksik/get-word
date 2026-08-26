@@ -100,28 +100,34 @@ describe("comment prompt rules", () => {
     );
     expect(COMMENT_GENERATION_RULES).toContain("Never write meta-comments");
   });
-  it("carries the learner's chosen address form into the prompt, only when given", () => {
+  it("asks for per-item address forms only when the target has a binary system", () => {
     const base = {
       texts: ["Where is the station?"],
       fromLang: "en",
       toLang: "cs",
     };
 
-    const neutral = buildOpenRouterTranslationPrompt(base);
-    expect(neutral).not.toContain("Where the source does not itself mark an address form");
+    // No flag: nothing about address forms, and the plain JSON shape only.
+    const plain = buildOpenRouterTranslationPrompt(base);
+    expect(plain).not.toContain('"register"');
+    expect(plain).not.toContain('"alternative"');
 
-    const formal = buildOpenRouterTranslationPrompt({
-      ...base,
-      addressRegister: "formal",
-    });
-    expect(formal).toContain("use the target's polite/formal address");
-    // A source item that marks its own register still wins over the default.
-    expect(formal).toContain("still honour any item whose own source explicitly marks");
+    const withForms = buildOpenRouterTranslationPrompt({ ...base, addressForms: true });
+    expect(withForms).toContain('Set "register" to "familiar" or "polite"');
+    expect(withForms).toContain('"alternative"');
+  });
 
-    const casual = buildOpenRouterTranslationPrompt({
-      ...base,
-      addressRegister: "casual",
+  it("tells the model that a source-fixed address form gets no alternative", () => {
+    // The whole point of the rewrite: reporting the form and creating a second
+    // item are independent, and a source that already fixed the form must not
+    // spawn a twin.
+    const prompt = buildOpenRouterTranslationPrompt({
+      texts: ["Jak se máte?"],
+      fromLang: "cs",
+      toLang: "de",
+      addressForms: true,
     });
-    expect(casual).toContain("use the target's casual/informal address");
+    expect(prompt).toContain("including when the source itself already fixed the choice");
+    expect(prompt).toContain('return "register" and NO "alternative"');
   });
 });

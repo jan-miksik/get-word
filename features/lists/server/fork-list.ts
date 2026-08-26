@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/client";
+import { randomUUID } from "node:crypto";
 import { serializeWordList } from "@/lib/word-list-dto";
 import {
   createCategory,
@@ -23,6 +24,12 @@ import {
   normalizeWordItemComment,
   type WordItemComment,
 } from "@/lib/word-item-comment";
+import {
+  makeAddressForm,
+  normalizeWordItemAddressForm,
+  oppositeAddressForm,
+  type WordItemAddressForm,
+} from "@/lib/word-item-address-form";
 
 type ForkSourceList = {
   id: string;
@@ -69,6 +76,63 @@ const AUDIO_VOICE = "default";
 type TranslationProvider = "google" | "openrouter" | "none";
 type ListSide = "known" | "target";
 type SourceItem = Awaited<ReturnType<typeof getListItems>>[number];
+
+function normalizedPairText(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Address-form metadata is target-side and therefore survives only an exact
+ * language-pair fork. Valid pairs receive a fresh group id: copying the source
+ * id would join the fork to its original when both lists are in one study
+ * scope. Incomplete or corrupt groups keep the truthful per-row form but lose
+ * their dangling group claim.
+ */
+function addressFormsForFork(
+  sourceItems: SourceItem[],
+  languagesUnchanged: boolean,
+): Map<string, WordItemAddressForm> {
+  const result = new Map<string, WordItemAddressForm>();
+  if (!languagesUnchanged) return result;
+
+  const groups = new Map<
+    string,
+    Array<{ item: SourceItem; addressForm: WordItemAddressForm }>
+  >();
+  for (const item of sourceItems) {
+    const addressForm = normalizeWordItemAddressForm(item.addressForm);
+    if (!addressForm?.groupId) continue;
+    const members = groups.get(addressForm.groupId);
+    const member = { item, addressForm };
+    if (members) members.push(member);
+    else groups.set(addressForm.groupId, [member]);
+  }
+
+  const remappedGroups = new Map<string, string>();
+  for (const [groupId, members] of groups) {
+    if (members.length !== 2) continue;
+    const [first, second] = members;
+    if (second.addressForm.form !== oppositeAddressForm(first.addressForm.form)) continue;
+    if (!first.item.textKnown || !second.item.textKnown) continue;
+    if (!first.item.textTarget || !second.item.textTarget) continue;
+    if (normalizedPairText(first.item.textKnown) !== normalizedPairText(second.item.textKnown)) continue;
+    if (normalizedPairText(first.item.textTarget) === normalizedPairText(second.item.textTarget)) continue;
+    remappedGroups.set(groupId, randomUUID());
+  }
+
+  for (const item of sourceItems) {
+    const addressForm = normalizeWordItemAddressForm(item.addressForm);
+    if (!addressForm) continue;
+    result.set(
+      item.id,
+      makeAddressForm(
+        addressForm.form,
+        addressForm.groupId ? remappedGroups.get(addressForm.groupId) : undefined,
+      ),
+    );
+  }
+  return result;
+}
 
 // Provider batch sizes mirror the limits used inside the translation helpers.
 const PROVIDER_BATCH_SIZE: Record<Exclude<TranslationProvider, "none">, number> = {
@@ -170,6 +234,7 @@ export async function createForkListStream({
   // both languages identical to the source.
   const languagesUnchanged =
     sourceLanguageFrom === languageFrom && sourceLanguageTo === languageTo;
+  const forkedAddressForms = addressFormsForFork(sourceItems, languagesUnchanged);
   const translationProvider = (
     body.translation_provider === "google" ||
     body.translation_provider === "openrouter" ||
@@ -485,6 +550,7 @@ export async function createForkListStream({
                     normalizeWordItemComment(item.sourceItem.comment),
                     languagesUnchanged,
                   ),
+                  addressForm: forkedAddressForms.get(item.sourceItem.id) ?? null,
                 })),
               )
               .returning()

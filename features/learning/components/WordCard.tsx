@@ -12,6 +12,10 @@ import { LanguageRow } from './word-card/LanguageRow';
 import { CustomStagePopover } from './word-card/CustomStagePopover';
 import { FullyKnownOffer, TOP_STAGE_INDEX, isTopStage } from './word-card/FullyKnownOffer';
 import { CommentBlock } from './word-card/CommentBlock';
+import {
+  AddressFormChip,
+  AddressFormCounterpart,
+} from './word-card/AddressFormChip';
 import { StageBadge } from './StageBadge';
 import { CardTopControls } from './CardTopControls';
 import { useCardAudio } from './card-audio/useCardAudio';
@@ -304,6 +308,11 @@ export const WordCard = memo(function WordCard({
         </div>
       )}
       <div className="word-card-content flex flex-col gap-4">
+        {/* Never covered: the two cards of an address-form pair ask the same
+            source text, so this is the only thing telling the learner which of
+            the two wordings is wanted. Covering it would make the question
+            unanswerable. */}
+        {word.addressForm && <AddressFormChip form={word.addressForm.form} />}
         <LanguageRow hiddenLabel="CZ" lang="cz" covered={coverCz} textSizeClass={cardTextSizeClass}>
           <span>{word.cz}</span>
           {showPronunciation && word.czPron && shouldShowPron('cz') && (
@@ -321,6 +330,14 @@ export const WordCard = memo(function WordCard({
           <span>{word.vi}</span>
           {showPronunciation && word.viPron && shouldShowPron('vi') && (
             <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
+          )}
+          {/* Inside the target row on purpose: it is target-language text, so it
+              is covered exactly when the answer is. */}
+          {word.addressForm?.counterpart && (
+            <AddressFormCounterpart
+              form={word.addressForm.form}
+              counterpart={word.addressForm.counterpart}
+            />
           )}
         </LanguageRow>
 

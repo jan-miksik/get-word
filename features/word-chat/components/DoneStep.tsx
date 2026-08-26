@@ -1,6 +1,5 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import type { CommitResult } from '../types';
 
@@ -8,12 +7,6 @@ type Props = {
   result: CommitResult;
   refreshStatus: 'idle' | 'pending' | 'success' | 'error';
   onRetryRefresh: () => Promise<void>;
-  /**
-   * A short practice with the words that just landed, built by the host. Held
-   * back until the stream has actually been rebuilt — before that the words it
-   * would practise are not there yet.
-   */
-  practiceOffer?: ReactNode;
   /** Clears the flow and hands back an empty add-words screen. */
   onAddMore?: () => void;
   onDone?: () => void;
@@ -23,15 +16,18 @@ type Props = {
  * The handoff between adding words and whatever comes next.
  *
  * Everything the learner asked for is already saved by the time this renders,
- * so the screen has one job: confirm what landed and offer the ways on. There
- * are three, in the order people actually want them — try the new words out in
- * a short game, add another batch, or go back to studying.
+ * so the screen has one job: confirm what landed and offer the two ways on —
+ * add another batch, or go back to studying.
+ *
+ * A short game with the words that just landed used to sit here too. It moved
+ * to the card that closes the day (`SessionDoneCard`), where "I want to keep
+ * going and there is nothing left to study" is an actual problem; here it was
+ * only ever a detour away from the study those words were just added for.
  */
 export function DoneStep({
   result,
   refreshStatus,
   onRetryRefresh,
-  practiceOffer,
   onAddMore,
   onDone,
 }: Props) {
@@ -39,7 +35,6 @@ export function DoneStep({
   const failed = refreshStatus === 'error';
   const preparing = refreshStatus === 'idle' || refreshStatus === 'pending';
   const carriedOver = result.takeoverCount + result.upgradedTakeoverCount > 0;
-  const showPractice = Boolean(practiceOffer) && refreshStatus === 'success';
 
   return (
     <div className="flex flex-col items-center gap-7 py-6 text-center motion-safe:animate-[word-chat-setup-enter_320ms_cubic-bezier(0.16,1,0.3,1)_both]">
@@ -91,13 +86,11 @@ export function DoneStep({
             {t('wordChat.preparingStudy')}
           </p>
         </div>
-      ) : showPractice ? null : (
+      ) : (
         <p className="text-xs font-bold onboarding-text-soft" role="status">
           {t('wordChat.studyReady')}
         </p>
       )}
-
-      {showPractice ? <div className="w-full">{practiceOffer}</div> : null}
 
       {/* Both exits, side by side and equally weighted: neither adding another
           batch nor going back to study is the obvious next move, and making one
@@ -119,8 +112,7 @@ export function DoneStep({
               onClick={onDone}
               disabled={refreshStatus === 'pending'}
               className={[
-                'flex-1 rounded-xl px-5 py-3.5 text-center text-sm font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50',
-                showPractice ? 'onboarding-option' : 'onboarding-option onboarding-option-highlight',
+                'onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3.5 text-center text-sm font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50',
               ].join(' ')}
             >
               {t('wordChat.backToStudy')}

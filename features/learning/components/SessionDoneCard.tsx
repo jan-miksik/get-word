@@ -34,6 +34,12 @@ import type { StreakChipData } from '@/features/learning/goals/streakWeek';
  * words" made it look like an equal choice. Stream mode still lists them behind
  * `SettlingWordsFooter` for anyone who deliberately goes looking.
  *
+ * What did earn a place is a block of games over words the learner already has
+ * — the one way to keep working that touches nothing: no progress written, no
+ * interval moved. It is offered only when the schedule itself has nothing left,
+ * so "I want to carry on" never has to be answered by dragging tomorrow's
+ * repeats into today.
+ *
  * An emptied deck is not the same as an empty backlog. The day's plan caps both
  * how many repeats it takes and how many new words it introduces, so a finished
  * plan can sit on top of dozens of words that are due this minute and a pile of
@@ -55,6 +61,11 @@ const NEW_LEFT = {
   one: 'learning.sessionDoneNewLeft.one',
   few: 'learning.sessionDoneNewLeft.few',
   many: 'learning.sessionDoneNewLeft.many',
+} satisfies Record<string, I18nKey>;
+const PRACTICE_HINT = {
+  one: 'learning.sessionDayPracticeHint.one',
+  few: 'learning.sessionDayPracticeHint.few',
+  many: 'learning.sessionDayPracticeHint.many',
 } satisfies Record<string, I18nKey>;
 
 const RADIUS = 44;
@@ -187,6 +198,8 @@ export function SessionDoneCard({
   dayResult = null,
   streak = null,
   onStudyExtra,
+  onPractice,
+  practiceSize = 0,
   onOpenWordChat,
 }: {
   /** Overrides the default headline; the actions stay the same. */
@@ -229,6 +242,16 @@ export function SessionDoneCard({
   dayResult?: { activeMs: number; itemsDone: number; secondsPerItem: number } | null;
   /** Lifts the day's cap so the leftovers join the stream. */
   onStudyExtra?: () => void;
+  /**
+   * Starts a block of games over words the learner already has. Offered only
+   * once the day is closed and the schedule has nothing left, because it is the
+   * one way on that does not advance anything: no progress is written and no
+   * interval moves. Somebody who still wants to work gets to, without the app
+   * pretending the extra minutes were study.
+   */
+  onPractice?: () => void;
+  /** How many rounds that block is, for the offer's own copy. */
+  practiceSize?: number;
   onOpenWordChat?: () => void;
 }) {
   const { t, language } = useI18n();
@@ -284,6 +307,19 @@ export function SessionDoneCard({
           }
     : null;
 
+  // Strictly an alternative to carrying on, never a companion to it: with real
+  // repeats or new words still waiting, a block that changes nothing would be
+  // the wrong thing to reach for, and two loud buttons make it look like a
+  // toss-up. A day that ran out of words is left out for the same reason from
+  // the other side — what that learner needs is words, and a game offered there
+  // would look like a way to finish the day it cannot finish.
+  const practice = onPractice && dayClosed && waiting === 0 && practiceSize > 0
+    ? {
+        label: t('learning.sessionDayPracticeAction'),
+        hint: t(pluralForm(PRACTICE_HINT, language, practiceSize), { count: practiceSize }),
+      }
+    : null;
+
   const actions = (
     <div className="mx-auto flex max-w-xs flex-col items-stretch gap-2">
       {carryOn ? (
@@ -296,13 +332,26 @@ export function SessionDoneCard({
           <span className="mt-0.5 block text-xs font-bold opacity-80">{carryOn.hint}</span>
         </button>
       ) : null}
+      {/* Only ever in the schedule's place, never beside it: pulling words
+          forward is study and this is not, so the two must not look like a
+          toss-up — see `practice` above for when it appears at all. */}
+      {practice ? (
+        <button
+          type="button"
+          onClick={onPractice}
+          className="onboarding-option onboarding-option-highlight min-h-16 rounded-[1.35rem] px-5 py-3 text-center transition-transform hover:-translate-y-0.5 active:translate-y-0"
+        >
+          <span className="block text-lg font-black leading-tight">{practice.label}</span>
+          <span className="mt-0.5 block text-xs font-bold opacity-80">{practice.hint}</span>
+        </button>
+      ) : null}
       {onOpenWordChat ? (
         <button
           type="button"
           onClick={onOpenWordChat}
           className={[
             'onboarding-option min-h-12 rounded-full px-5 py-3 text-base font-extrabold',
-            carryOn ? '' : 'onboarding-option-highlight',
+            carryOn || practice ? '' : 'onboarding-option-highlight',
           ].join(' ')}
         >
           {t('wordChat.addWords')}

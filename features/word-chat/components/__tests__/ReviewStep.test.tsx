@@ -20,7 +20,7 @@ describe('ReviewStep', () => {
               audioAssetId: null,
             },
           ]}
-          warningsByKnown={{}}
+          warningsByPair={{}}
           translationDiagnostics={{
             model: 'deepseek/deepseek-v4-flash',
             inputTokens: 120,
@@ -82,7 +82,7 @@ describe('ReviewStep', () => {
               audioHash: 'hash-1',
             },
           ]}
-          warningsByKnown={{}}
+          warningsByPair={{}}
           translationDiagnostics={null}
           isPublic={false}
           busy={false}
@@ -107,7 +107,7 @@ describe('ReviewStep', () => {
     const props = {
       listName: 'My words',
       categoryName: 'Coffee',
-      warningsByKnown: {},
+      warningsByPair: {},
       translationDiagnostics: null,
       isPublic: false,
       busy: false,
@@ -158,7 +158,7 @@ describe('ReviewStep', () => {
     const props = {
       listName: 'My words',
       categoryName: 'Coffee',
-      warningsByKnown: {},
+      warningsByPair: {},
       translationDiagnostics: null,
       isPublic: false,
       busy: false,
@@ -208,7 +208,7 @@ describe('ReviewStep', () => {
             { kind: 'sentence', textKnown: 'Dobrý den.', textTarget: 'Good day.' },
             { kind: 'word', textKnown: 'karta', textTarget: 'card' },
           ]}
-          warningsByKnown={{}}
+          warningsByPair={{}}
           translationDiagnostics={null}
           isPublic={false}
           busy={false}
@@ -242,7 +242,7 @@ describe('ReviewStep', () => {
           listName="My words"
           categoryName="Test"
           items={[{ kind: 'word', textKnown: '=HYPERLINK("bad")', textTarget: '+1' }]}
-          warningsByKnown={{}}
+          warningsByPair={{}}
           translationDiagnostics={null}
           isPublic={false}
           busy={false}
@@ -281,7 +281,7 @@ describe('ReviewStep', () => {
               audioAssetId: null,
             },
           ]}
-          warningsByKnown={{}}
+          warningsByPair={{}}
           translationDiagnostics={null}
           isPublic={false}
           busy={false}
@@ -330,7 +330,7 @@ describe('ReviewStep', () => {
               audioAssetId: null,
             },
           ]}
-          warningsByKnown={{}}
+          warningsByPair={{}}
           translationDiagnostics={null}
           isPublic={false}
           busy={false}

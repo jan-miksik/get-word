@@ -20,9 +20,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -83,9 +80,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="My words"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -130,9 +124,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="My words"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -173,9 +164,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -213,9 +201,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="My words"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -261,9 +246,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="My words"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -311,9 +293,6 @@ describe('SelectStep', () => {
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[
             { kind: 'sentence', source: 'generated', text: 'Dám si kávu.', confidence: 0.9 },
             {
@@ -365,9 +344,6 @@ describe('SelectStep', () => {
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -410,9 +386,6 @@ describe('SelectStep', () => {
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[proposal]}
           isSelected={() => true}
           onToggle={onToggle}
@@ -470,9 +443,6 @@ describe('SelectStep', () => {
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[proposal]}
           isSelected={() => true}
           onToggle={vi.fn()}
@@ -503,120 +473,6 @@ describe('SelectStep', () => {
     fireEvent.click(screen.getByRole('button', { name: `Edit: ${sentence}` }));
     expect(screen.getByDisplayValue(sentence).tagName).toBe('TEXTAREA');
   });
-  it('will not translate into a register-sensitive target until the register is chosen', () => {
-    const onContinue = vi.fn();
-    const onRegisterChange = vi.fn();
-    const { rerender } = render(
-      <I18nProvider language="en">
-        <SelectStep
-          mode="manual"
-          listName="My words"
-          languageTo="cs"
-          registerApplies
-          register={null}
-          onRegisterChange={onRegisterChange}
-          proposals={[]}
-          isSelected={() => false}
-          onToggle={vi.fn()}
-          onUpdateProposal={vi.fn()}
-          onSelectAll={vi.fn()}
-          onClearSelection={vi.fn()}
-          customItems={[{ kind: 'word', text: 'coffee' }]}
-          onAddCustom={vi.fn()}
-          onRemoveCustom={vi.fn()}
-          limits={limits}
-          selectedCount={1}
-          overSoftLimit={false}
-          atHardCap={false}
-          monthlyRemaining={60}
-          overMonthlyLimit={false}
-          atSelectionLimit={false}
-          busy={false}
-          onContinue={onContinue}
-        />
-      </I18nProvider>,
-    );
-
-    const translate = screen.getByRole('button', { name: 'Translate and continue' });
-    expect(translate).toBeDisabled();
-    fireEvent.click(translate);
-    expect(onContinue).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('radio', { name: /Politely/ }));
-    expect(onRegisterChange).toHaveBeenCalledExactlyOnceWith('formal');
-
-    // Answered — here or on any earlier language — and the gate is gone.
-    rerender(
-      <I18nProvider language="en">
-        <SelectStep
-          mode="manual"
-          listName="My words"
-          languageTo="cs"
-          registerApplies
-          register="formal"
-          onRegisterChange={onRegisterChange}
-          proposals={[]}
-          isSelected={() => false}
-          onToggle={vi.fn()}
-          onUpdateProposal={vi.fn()}
-          onSelectAll={vi.fn()}
-          onClearSelection={vi.fn()}
-          customItems={[{ kind: 'word', text: 'coffee' }]}
-          onAddCustom={vi.fn()}
-          onRemoveCustom={vi.fn()}
-          limits={limits}
-          selectedCount={1}
-          overSoftLimit={false}
-          atHardCap={false}
-          monthlyRemaining={60}
-          overMonthlyLimit={false}
-          atSelectionLimit={false}
-          busy={false}
-          onContinue={onContinue}
-        />
-      </I18nProvider>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Translate and continue' }));
-    expect(onContinue).toHaveBeenCalledOnce();
-  });
-
-  it('says nothing about register for a target that does not mark one', () => {
-    render(
-      <I18nProvider language="en">
-        <SelectStep
-          mode="manual"
-          listName="My words"
-          languageTo="en"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
-          proposals={[]}
-          isSelected={() => false}
-          onToggle={vi.fn()}
-          onUpdateProposal={vi.fn()}
-          onSelectAll={vi.fn()}
-          onClearSelection={vi.fn()}
-          customItems={[{ kind: 'word', text: 'coffee' }]}
-          onAddCustom={vi.fn()}
-          onRemoveCustom={vi.fn()}
-          limits={limits}
-          selectedCount={1}
-          overSoftLimit={false}
-          atHardCap={false}
-          monthlyRemaining={60}
-          overMonthlyLimit={false}
-          atSelectionLimit={false}
-          busy={false}
-          onContinue={vi.fn()}
-        />
-      </I18nProvider>,
-    );
-
-    expect(screen.queryByRole('radio', { name: /Politely/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Translate and continue' })).toBeEnabled();
-  });
-
   it('keeps sharing a saved list in the heading menu, not beside the field', () => {
     render(
       <I18nProvider language="en">
@@ -624,9 +480,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="My words"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           shareList={{
             id: 'list-1',
             ownerId: null,
@@ -677,9 +530,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="My words"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -718,9 +568,6 @@ describe('SelectStep', () => {
           titleInHost
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -769,9 +616,6 @@ describe('SelectStep', () => {
           mode="manual"
           listName="My words"
           languageTo="vi"
-          registerApplies
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -817,9 +661,6 @@ describe('SelectStep', () => {
           headerSlot={headerSlot}
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -859,9 +700,6 @@ describe('SelectStep', () => {
           offScreen
           listName="Moje slovíčka — Vietnamština"
           languageTo="vi"
-          registerApplies={false}
-          register={null}
-          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}

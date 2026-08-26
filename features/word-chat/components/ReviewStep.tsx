@@ -14,7 +14,8 @@ type Props = {
   listName: string;
   /** What the learner called this batch; shown so the target is not a mystery. */
   categoryName: string;
-  warningsByKnown: Record<string, string[]>;
+  /** Keyed by `${textKnown}\u0000${textTarget}` so paired rows stay distinct. */
+  warningsByPair: Record<string, string[]>;
   translationDiagnostics: TranslationDiagnostics | null;
   isPublic: boolean | null;
   busy: boolean;
@@ -166,7 +167,7 @@ export function ReviewStep({
   items,
   listName,
   categoryName,
-  warningsByKnown,
+  warningsByPair,
   translationDiagnostics,
   isPublic,
   busy,
@@ -261,7 +262,7 @@ export function ReviewStep({
 
       <ul className="space-y-2">
         {items.map((item, index) => {
-          const warnings = warningsByKnown[item.textKnown] ?? [];
+          const warnings = warningsByPair[`${item.textKnown}\u0000${item.textTarget}`] ?? [];
           return (
             <li
               key={`${item.textKnown}-${index}`}
@@ -334,6 +335,14 @@ export function ReviewStep({
                 <p className="mt-1 text-[11px] leading-relaxed onboarding-text-soft">
                   {warnings.join(' · ')}
                 </p>
+              ) : null}
+
+              {item.addressForm ? (
+                <span className="mt-2 mr-2 inline-block rounded-full border border-current px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide opacity-60">
+                  {item.addressForm.form === 'familiar'
+                    ? t('addressForm.familiar')
+                    : t('addressForm.polite')}
+                </span>
               ) : null}
 
               {item.takeover ? (

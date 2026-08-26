@@ -1,3 +1,4 @@
+import type { AddressFormValue } from '@/lib/word-item-address-form';
 /** A single chat turn. Transcripts are held client-side and never persisted. */
 export type WordChatMessage = {
   role: "user" | "assistant";
@@ -10,15 +11,6 @@ export type WordChatMessage = {
 
 /** How the assistant addresses the learner in the chat itself. */
 export type WordChatAddressRegister = "casual" | "formal";
-
-/**
- * Who the *studied phrases* are addressed to, which many target languages word
- * differently. Deliberately NOT `WordChatAddressRegister`: that one is about the
- * chat's own tone towards the learner and is remembered on their account. This
- * one describes the batch being translated, is chosen fresh every time, and is
- * never stored — the next batch can be for a different audience entirely.
- */
-export type WordChatTranslationRegister = "casual" | "formal";
 
 /** Grammatical form to use when the chat language genders direct address. */
 export type WordChatSalutationGender = "female" | "male" | "neutral";
@@ -140,6 +132,19 @@ export type ReviewItem = {
   knownAudioAssetId?: string | null;
   /** Temporary QA switch: leave this item without fresh target audio. */
   audioDisabled?: boolean;
+  /**
+   * Form of address this row uses, for targets with a binary familiar/polite
+   * system. Shown as a chip in Review and, once saved, on the study card.
+   */
+  addressForm?: { form: AddressFormValue };
+  /**
+   * Transient key shared by exactly the two rows of one familiar/polite pair,
+   * `${sourceIndex}:address`. Never stored: the server re-validates the group
+   * and mints its own persistent `groupId` only for pairs that survive dedupe
+   * and the item limit, so a client can neither invent a group nor keep one
+   * alive after its twin was dropped.
+   */
+  variantGroupKey?: string;
 };
 
 export type CommitRequest = {

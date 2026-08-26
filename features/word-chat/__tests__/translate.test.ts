@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  findExistingTranslations: vi.fn(),
+  findExistingTranslationMatches: vi.fn(),
   openRouterTranslate: vi.fn(),
   reserveDailyBuckets: vi.fn(),
   getMonthlyItemUsage: vi.fn(),
@@ -33,7 +33,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
-  findExistingTranslations: mocks.findExistingTranslations,
+  findExistingTranslationMatches: mocks.findExistingTranslationMatches,
 }));
 
 vi.mock("@/lib/openrouter-chat", () => ({
@@ -79,7 +79,7 @@ describe("translateSelection monthly item quota", () => {
       limit: 60,
       resetAt: new Date("2026-08-01T00:00:00.000Z"),
     });
-    mocks.findExistingTranslations.mockResolvedValue([]);
+    mocks.findExistingTranslationMatches.mockResolvedValue([]);
   });
 
   it("rejects before paid translation work when the selection exceeds remaining monthly items", async () => {
@@ -99,7 +99,7 @@ describe("translateSelection monthly item quota", () => {
     ).rejects.toMatchObject({ code: "DAILY_LIMIT_REACHED" });
 
     expect(mocks.reserveDailyBuckets).not.toHaveBeenCalled();
-    expect(mocks.findExistingTranslations).not.toHaveBeenCalled();
+    expect(mocks.findExistingTranslationMatches).not.toHaveBeenCalled();
     expect(mocks.openRouterTranslate).not.toHaveBeenCalled();
   });
 
@@ -109,8 +109,8 @@ describe("translateSelection monthly item quota", () => {
       limit: 60,
       resetAt: new Date("2026-08-01T00:00:00.000Z"),
     });
-    mocks.findExistingTranslations.mockResolvedValue([
-      { text: "káva", translatedText: "cà phê" },
+    mocks.findExistingTranslationMatches.mockResolvedValue([
+      { text: "káva", translatedText: "cà phê", addressForm: null },
     ]);
 
     const result = await translateSelection({

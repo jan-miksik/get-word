@@ -1,4 +1,5 @@
 import type { WordItemComment } from "@/lib/word-item-comment";
+import type { WordItemAddressForm } from "@/lib/word-item-address-form";
 export type {
   SyncActivitySegment,
   SyncOperationResult,
@@ -43,6 +44,7 @@ export interface SyncWordListItem {
   audioStorageRef?: string | null;
   notes: string | null;
   comment?: WordItemComment | null;
+  addressForm?: WordItemAddressForm | null;
 }
 
 export interface SyncCategory {

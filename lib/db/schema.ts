@@ -18,6 +18,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import type { WordItemComment } from "@/lib/word-item-comment";
+import type { WordItemAddressForm } from "@/lib/word-item-address-form";
 import type { LearnerBrief } from "@/lib/learner-brief";
 import type { QualityHeuristicFlag } from "@/lib/quality-flags";
 
@@ -294,6 +295,11 @@ export const wordListItems = pgTable(
     // Optional per-item "study note" shown on the learning card. Versioned JSONB
     // (see lib/word-item-comment.ts). Independent of `notes` (legacy `en:` hack).
     comment: jsonb("comment").$type<WordItemComment>(),
+    // Optional form of address ("kamarádsky" / "zdvořile") for languages with a
+    // genuinely binary system. Versioned JSONB (see lib/word-item-address-form.ts).
+    // Named `address_form`, not `register`: this is tykání/vykání, not the
+    // linguistic register of the text, which may want that name later.
+    addressForm: jsonb("address_form").$type<WordItemAddressForm>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

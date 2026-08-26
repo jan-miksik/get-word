@@ -29,40 +29,26 @@ function renderStep(props: Partial<React.ComponentProps<typeof DoneStep>> = {}) 
 }
 
 describe('DoneStep', () => {
-  it('holds the practice back until the stream carrying those words is rebuilt', () => {
-    const { rerender } = renderStep({
-      refreshStatus: 'pending',
-      practiceOffer: <p>practice offer</p>,
-    });
+  it('says the words are still being prepared until the stream is rebuilt', () => {
+    const { rerender } = renderStep({ refreshStatus: 'pending' });
 
-    expect(screen.queryByText('practice offer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
 
     rerender(
       <I18nProvider language="en">
-        <DoneStep
-          result={result}
-          refreshStatus="success"
-          onRetryRefresh={async () => {}}
-          practiceOffer={<p>practice offer</p>}
-        />
+        <DoneStep result={result} refreshStatus="success" onRetryRefresh={async () => {}} />
       </I18nProvider>,
     );
 
-    expect(screen.getByText('practice offer')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/study stream is ready/i);
   });
 
-  it('leaves both exits open beside the practice', () => {
+  it('leaves both exits open', () => {
     const onAddMore = vi.fn();
     const onDone = vi.fn();
-    renderStep({ practiceOffer: <p>practice offer</p>, onAddMore, onDone });
+    renderStep({ onAddMore, onDone });
 
     expect(screen.getByRole('button', { name: /add more words/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /back to study/i })).toBeInTheDocument();
-  });
-
-  it('says the stream is ready when there is nothing to practise with', () => {
-    renderStep({ onDone: vi.fn() });
-
-    expect(screen.getByRole('status')).toHaveTextContent(/study stream is ready/i);
   });
 });

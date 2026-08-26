@@ -1,3 +1,4 @@
+import type { AddressFormValue } from '@/lib/word-item-address-form';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
 import type {
   WordChatAddressRegister,
@@ -440,6 +441,10 @@ export type TranslateResponse = {
     warnings: string[];
     reused: boolean;
     takeover: ReviewItem['takeover'] | null;
+    /** Form of address this row uses, when the target has a binary system. */
+    address_form: AddressFormValue | null;
+    /** The other form, when the source left the choice open. Becomes a second row. */
+    address_alternative: { text_target: string; address_form: AddressFormValue } | null;
   }[];
   translation_diagnostics: {
     model: string;
@@ -460,19 +465,12 @@ export function translateSelection(input: {
     corpusItemId?: string;
     takeoverCandidate?: TakeoverReference;
   }[];
-  /**
-   * How the target language should address whoever the phrases are spoken to.
-   * Null where the target draws no such distinction — the prompt then keeps its
-   * own neutral default.
-   */
-  addressRegister?: WordChatAddressRegister | null;
   model?: string | null;
 }) {
   return post<TranslateResponse>('/api/word-chat/translate', {
     session_id: input.sessionId,
     language_from: input.languageFrom,
     language_to: input.languageTo,
-    ...(input.addressRegister ? { address_register: input.addressRegister } : {}),
     ...(input.model ? { model: input.model } : {}),
     items: input.items.map((item) => ({
       kind: item.kind,
@@ -559,6 +557,8 @@ export function commitSession(input: {
       // the asset id so the saved word keeps the sound it already had.
       audio_hash: item.audioHash ?? null,
       known_audio_asset_id: item.knownAudioAssetId ?? null,
+      address_form: item.addressForm?.form ?? null,
+      variant_group_key: item.variantGroupKey ?? null,
     })),
     messages: input.messages,
   });

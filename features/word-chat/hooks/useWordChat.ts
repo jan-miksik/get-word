@@ -10,7 +10,7 @@ import {
   readSalutationGenderPreference,
   storeSalutationGenderPreference,
 } from '@/features/shared/user-preferences/salutation-gender';
-import { hasRegisterDistinction } from '../registerLanguages';
+import { limitKeepingPrimaries } from '../addressFormPairs';
 import {
   WordChatApiError,
   commitSession,
@@ -35,7 +35,6 @@ import type {
   WordChatLanguageLevel,
   WordChatMessage,
   WordChatSalutationGender,
-  WordChatTranslationRegister,
 } from '../types';
 import { hasGenderedSalutation, readLanguageLevel } from '../preferences';
 
@@ -298,10 +297,6 @@ export function useWordChat({
     () => readSalutationGenderPreference(),
   );
   const [languageLevel, setLanguageLevel] = useState<WordChatLanguageLevel | null>(null);
-  // Deliberately session-only, and deliberately not seeded from anything: the
-  // learner says who this particular set of phrases is for, every time.
-  const [translationRegister, setTranslationRegister] =
-    useState<WordChatTranslationRegister | null>(null);
   const [loadedPreferencesKey, setLoadedPreferencesKey] = useState<string | null>(null);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
 
@@ -415,7 +410,10 @@ export function useWordChat({
   // Which selection the rows in `reviewItems` were produced from. Going Back and
   // straight forward again must not pay for a second translation batch.
   const translatedSignatureRef = useRef<string | null>(null);
-  const [warningsByKnown, setWarningsByKnown] = useState<Record<string, string[]>>({});
+  // Keyed by `${textKnown}\u0000${textTarget}`: the two rows of an address-form
+  // pair share their source text, so a text-keyed map would show one row's
+  // warnings on both.
+  const [warningsByPair, setWarningsByPair] = useState<Record<string, string[]>>({});
   const [translationDiagnostics, setTranslationDiagnostics] =
     useState<TranslationDiagnostics | null>(null);
 
@@ -462,12 +460,6 @@ export function useWordChat({
   // chat's own tone any more.
   const addressRegisterApplies = false;
   const salutationGenderApplies = hasGenderedSalutation(chatLanguage);
-  // Who this batch of phrases is addressed to. Nothing to do with the chat's
-  // own tone (`addressRegister` above): this is a property of the words being
-  // translated, so it starts blank on every batch, is never pre-filled from a
-  // previous one, and is never written to the learner's account.
-  const translationRegisterApplies = hasRegisterDistinction(languageTo);
-  const translationRegisterMissing = translationRegisterApplies && !translationRegister;
   const preferencesKey = `${baseListId ?? ''}\u0000${languageFrom}\u0000${languageTo}`;
   const preferencesLoaded = loadedPreferencesKey === preferencesKey;
   const currentLanguageLevel = preferencesLoaded ? languageLevel : null;
@@ -1260,11 +1252,6 @@ export function useWordChat({
     if (busy) return;
     if (itemsToTranslate.length === 0 && pretranslatedItems.length === 0) return;
     if (itemsToTranslate.length > monthlyRemaining) return;
-    // The target language words its phrases differently depending on who is
-    // being spoken to, and nobody has said which. Translating now would produce
-    // a guess the learner would have to re-read every row to catch.
-    if (itemsToTranslate.length > 0 && translationRegisterMissing) return;
-
     // Rows the learner picked off a photo arrive with both sides written and a
     // clip recorded. They join the Check step as they are — never a second time,
     // and never through the translator.
@@ -1292,9 +1279,6 @@ export function useWordChat({
     const signature = JSON.stringify({
       languageFrom,
       languageTo,
-      // Part of the signature, not just the request: changing the register
-      // after a first pass has to re-translate rather than show the old rows.
-      register: translationRegister,
       items: itemsToTranslate.map((item) => [
         item.kind,
         item.text,
@@ -1317,7 +1301,6 @@ export function useWordChat({
         languageFrom,
         languageTo,
         items: itemsToTranslate,
-        addressRegister: translationRegister,
         model: modelOverrides.translation,
       });
       noteSuccess();
@@ -1337,9 +1320,13 @@ export function useWordChat({
           .filter((item) => item.audioDisabled === true)
           .map((item) => audioMatchKey(item.text)),
       );
-      const rows: ReviewItem[] = translated.items.map((row) => {
+      // A row that offers the other form of address becomes TWO review rows.
+      // They share a transient group key so the server can re-validate the pair
+      // and, only if both survive, mint a persistent group id for them.
+      const expanded: ReviewItem[] = [];
+      translated.items.forEach((row, sourceIndex) => {
         const audioDisabled = mutedKnownTexts.has(audioMatchKey(row.text_known));
-        return {
+        const primary: ReviewItem = {
           kind: row.kind,
           textKnown: row.text_known,
           textTarget: row.text_target,
@@ -1350,13 +1337,47 @@ export function useWordChat({
           audioHash: row.audio_hash,
           knownAudioAssetId: row.known_audio_asset_id,
           audioDisabled,
+          ...(row.address_form ? { addressForm: { form: row.address_form } } : {}),
         };
+
+        if (!row.address_alternative) {
+          expanded.push(primary);
+          return;
+        }
+
+        const variantGroupKey = `${sourceIndex}:address`;
+        expanded.push({ ...primary, variantGroupKey });
+        // The twin says something different, so it cannot borrow the primary's
+        // clip, its corpus origin, or its takeover claim — those belong to the
+        // exact pair they came from. It gets its own audio from scratch.
+        expanded.push({
+          kind: row.kind,
+          textKnown: row.text_known,
+          textTarget: row.address_alternative.text_target,
+          audioStatus: audioDisabled ? 'idle' : 'pending',
+          audioAssetId: null,
+          audioHash: null,
+          knownAudioAssetId: row.known_audio_asset_id,
+          audioDisabled,
+          addressForm: { form: row.address_alternative.address_form },
+          variantGroupKey,
+        });
       });
-      setWarningsByKnown(
+
+      // Only an estimate of what will fit: the server re-applies this over the
+      // real monthly balance at commit and is the one that decides.
+      const rows = limitKeepingPrimaries(
+        expanded,
+        Math.min(limits.maxItemsPerSession, monthlyRemaining),
+      );
+
+      // Keyed by pair, not by source text: the two rows of a pair share their
+      // source text, so a text-keyed map would give both the same warnings.
+      setWarningsByPair(
         Object.fromEntries(
           translated.items
             .filter((row) => row.warnings.length > 0)
-            .map((row) => [row.text_known, row.warnings]),
+            .map((row) => [`${row.text_known}\u0000${row.text_target}`, row.warnings]),
         ),
       );
       setReviewItems(mergePretranslated(rows));
@@ -1438,9 +1459,8 @@ export function useWordChat({
     reviewItems.length,
     selectedItems,
     translationSelectionLimit,
+    limits.maxItemsPerSession,
     sessionId,
-    translationRegister,
-    translationRegisterMissing,
   ]);
 
   /**
@@ -1454,9 +1474,20 @@ export function useWordChat({
   const updateReviewItem = useCallback(
     (index: number, patch: Partial<Pick<ReviewItem, 'textKnown' | 'textTarget'>>) => {
       const original = reviewItemsRef.current[index];
+      const editedPairKey =
+        original &&
+        ((patch.textTarget !== undefined && patch.textTarget !== original.textTarget) ||
+          (patch.textKnown !== undefined && patch.textKnown !== original.textKnown))
+          ? original.variantGroupKey
+          : undefined;
       setReviewItems((current) =>
         current.map((row, rowIndex) => {
-          if (rowIndex !== index) return row;
+          if (rowIndex !== index) {
+            if (!editedPairKey || row.variantGroupKey !== editedPairKey) return row;
+            const unpaired = { ...row };
+            delete unpaired.variantGroupKey;
+            return unpaired;
+          }
           const targetChanged =
             patch.textTarget !== undefined && patch.textTarget !== row.textTarget;
           const knownChanged =
@@ -1472,6 +1503,11 @@ export function useWordChat({
           if (targetChanged || knownChanged) {
             delete next.corpusItemId;
             delete next.takeover;
+            // The model certified the form and the twin for the old wording,
+            // not arbitrary text typed afterwards. The untouched sibling keeps
+            // its own truthful label but no longer claims this row as its pair.
+            delete next.addressForm;
+            delete next.variantGroupKey;
           }
           return next;
         }),
@@ -1503,7 +1539,16 @@ export function useWordChat({
         // A photo pair dropped here is dropped from the basket too, or stepping
         // back and continuing would quietly bring it back.
         if (removed) setPretranslatedItems((items) => items.filter((item) => pairKey(item) !== pairKey(removed)));
-        return current.filter((_, rowIndex) => rowIndex !== index);
+        return current
+          .filter((_, rowIndex) => rowIndex !== index)
+          .map((row) => {
+            if (!removed?.variantGroupKey || row.variantGroupKey !== removed.variantGroupKey) {
+              return row;
+            }
+            const unpaired = { ...row };
+            delete unpaired.variantGroupKey;
+            return unpaired;
+          });
       });
     },
     [setReviewItems],
@@ -1722,8 +1767,6 @@ export function useWordChat({
     setAudioDisabledKeys([]);
     setCustomItems([]);
     setPretranslatedItems([]);
-    // Who the next batch is for is a fresh question, not a carried-over answer.
-    setTranslationRegister(null);
     setListName(personalListName(languageFrom, languageTo));
     categoryNameEditedRef.current = false;
     setCategoryNameState(entryStep === 'manual' ? t('wordChat.manualCategoryName') : '');
@@ -1734,7 +1777,7 @@ export function useWordChat({
     setReviewItems([]);
     setCommitResult(null);
     setRefreshStatus('idle');
-    setWarningsByKnown({});
+    setWarningsByPair({});
     setTranslationDiagnostics(null);
     setLimits(DEFAULT_LIMITS);
     setBusy(null);
@@ -1786,9 +1829,6 @@ export function useWordChat({
     preferencesSaving,
     addressRegisterApplies,
     salutationGenderApplies,
-    translationRegister,
-    setTranslationRegister,
-    translationRegisterApplies,
     savePreferences,
     changeLanguagePair,
     proposals,
@@ -1806,7 +1846,7 @@ export function useWordChat({
     existingList,
     updateExistingList,
     reviewItems,
-    warningsByKnown,
+    warningsByPair,
     translationDiagnostics,
     history,
     isEditor,

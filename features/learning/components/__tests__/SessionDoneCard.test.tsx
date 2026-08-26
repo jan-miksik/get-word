@@ -175,6 +175,53 @@ describe('SessionDoneCard closing the day', () => {
     expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 
+  it('offers a block of games once the schedule itself is empty', () => {
+    const onPractice = vi.fn();
+    renderCard({
+      dayFlow: closedDay(),
+      onPractice,
+      practiceSize: 10,
+      onOpenWordChat: vi.fn(),
+    });
+
+    expect(screen.getByText(/no effect on your repeats/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /keep practising/i }));
+
+    expect(onPractice).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not offer the bonus block outside a completed day', () => {
+    renderCard({ onPractice: vi.fn(), practiceSize: 10 });
+
+    expect(screen.queryByRole('button', { name: /keep practising/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the block out of the way while real study is still waiting', () => {
+    renderCard({
+      dayFlow: closedDay(),
+      dueNowCount: 4,
+      onStudyExtra: vi.fn(),
+      onPractice: vi.fn(),
+      practiceSize: 10,
+    });
+
+    expect(screen.queryByRole('button', { name: /keep practising/i })).not.toBeInTheDocument();
+  });
+
+  it('does not offer a game to a day that ran out of words, which needs words', () => {
+    renderCard({
+      dayFlow: shortDay(),
+      shortfall: 6,
+      onPractice: vi.fn(),
+      practiceSize: 10,
+      onOpenWordChat: vi.fn(),
+    });
+
+    expect(screen.queryByRole('button', { name: /keep practising/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add words/i })).toBeInTheDocument();
+  });
+
   it('does not celebrate a day that merely ran out of words', () => {
     const onOpenWordChat = vi.fn();
     renderCard({ dayFlow: shortDay(), shortfall: 6, onOpenWordChat });

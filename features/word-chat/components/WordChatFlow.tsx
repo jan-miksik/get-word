@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import type { WordList } from '@/features/lists/types';
 import { ChatStep } from './ChatStep';
@@ -88,18 +88,6 @@ type Props = {
    * for the fact that its own step is not the one being looked at.
    */
   offScreen?: boolean;
-  /**
-   * Offered on the confirmation step, under the receipt: a short practice with
-   * the words that just landed. Built by the host — this flow only knows where
-   * it goes.
-   */
-  practiceOffer?: ReactNode;
-  /**
-   * Any change to this value clears the flow back to a fresh, empty first step
-   * without leaving the surface. The host uses it to hand the learner the
-   * add-words screen again after a detour (a practice round, for instance).
-   */
-  restartSignal?: number;
 };
 
 /**
@@ -137,8 +125,6 @@ export function WordChatFlow({
   hostEntryTabs = false,
   offScreen = false,
   onEntryActionsChange,
-  practiceOffer,
-  restartSignal,
 }: Props) {
   const { t } = useI18n();
   const chat = useWordChat({
@@ -152,16 +138,6 @@ export function WordChatFlow({
     entryStep,
   });
   const resetChat = chat.reset;
-
-  // The first value is where the flow already is, so only later changes mean
-  // anything. Without the ref an initial `restartSignal` would wipe a draft the
-  // learner had restored on mount.
-  const lastRestartSignalRef = useRef(restartSignal);
-  useEffect(() => {
-    if (lastRestartSignalRef.current === restartSignal) return;
-    lastRestartSignalRef.current = restartSignal;
-    resetChat();
-  }, [resetChat, restartSignal]);
 
   // The select step opens the settings from its overflow menu rather than a gear
   // of its own, so the flow needs a handle on the modal's open state even when
@@ -443,9 +419,6 @@ export function WordChatFlow({
           shareList={shareList}
           onShareListUpdated={chat.updateExistingList}
           languageTo={languageTo}
-          registerApplies={chat.translationRegisterApplies}
-          register={chat.translationRegister}
-          onRegisterChange={chat.setTranslationRegister}
           titleInHost={hostEntryTabs}
           // Same corner as the conversation's own menu, on hosts that have a
           // header to hold it.
@@ -463,7 +436,7 @@ export function WordChatFlow({
           items={chat.reviewItems}
           listName={chat.listName}
           categoryName={chat.categoryName}
-          warningsByKnown={chat.warningsByKnown}
+          warningsByPair={chat.warningsByPair}
           translationDiagnostics={chat.translationDiagnostics}
           isPublic={chat.isPublic}
           busy={chat.busy === 'commit' || chat.busy === 'audio'}
@@ -481,7 +454,6 @@ export function WordChatFlow({
           result={chat.commitResult}
           refreshStatus={chat.refreshStatus}
           onRetryRefresh={chat.retryRefresh}
-          practiceOffer={practiceOffer}
           onAddMore={resetChat}
           onDone={onDone ? completeDoneStep : undefined}
         />

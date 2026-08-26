@@ -44,7 +44,6 @@ import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro
 import { FeatureTour } from '@/features/learning/onboarding/FeatureTour';
 import { useFeatureTour } from '@/features/learning/onboarding/useFeatureTour';
 import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsPrompt';
-import { QuickPracticeOffer } from '@/features/learning/quick-practice/QuickPracticeOffer';
 import { QuickPracticeRun } from '@/features/learning/quick-practice/QuickPracticeRun';
 import { useQuickPractice } from '@/features/learning/quick-practice/useQuickPractice';
 import { useAppSurface, type AppSurface } from '@/features/workspace/public.client';
@@ -666,20 +665,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     />
   ) : null;
 
-  // A batch of new words is worth a minute of play before the next batch, so
-  // saving offers one — three or four rounds of an existing minigame, no
-  // progress written — and drops the learner back on an empty add-words screen
-  // afterwards.
-  const [addWordsRestartSignal, setAddWordsRestartSignal] = useState(0);
-  const restartAddWords = useCallback(
-    () => setAddWordsRestartSignal((signal) => signal + 1),
-    [],
-  );
-  const quickPractice = useQuickPractice({
-    words: allSyncedWords ?? EMPTY_WORDS,
-    onRestartAddWords: restartAddWords,
-  });
-  const setQuickPracticeTarget = quickPractice.setTarget;
+  // A finished day with an empty schedule still leaves people who want to carry
+  // on. The block behind this is the one way to: existing exercises over words
+  // they already have, with nothing written back. It is built from the study
+  // scope, so category filters apply to it exactly as they do to the deck.
+  const quickPractice = useQuickPractice({ words: filteredWords });
 
   const shouldShowAddWordsPrompt = useMemo(
     () =>
@@ -1100,92 +1090,66 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               onSurfaceChange={changeSurface}
               chatContent={
                 visitedSurfaces.has('chat') || visitedSurfaces.has('photo') ? (
-                  <>
-                    {/* Kept mounted behind the practice rather than swapped out:
-                        the run is a detour from this screen, and remounting it
-                        afterwards would throw away the settings modal, the
-                        scroll position and the freshly restored draft. */}
-                    <div
-                      className={
-                        quickPractice.method ? 'hidden' : 'flex min-h-0 w-full flex-1 flex-col'
-                      }
-                    >
-                      <AddWordsScreen
-                        languageFrom={learningLanguageFrom as string}
-                        languageTo={learningLanguageTo as string}
-                        baseListId={
-                          activeListMatchesLearningPair &&
-                          !appState.activeList?.isOwnedPersonal
-                            ? appState.activeListId
-                            : null
-                        }
-                        refreshAfterCommit={refreshFullSnapshot}
-                        onLanguagePairChange={changeLearningLanguagePair}
-                        onClose={returnToStudy}
-                        active={activeSurface !== 'study' && !quickPractice.method}
-                        photoTabAvailable={photoLabEnabled}
-                        photoTabActive={activeSurface === 'photo'}
-                        // Tabs replace the surface rather than pushing onto it:
-                        // Back belongs to "leave adding words", not to a walk
-                        // through every tab the learner tried on the way.
-                        onTabChange={(tab) =>
-                          replaceSurface(tab === 'photo' ? 'photo' : 'chat')
-                        }
-                        photoTab={
-                          visitedSurfaces.has('photo') && photoLabEnabled
-                            ? ({ pickWords }) => (
-                                <div className={photoDisplayFontClass ?? ''}>
-                                  <PhotoLabPage
-                                    variant="embedded"
-                                    active={activeSurface === 'photo'}
-                                    hideLanguagePair
-                                    languageFrom={learningLanguageFrom as string}
-                                    languageTo={learningLanguageTo as string}
-                                    onLanguagePairChange={changeLearningLanguagePair}
-                                    // The lab no longer saves anything of its
-                                    // own here: the picked pairs go into the
-                                    // add-words basket and are saved once, with
-                                    // everything else in the batch.
-                                    onPickWords={pickWords}
-                                  />
-                                </div>
-                              )
-                            : undefined
-                        }
-                        restartSignal={addWordsRestartSignal}
-                        practiceOffer={
-                          quickPractice.methods.length > 0 ? (
-                            <QuickPracticeOffer
-                              methods={quickPractice.methods}
-                              onStart={quickPractice.start}
-                            />
-                          ) : undefined
-                        }
-                        onCommitted={(result) => {
-                          // Normally personal words overlay the current base list,
-                          // so keep studying that base. After a pair change with no
-                          // existing matching list, the newly created personal list
-                          // is the first valid study surface for the new pair.
-                          if (!activeListMatchesLearningPair) setActiveListId(result.listId);
-                          setQuickPracticeTarget({
-                            listId: result.listId,
-                            categoryId: result.categoryId,
-                          });
-                        }}
-                      />
-                    </div>
-                    {quickPractice.method ? (
-                      <QuickPracticeRun
-                        method={quickPractice.method}
-                        words={quickPractice.fresh}
-                        pool={quickPractice.pool}
-                        role={role}
-                        seed={quickPractice.seed}
-                        onFinish={quickPractice.finish}
-                      />
-                    ) : null}
-                  </>
+                  <AddWordsScreen
+                    languageFrom={learningLanguageFrom as string}
+                    languageTo={learningLanguageTo as string}
+                    baseListId={
+                      activeListMatchesLearningPair &&
+                      !appState.activeList?.isOwnedPersonal
+                        ? appState.activeListId
+                        : null
+                    }
+                    refreshAfterCommit={refreshFullSnapshot}
+                    onLanguagePairChange={changeLearningLanguagePair}
+                    onClose={returnToStudy}
+                    active={activeSurface !== 'study'}
+                    photoTabAvailable={photoLabEnabled}
+                    photoTabActive={activeSurface === 'photo'}
+                    // Tabs replace the surface rather than pushing onto it:
+                    // Back belongs to "leave adding words", not to a walk
+                    // through every tab the learner tried on the way.
+                    onTabChange={(tab) =>
+                      replaceSurface(tab === 'photo' ? 'photo' : 'chat')
+                    }
+                    photoTab={
+                      visitedSurfaces.has('photo') && photoLabEnabled
+                        ? ({ pickWords }) => (
+                            <div className={photoDisplayFontClass ?? ''}>
+                              <PhotoLabPage
+                                variant="embedded"
+                                active={activeSurface === 'photo'}
+                                hideLanguagePair
+                                languageFrom={learningLanguageFrom as string}
+                                languageTo={learningLanguageTo as string}
+                                onLanguagePairChange={changeLearningLanguagePair}
+                                // The lab no longer saves anything of its
+                                // own here: the picked pairs go into the
+                                // add-words basket and are saved once, with
+                                // everything else in the batch.
+                                onPickWords={pickWords}
+                              />
+                            </div>
+                          )
+                        : undefined
+                    }
+                    onCommitted={(result) => {
+                      // Normally personal words overlay the current base list,
+                      // so keep studying that base. After a pair change with no
+                      // existing matching list, the newly created personal list
+                      // is the first valid study surface for the new pair.
+                      if (!activeListMatchesLearningPair) setActiveListId(result.listId);
+                    }}
+                  />
                 ) : undefined
+              }
+              practiceRun={
+                quickPractice.rounds ? (
+                  <QuickPracticeRun
+                    rounds={quickPractice.rounds}
+                    role={role}
+                    onFinish={quickPractice.finish}
+                  />
+                ) : null
               }
               categories={categories}
               progressStats={progressStats}
@@ -1223,6 +1187,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               dueNowCount={continueAnyway ? 0 : dueNowCount}
               newNowCount={continueAnyway ? 0 : newNowCount}
               onStudyExtra={() => setContinueAnyway(true)}
+              onPractice={quickPractice.available ? quickPractice.start : undefined}
+              practiceSize={quickPractice.size}
               // The day's own plan, not the rail's: during a bonus round the
               // rails follow the bonus, while the card that closes the deck is
               // still reporting the day.

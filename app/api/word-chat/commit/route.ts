@@ -15,6 +15,7 @@ import {
 } from "@/features/word-chat/server/config";
 import { reopenNothingDueDayGoalSnapshot } from "@/lib/db";
 import { localDayKeyAt, normalizeIanaTimezone } from "@/lib/local-day";
+import { isAddressFormValue } from "@/lib/word-item-address-form";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,8 @@ type IncomingItem = {
   audio_asset_id?: unknown;
   audio_hash?: unknown;
   known_audio_asset_id?: unknown;
+  address_form?: unknown;
+  variant_group_key?: unknown;
 };
 
 function toReviewItem(item: IncomingItem): ReviewItem | null {
@@ -39,6 +42,14 @@ function toReviewItem(item: IncomingItem): ReviewItem | null {
       ? item.text_target.slice(0, MAX_WORD_CHAT_ITEM_CHARS)
       : "";
   if (!textKnown.trim() || !textTarget.trim()) return null;
+  const rawAddressForm = item.address_form;
+  const addressForm = isAddressFormValue(rawAddressForm)
+    ? { form: rawAddressForm }
+    : undefined;
+  const variantGroupKey =
+    typeof item.variant_group_key === "string"
+      ? item.variant_group_key.trim().slice(0, MAX_WORD_CHAT_ID_CHARS)
+      : "";
   return {
     kind: item.kind === "sentence" ? "sentence" : "word",
     textKnown,
@@ -60,6 +71,8 @@ function toReviewItem(item: IncomingItem): ReviewItem | null {
     audioHash: typeof item.audio_hash === "string" ? item.audio_hash : null,
     knownAudioAssetId:
       typeof item.known_audio_asset_id === "string" ? item.known_audio_asset_id : null,
+    ...(addressForm ? { addressForm } : {}),
+    ...(addressForm && variantGroupKey ? { variantGroupKey } : {}),
   };
 }
 

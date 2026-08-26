@@ -17,6 +17,8 @@ import { MultipleChoiceGame } from '@/features/learning/components/games/Multipl
 import { SessionRail } from '@/features/learning/components/SessionRail';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
 import { SessionDoneCard } from '@/features/learning/components/SessionDoneCard';
+import { QuickPracticeRun } from '@/features/learning/quick-practice/QuickPracticeRun';
+import { useQuickPractice } from '@/features/learning/quick-practice/useQuickPractice';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import {
@@ -203,6 +205,7 @@ function PreviewStudy({
     { key: 'review-1', kind: 'review', total: 12, done: 0, pending: 0, liveRemaining: 12, unavailable: 0 },
   ]), [breatherStep]);
   const previewFlow = useMemo(() => resolveSessionFlow(previewBlocks), [previewBlocks]);
+  const quickPractice = useQuickPractice({ words: PREVIEW_WORDS });
 
   const activeWords = useMemo(() => getListWords(activeListId), [activeListId]);
   // The preview drives the real dispatcher, so it exercises the same per-stage
@@ -392,6 +395,29 @@ function PreviewStudy({
                   onStudyExtra={() => undefined}
                   onOpenWordChat={() => undefined}
                 />
+              </div>
+            ) : previewSurface === 'session-clear' ? (
+              <div className="relative h-full">
+                {quickPractice.rounds ? (
+                  <QuickPracticeRun
+                    rounds={quickPractice.rounds}
+                    role="knownLanguage"
+                    onFinish={quickPractice.finish}
+                  />
+                ) : (
+                  <SessionDoneCard
+                    settlingCount={7}
+                    dayFlow={resolveSessionFlow([
+                      { ...previewBlocks[0], done: 6, liveRemaining: 0 },
+                      { ...previewBlocks[1], done: 4, liveRemaining: 0 },
+                    ])}
+                    dayScore={{ introduced: 14, reviewed: 6, target: 15 }}
+                    dayResult={{ activeMs: 8 * 60_000 + 32_000, itemsDone: 20, secondsPerItem: 12 }}
+                    onPractice={quickPractice.available ? quickPractice.start : undefined}
+                    practiceSize={quickPractice.size}
+                    onOpenWordChat={() => undefined}
+                  />
+                )}
               </div>
             ) : previewSurface === 'session' ? (
               <div className="relative h-full">

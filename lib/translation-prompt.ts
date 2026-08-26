@@ -83,18 +83,26 @@ type TranslationContextPair = {
 const OPENROUTER_TRANSLATION_CONTEXT_LIMIT = 150;
 
 /**
- * The learner's answer to "who are you saying this to?", for targets that word
- * a phrase differently depending on it (tykání/vykání, tu/vous, 반말/존댓말…).
+ * Per-item address form, for targets with a genuinely binary familiar/polite
+ * system (`hasBinaryAddressForms`). This replaces the old batch-wide question:
+ * the form of address is a property of the individual row, not of the batch.
  *
- * It only decides the *unmarked* case. An item whose own source text marks a
- * register still keeps that marking — the quality rules above are explicit that
- * per-item register is preserved, and this must not override them.
+ * Two INDEPENDENT questions are asked here, and conflating them is the mistake
+ * this wording exists to prevent:
+ *   1. "register": what form does THIS translation use? Answered whenever the
+ *      translation visibly picks one — including when the source already fixed it.
+ *   2. "alternative": should a SECOND item be created? Only when the source
+ *      leaves the choice open.
  */
-function addressRegisterRule(register: "casual" | "formal" | null | undefined): string {
-  if (!register) return "";
-  return register === "formal"
-    ? `- Where the source does not itself mark an address form, use the target's polite/formal address (vykání, vous, usted, and the equivalent in any other target). Apply it consistently across the whole batch; still honour any item whose own source explicitly marks informal address.\n`
-    : `- Where the source does not itself mark an address form, use the target's casual/informal address (tykání, tu, and the equivalent in any other target). Apply it consistently across the whole batch; still honour any item whose own source explicitly marks formal address.\n`;
+function addressFormRules(applies: boolean): string {
+  if (!applies) return "";
+  return `- The target marks the form of address (tykání/vykání, du/Sie, tu/vous). For each item:
+  - Set "register" to "familiar" or "polite" whenever the translation visibly uses one of them — including when the source itself already fixed the choice (e.g. a source written with polite address stays polite and is reported as "polite").
+  - Additionally set "alternative" ONLY when the source leaves the choice open and the target really has two everyday renderings. Then "translated" is the familiar one and "alternative" is the polite one.
+  - When the source itself fixes the form of address, return "register" and NO "alternative": the learner asked for that one wording, and the other form would be a different sentence.
+  - Most items have neither. Bare nouns and anything without an addressee omit both.
+  - "alternative" must be a real alternative: a different wording from "translated", with the opposite "register".
+`;
 }
 
 export function buildOpenRouterTranslationPrompt(input: {
@@ -102,8 +110,13 @@ export function buildOpenRouterTranslationPrompt(input: {
   fromLang: string;
   toLang: string;
   previousPairs?: TranslationContextPair[];
-  /** Chosen address form for the target; omit to keep the neutral default. */
-  addressRegister?: "casual" | "formal" | null;
+  /**
+   * Whether the target has a binary familiar/polite address system, so the model
+   * should report the form per item and may offer the second variant. Callers
+   * pass `hasBinaryAddressForms(toLang)`; anything looser generates wrong pairs
+   * for languages like Vietnamese or Polish.
+   */
+  addressForms?: boolean;
 }): string {
   const previousPairs = input.previousPairs?.slice(-OPENROUTER_TRANSLATION_CONTEXT_LIMIT) ?? [];
   const contextBlock =
@@ -125,12 +138,18 @@ Use this context to keep terminology, pronouns, register, and parallel sentence 
 Translate the following ${input.texts.length} items from ${input.fromLang} to ${input.toLang}.${contextBlock}
 
 Rules:
-${variantRules ? `${variantRules}\n` : ""}${addressRegisterRule(input.addressRegister)}${TRANSLATION_QUALITY_RULES}
+${variantRules ? `${variantRules}\n` : ""}${addressFormRules(input.addressForms === true)}${TRANSLATION_QUALITY_RULES}
 - Translate each item independently and echo its "index" unchanged.
 - Return only valid JSON, with no markdown or commentary.
 
 Return JSON with this exact shape:
-{ "items": [ { "index": 1, "translated": "natural translation" } ] }
+{ "items": [ { "index": 1, "translated": "natural translation" } ] }${
+    input.addressForms
+      ? `
+Items that mark a form of address add "register", and only those that also offer a second variant add "alternative":
+{ "items": [ { "index": 1, "translated": "familiar wording", "register": "familiar", "alternative": { "translated": "polite wording", "register": "polite" } } ] }`
+      : ""
+  }
 
 Items:
 ${input.texts.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
