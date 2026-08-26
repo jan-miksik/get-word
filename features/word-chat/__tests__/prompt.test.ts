@@ -299,17 +299,15 @@ describe('buildChatSystemPrompt', () => {
     expect(user).toContain('dobrý den');
   });
 
-  it('runs every call on one model by default', () => {
-    // Sonnet 5 everywhere for now, by decision: split the routing only when the
-    // logged spend or the output quality justifies it.
+  it('uses Sonnet for chat, proposal selection, and translation by default', () => {
     expect(WORD_CHAT_CHAT_MODEL).toBe('anthropic/claude-sonnet-5');
     expect(WORD_CHAT_PROPOSAL_MODEL).toBe('anthropic/claude-sonnet-5');
     expect(WORD_CHAT_TRANSLATION_MODEL).toBe('anthropic/claude-sonnet-5');
   });
 
-  it('keeps the non-streamed proposal on a low-latency reasoning budget', () => {
-    expect(PROPOSAL_MAX_TOKENS).toBe(4_000);
-    expect(PROPOSAL_REASONING).toEqual({ effort: 'low', exclude: true });
+  it('keeps hidden reasoning off the proposal critical path', () => {
+    expect(PROPOSAL_MAX_TOKENS).toBe(2_500);
+    expect(PROPOSAL_REASONING).toEqual({ enabled: false, exclude: true });
     expect(WORD_CHAT_PROVIDER_PREFERENCES).toMatchObject({
       zdr: true,
       data_collection: 'deny',

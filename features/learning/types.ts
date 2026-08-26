@@ -10,6 +10,8 @@ export interface LearningStreamBlock {
   key: string;
   kind: LearningStreamGroupKind;
   blockIndex: number;
+  /** Successful answers confirm the current stage instead of advancing it. */
+  reinforcement?: true;
   words: NormalizedWord[];
 }
 
@@ -17,5 +19,6 @@ export interface LearningStreamGroup {
   key: string;
   kind: LearningStreamGroupKind;
   blockIndex: number;
+  reinforcement?: true;
   items: LearningStreamItem[];
 }

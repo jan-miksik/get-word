@@ -9,6 +9,7 @@ import { useLearningPageState } from '@/features/learning/hooks/useLearningPageS
 import { usePressHandlers } from '@/features/learning/hooks/usePressHandlers';
 import { useLearningRenderers } from '@/features/learning/hooks/useLearningRenderers';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
+import { countIntroducedOnDay } from '@/features/learning/session/dayProgress';
 import { useSessionBreather } from '@/features/learning/session/useSessionBreather';
 import { useTimePhase } from '@/features/learning/session/useTimePhase';
 import { setActivitySurfaceOverride } from '@/lib/activity/runtime';
@@ -56,6 +57,7 @@ import { useBackgroundTargetAudioRepair } from '@/features/learning/hooks/useBac
 import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list-selection';
 import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
+import { resolveStreakData } from '@/features/learning/goals/streakWeek';
 import { useStudyCountdown } from '@/features/learning/goals/useStudyCountdown';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
 import {
@@ -158,10 +160,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const [preflightDismissed, setPreflightDismissed] = useState(false);
   const [addWordsPromptDismissedForSession, setAddWordsPromptDismissedForSession] =
     useState(false);
-  // Completing onboarding updates the language preference synchronously, but
-  // the new list reaches the study stream through a fresh snapshot. Keep the
-  // global loader up across that handoff so the empty deck cannot flash
-  // "All done" between those two state updates.
+  // Completing the last onboarding step updates the language preference
+  // synchronously, but the newly created list reaches the study stream through
+  // a fresh snapshot. Keep the global loader only for that final handoff — the
+  // first language step already has everything it needs locally to move on.
   const [isOnboardingHandoffPending, setIsOnboardingHandoffPending] = useState(false);
   const [landingLanguagePair] = useState(() =>
     typeof window !== 'undefined' ? readLandingLanguagePair() : null,
@@ -478,6 +480,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     settlingWords,
     streamGroups,
     dueNowCount,
+    newNowCount,
     session,
     sessionBlockProgress,
     progressStats,
@@ -539,6 +542,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     markReallyKnown,
     markUnknown,
     setCustomStage,
+    sessionBlocks: session.dailyPlan?.blocks,
     setMemoryHook,
     lastMovedId,
     showEnglish,
@@ -715,40 +719,63 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // own flow keeps driving the breather and the closing card either way.
   const bonusFlow = useMemo(() => resolveSessionFlow(bonusBlockProgress), [bonusBlockProgress]);
   const railFlow = continueAnyway && bonusFlow.dayTotal > 0 ? bonusFlow : sessionFlow;
+  // The closing card quotes the server's count of the day, so the rollup has to
+  // be refreshed at every point that card can appear: when the plan is walked,
+  // and again when a bonus round taken on top of it runs out. Without the
+  // second read the card would report the day as it stood before the bonus.
+  const bonusClosed = continueAnyway && bonusFlow.dayTotal > 0 && bonusFlow.complete;
   useEffect(() => {
-    if (!sessionFlow.complete) return;
+    if (!sessionFlow.complete && !bonusClosed) return;
     void flushOutboxBeforeRead()
       .catch(() => undefined)
       .then(() => refreshGoalSummary());
-  }, [refreshGoalSummary, sessionFlow.complete]);
+  }, [bonusClosed, refreshGoalSummary, sessionFlow.complete]);
   const { breather, dismiss: dismissBreather } = useSessionBreather(sessionFlow, sessionBlockProgress);
   // Only one of the two countdowns is ever live: the strip runs while work
   // remains, this one only once the day is closed. They never both tick.
+  // One derivation for both surfaces, so the chip in the bar and the card that
+  // closes the day can never disagree about the same week.
+  const dayClosedLocally = sessionFlow.complete && (session.dailyPlan?.shortfall ?? 0) === 0;
+  const streak = useMemo(
+    () => goalSummary
+      ? resolveStreakData(goalSummary, { optimisticTodayComplete: dayClosedLocally })
+      : null,
+    [dayClosedLocally, goalSummary],
+  );
   const dayResult = useStudyCountdown(
     goalDay,
     (goalSummary?.goal.active as StudyGoalVersion | null | undefined) ?? null,
     Boolean(goalSummary?.goal.active?.enabled) && sessionFlow.complete,
     goalSummary?.timezone,
   );
+  // What the day amounted to, counted by the server rather than by the plan:
+  // the plan can only ever report its own cap back, and the learner may well
+  // have gone past it. A words goal also gives the card something to exceed.
+  const localIntroducedToday = useMemo(
+    () => goalSummary
+      ? countIntroducedOnDay(progress, goalSummary.today, goalSummary.timezone)
+      : 0,
+    [goalSummary, progress],
+  );
+  const dayScore = useMemo(
+    () =>
+      goalDay
+        ? {
+            introduced: Math.max(goalDay.introducedWords, localIntroducedToday),
+            reviewed: goalDay.reviewedWords,
+            target:
+              goalDay.goalMode === 'words'
+                ? (goalDay.resolvedNewTarget ?? 0) + (goalDay.resolvedReviewTarget ?? 0)
+                : null,
+          }
+        : null,
+    [goalDay, localIntroducedToday],
+  );
   const sessionBreatherCard = breather ? (
     <SessionBreatherCard
       breather={breather}
       onContinue={dismissBreather}
-      shortfall={session.dailyPlan?.shortfall ?? 0}
-      // Live, not the plan's own count: words fall due during a session, so the
-      // number frozen at planning time can already understate what is waiting —
-      // and it has to agree with the Upcoming panel, which counts them live.
-      extraReviewCount={continueAnyway ? 0 : dueNowCount}
-      result={dayResult}
       showDayProgress={!sessionTimeGoal}
-      onAddWords={() => {
-        dismissBreather();
-        openAddWords();
-      }}
-      onContinueExtra={() => {
-        setContinueAnyway(true);
-        dismissBreather();
-      }}
     />
   ) : null;
 
@@ -887,15 +914,21 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
    * setup means. Shared by the Continue button, the landing-page hand-off, and
    * the last step, where the chat has just created the learner's first list.
    */
-  const completeLanguagePair = useCallback(async (from: string, to: string) => {
+  const completeLanguagePair = useCallback(async (
+    from: string,
+    to: string,
+    { refreshStudySnapshot = false }: { refreshStudySnapshot?: boolean } = {},
+  ) => {
     setOnboardingBackStep(null);
-    setIsOnboardingHandoffPending(true);
+    if (refreshStudySnapshot) setIsOnboardingHandoffPending(true);
     try {
       await setLearningLanguages(from, to);
-      // Apply the snapshot directly instead of only dispatching a background
-      // refresh event: clearing the loader must mean the new words are already
-      // in React state.
-      await refreshFullSnapshot();
+      if (refreshStudySnapshot) {
+        // Apply the snapshot directly instead of only dispatching a background
+        // refresh event: clearing the loader must mean the new words are already
+        // in React state.
+        await refreshFullSnapshot();
+      }
       if (forceOnboarding) {
         setForceOnboarding(false);
         // Drop the `?onboarding=1` param so a refresh doesn't replay it.
@@ -906,7 +939,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       }
       if (forceWordChat) replaceSurface('chat');
     } finally {
-      setIsOnboardingHandoffPending(false);
+      if (refreshStudySnapshot) setIsOnboardingHandoffPending(false);
     }
   }, [forceOnboarding, forceWordChat, refreshFullSnapshot, replaceSurface, setLearningLanguages]);
 
@@ -1036,7 +1069,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
             // one the learner sees; leaving the chat at its first question means
             // stepping back to the reminder rather than to an empty screen.
             onExit={goToPreviousOnboardingStep}
-            onComplete={completeLanguagePair}
+            onComplete={(from, to) => completeLanguagePair(from, to, { refreshStudySnapshot: true })}
             onSelectList={setActiveListId}
           />
         ) : (
@@ -1183,10 +1216,21 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               showNotReady={showNotReady}
               settlingCount={settlingWords.length}
               // The closing card must not claim "nothing due" while the plan's
-              // leftovers are still due; it offers them instead, on the same
-              // opt-in as the breather's extra-review button.
+              // leftovers are still due; it offers them instead. Live, not the
+              // plan's own count: words fall due during a session, so the number
+              // frozen at planning time can already understate what is waiting —
+              // and it has to agree with the Upcoming panel, which counts live.
               dueNowCount={continueAnyway ? 0 : dueNowCount}
+              newNowCount={continueAnyway ? 0 : newNowCount}
               onStudyExtra={() => setContinueAnyway(true)}
+              // The day's own plan, not the rail's: during a bonus round the
+              // rails follow the bonus, while the card that closes the deck is
+              // still reporting the day.
+              dayFlow={sessionFlow}
+              dayScore={dayScore}
+              shortfall={session.dailyPlan?.shortfall ?? 0}
+              dayResult={dayResult}
+              streak={streak}
               onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
             />
           </>

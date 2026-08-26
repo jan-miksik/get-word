@@ -37,10 +37,29 @@ export const GoalSummarySchema = z.object({
     resolvedNewTarget: z.number().int().nullable(), resolvedReviewTarget: z.number().int().nullable(),
     resolvedItemBudget: z.number().int().nullable(), resolvedMinutesBudget: z.number().int().nullable(),
     introducedWords: z.number().int(), reviewedWords: z.number().int(), met: z.boolean(),
+    /**
+     * Does the goal *prefer* this weekday? A preference, never a requirement —
+     * the weekly target counts days, not which days. `null` when the goal names
+     * no weekdays at all.
+     */
+    preferred: z.boolean().nullable().default(null),
+    status: z.enum(['nothing_due', 'none', 'partial', 'met', 'exceeded']).default('none'),
   })),
   streakWeeks: z.number().int(),
   weeklyAdherenceStreak: z.number().int(),
-  dailyStreakDays: z.number().int(),
+  /** Backward-compatible alias retained for older deployed clients. */
+  dailyStreakDays: z.number().int().default(0),
+  /** Consecutive calendar days that met the goal — the strict number. */
+  dailyStreak: z.number().int().default(0),
+  /** Consecutive weeks that filled their day quota, whichever days those were. */
+  weeklyStreak: z.number().int().default(0),
+  /** Days kept in the current week, and how many the goal asks for. */
+  currentWeek: z.object({
+    keptDays: z.number().int(),
+    target: z.number().int(),
+  }).default({ keptDays: 0, target: 0 }),
+  /** First partial weeks that ended below quota and are neutral, not failed. */
+  neutralWeekStarts: z.array(z.string()).default([]),
   streakWeeksAtWindowStart: z.number().int(),
   graceCooldownRemainingAtWindowStart: z.number().int().min(0).max(7),
 });

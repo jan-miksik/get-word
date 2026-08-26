@@ -4,14 +4,9 @@ import { parsePositiveIntEnv } from "@/lib/rate-limit/daily-bucket";
  * Word-chat model routing and sizing.
  *
  * Three call sites share one donated key (`OPENROUTER_SERVER_API_KEY`) and, for
- * now, one model: Sonnet 5 everywhere. The proposal call is the one plausibly
- * worth more (usage-frequency judgement, content-word extraction, corpus reuse),
- * so it is the first candidate to move — but only once `word_chat_usage` and
- * real output say so, not on a hunch.
- *
- * Every id is env-overridable, so an A/B is a deploy setting rather than a code
- * change, and the debug panel switches any of them per session. Actual spend is
- * recorded per call — do not reason about cost from the estimates here.
+ * Chat, proposals, and translation keep Sonnet 5 for language quality. Every
+ * id remains env-overridable, so the debug panel can A/B them per session.
+ * Actual spend is recorded per call — do not reason about cost from estimates.
  */
 
 export const WORD_CHAT_CHAT_MODEL =
@@ -58,8 +53,7 @@ export const CHAT_REASONING = {
   // adaptive thinking, and even at low effort that is dead air in front of a
   // two-sentence reply the learner is watching stream in — the visible text
   // cannot start until the thinking block ends. Nothing here needs deliberation:
-  // the turn asks a question or says it is ready. The proposal, which does need
-  // judgement, keeps its budget.
+  // the turn asks a question or says it is ready.
   enabled: false,
   exclude: true,
 } as const;
@@ -111,27 +105,62 @@ export const CHAT_RESPONSE_FORMAT = {
 } as const;
 
 /**
- * Sonnet 5 enables high-effort adaptive reasoning by default. The proposal is a
- * small ten-row JSON document, so explicitly using low effort and a 4k combined
- * reasoning/answer budget avoids spending most of the wait on hidden thinking
- * while preserving ample room for the final payload.
+ * Sonnet 5 enables adaptive reasoning by default. The proposal is a constrained
+ * ten-row JSON document, so disable hidden thinking and reserve this budget for
+ * its visible structured answer.
  */
-export const PROPOSAL_MAX_TOKENS = 4_000;
+export const PROPOSAL_MAX_TOKENS = 2_500;
 export const PROPOSAL_REASONING = {
-  effort: "low",
+  // Selecting ten short items is constrained generation, not a deliberative
+  // task. Hidden reasoning delayed the first output and sometimes consumed the
+  // combined token budget, which then triggered a complete retry.
+  enabled: false,
   exclude: true,
+} as const;
+
+/** Every level gets the same compact card budget. */
+export const TARGET_ITEM_COUNT = 10;
+
+/** Reject malformed proposal envelopes at generation time, before a paid
+ * retry reaches the application parser. Role distribution is still checked by
+ * `validateProposalStructure`, because it depends on the selected mode. */
+export const PROPOSAL_RESPONSE_FORMAT = {
+  type: "json_schema",
+  json_schema: {
+    name: "word_chat_proposal",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: {
+        categoryName: { type: "string" },
+        topicLabel: { type: "string" },
+        reviewLabel: { type: "string" },
+        items: {
+          type: "array",
+          minItems: TARGET_ITEM_COUNT,
+          maxItems: TARGET_ITEM_COUNT,
+          items: {
+            type: "object",
+            properties: {
+              kind: { enum: ["sentence", "word"] },
+              role: { enum: ["sentence", "category_member", "situational_expression"] },
+              text: { type: "string" },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+            },
+            required: ["kind", "role", "text", "confidence"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["categoryName", "topicLabel", "reviewLabel", "items"],
+      additionalProperties: false,
+    },
+  },
 } as const;
 export const BRIEF_MAX_TOKENS = 2_000;
 
 /** Output ceiling for one Word Chat translation batch (at most 30 items). */
 export const TRANSLATION_MAX_TOKENS = 4_000;
-
-/**
- * Every level gets the same compact card budget. Its sentence/supporting-item
- * split stays fixed at 3 sentences and 7 vocabulary items; CEFR calibration
- * happens in the proposal prompt.
- */
-export const TARGET_ITEM_COUNT = 10;
 
 /** Hard ceiling on one session. Not a ceiling on the personal list itself. */
 export const MAX_ITEMS_PER_SESSION = parsePositiveIntEnv(

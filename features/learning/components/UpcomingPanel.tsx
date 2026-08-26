@@ -16,6 +16,15 @@ interface UpcomingPanelProps {
   isOpen: boolean;
   onClose: () => void;
   progressStats: ProgressStats;
+  /**
+   * A request to open the panel at one section, from `useMenuPanels`. The panel
+   * stays mounted between visits, so `progressExpanded` survives a close — an
+   * "expand initially" flag would only ever fire on the first mount. Reacting to
+   * the changing `requestId` makes the streak chip work on every tap, including
+   * after the learner has collapsed the section by hand.
+   */
+  focusSection?: string | null;
+  focusRequestId?: number;
 }
 
 function formatRelativeDue(nextDueAt: number | undefined, now: number): string | null {
@@ -108,7 +117,7 @@ function Section({
   );
 }
 
-export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelProps) {
+export function UpcomingPanel({ isOpen, onClose, progressStats, focusSection = null, focusRequestId }: UpcomingPanelProps) {
   const { t } = useI18n();
   const {
     filteredWords,
@@ -157,6 +166,13 @@ export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelP
   // Initialized collapsed; intentionally not reset when the panel closes,
   // so it stays expanded for the rest of the session once opened.
   const [progressExpanded, setProgressExpanded] = useState(false);
+  // Adjusted during render rather than in an effect: this derives state from a
+  // changed prop, so an effect would only add a wasted second pass.
+  const [handledFocusRequestId, setHandledFocusRequestId] = useState<number | undefined>(undefined);
+  if (focusRequestId !== undefined && focusRequestId !== handledFocusRequestId) {
+    setHandledFocusRequestId(focusRequestId);
+    if (focusSection === 'progress') setProgressExpanded(true);
+  }
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isOpen) return;

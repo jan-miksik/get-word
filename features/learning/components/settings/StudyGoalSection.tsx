@@ -138,7 +138,7 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
           pending={!summary || isPending}
           initial={{
             mode: editing?.mode ?? 'words',
-            daysPerWeek: editing?.daysPerWeek ?? 4,
+            daysPerWeek: editing?.daysPerWeek ?? 7,
             weekdays: normalizeGoalWeekdays(editing?.weekdays) ?? undefined,
             minutesPerDay: editing?.minutesPerDay ?? 10,
             newWordsPerDay: editing?.newWordsPerDay ?? 5,

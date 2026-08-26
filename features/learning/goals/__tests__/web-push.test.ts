@@ -29,6 +29,7 @@ function stubBrowser({
   serviceWorker = true,
   pushManager = true,
   subscribeFails = false,
+  subscribeFailsOnce = false,
   vapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
 }: {
   notifications?: boolean;
@@ -38,6 +39,7 @@ function stubBrowser({
   serviceWorker?: boolean;
   pushManager?: boolean;
   subscribeFails?: boolean;
+  subscribeFailsOnce?: boolean;
   /** Empty stands for a deployment that never configured web push. */
   vapidKey?: string;
 } = {}) {
@@ -45,11 +47,16 @@ function stubBrowser({
     endpoint: 'https://push.example/abc',
     toJSON: () => ({ endpoint: 'https://push.example/abc', keys: { p256dh: 'p', auth: 'a' } }),
   };
+  let subscribeAttempt = 0;
   const registration = {
+    update: vi.fn(async () => undefined),
     pushManager: {
       getSubscription: vi.fn(async () => null),
       subscribe: vi.fn(async () => {
-        if (subscribeFails) throw new Error('Registration failed - push service not available');
+        subscribeAttempt += 1;
+        if (subscribeFails || (subscribeFailsOnce && subscribeAttempt === 1)) {
+          throw new Error('Registration failed - push service not available');
+        }
         return subscription;
       }),
     },
@@ -68,7 +75,12 @@ function stubBrowser({
   vi.stubGlobal('PushManager', pushManager ? function PushManager() {} : undefined);
   if (pushManager === false) Reflect.deleteProperty(window, 'PushManager');
   const navigatorStub: Record<string, unknown> = {};
-  if (serviceWorker) navigatorStub.serviceWorker = { ready: Promise.resolve(registration) };
+  if (serviceWorker) {
+    navigatorStub.serviceWorker = {
+      ready: Promise.resolve(registration),
+      register: vi.fn(async () => registration),
+    };
+  }
   vi.stubGlobal('navigator', navigatorStub);
   vi.stubEnv('NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY', vapidKey);
   apiFetch.mockResolvedValue({ ok: true, status: 200 });
@@ -92,10 +104,10 @@ describe('detectReminderCapability', () => {
     stubBrowser({ pushManager: false });
     expect(detectReminderCapability()).toBe('local-only');
 
-    // Same verdict for a build with no VAPID key: the browser is fine, this
-    // deployment simply cannot create subscriptions.
+    // A build with no VAPID key is an application configuration problem, not a
+    // browser limitation.
     stubBrowser({ vapidKey: '' });
-    expect(detectReminderCapability()).toBe('local-only');
+    expect(detectReminderCapability()).toBe('unconfigured');
 
     stubBrowser({ notifications: false });
     expect(detectReminderCapability()).toBe('unsupported');
@@ -136,8 +148,15 @@ describe('requestStudyReminderPermission', () => {
 
   it('keeps the grant when the deployment has no VAPID key', async () => {
     stubBrowser({ permission: 'granted', vapidKey: '' });
-    await expect(requestStudyReminderPermission()).resolves.toBe('granted-local');
+    await expect(requestStudyReminderPermission()).resolves.toBe('unconfigured');
     expect(apiFetch).not.toHaveBeenCalled();
+  });
+
+  it('refreshes a stale Brave registration and retries once', async () => {
+    const registration = stubBrowser({ permission: 'granted', subscribeFailsOnce: true });
+    await expect(requestStudyReminderPermission()).resolves.toBe('granted');
+    expect(registration.update).toHaveBeenCalledOnce();
+    expect(registration.pushManager.subscribe).toHaveBeenCalledTimes(2);
   });
 
   it('registers the subscription when push does work', async () => {

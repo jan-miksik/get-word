@@ -74,7 +74,7 @@ export function OnboardingScreen({
       <SupportButton />
       {overlay}
       <section
-        className={`onboarding-page-card relative z-10 m-auto w-full p-5 sm:p-7 ${WIDTH_CLASS[width]}`}
+        className={`onboarding-page-card relative z-10 m-auto w-full p-5 motion-safe:animate-[onboarding-step-enter_240ms_cubic-bezier(0.22,1,0.36,1)_both] sm:p-7 ${WIDTH_CLASS[width]}`}
       >
         {showHeader ? (
           <div className="mb-5 flex items-center gap-2 sm:gap-3">

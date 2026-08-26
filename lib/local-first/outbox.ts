@@ -41,6 +41,32 @@ export type OutboxOp = OutboxOperation & OutboxMetadata;
 
 const MAX_UNKNOWN_ATTEMPTS = 3;
 
+// `appendOp` is deliberately asynchronous: opening IndexedDB and committing a
+// transaction both yield. A caller can therefore enqueue the last answer of a
+// session and immediately ask the server for the day summary while that answer
+// is still between those two steps. Keep a tiny module-local barrier so reads
+// that explicitly flush the outbox can wait for every write that has already
+// started to become claimable first.
+let pendingAppendCount = 0;
+const pendingAppendWaiters = new Set<() => void>();
+
+function beginAppend(): void {
+  pendingAppendCount += 1;
+}
+
+function finishAppend(): void {
+  pendingAppendCount = Math.max(0, pendingAppendCount - 1);
+  if (pendingAppendCount > 0) return;
+  for (const resolve of pendingAppendWaiters) resolve();
+  pendingAppendWaiters.clear();
+}
+
+export async function waitForPendingAppends(): Promise<void> {
+  while (pendingAppendCount > 0) {
+    await new Promise<void>((resolve) => pendingAppendWaiters.add(resolve));
+  }
+}
+
 type StatusListener = (status: OutboxStatus) => void;
 const statusListeners = new Set<StatusListener>();
 
@@ -64,6 +90,19 @@ function randomId(): string {
 }
 
 export async function appendOp(input: OutboxOperation & {
+  deviceId: string | null;
+  clientOpId?: string;
+  clientCreatedAt?: string;
+}): Promise<OutboxOp | null> {
+  beginAppend();
+  try {
+    return await appendOpToStore(input);
+  } finally {
+    finishAppend();
+  }
+}
+
+async function appendOpToStore(input: OutboxOperation & {
   deviceId: string | null;
   clientOpId?: string;
   clientCreatedAt?: string;

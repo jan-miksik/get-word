@@ -11,7 +11,7 @@ const MINIGAME_ROW_HEIGHT = 520;
 
 type VirtualItem =
   | { type: 'header'; label: string; stageIndex: number }
-  | { type: 'card'; word: NormalizedWord; stageIndex: number }
+  | { type: 'card'; word: NormalizedWord; stageIndex: number; blockIndex: number }
   | { type: 'minigame'; config: MiniGameConfig; stageIndex: number }
   | { type: 'footer'; stageIndex: number; content: ReactNode };
 
@@ -78,7 +78,12 @@ export function VirtualizedWordList({
           if ('_isMinigame' in item) {
             flat.push({ type: 'minigame', config: item, stageIndex });
           } else {
-            flat.push({ type: 'card', word: item, stageIndex });
+            flat.push({
+              type: 'card',
+              word: item,
+              stageIndex,
+              blockIndex: group.blockIndex,
+            });
           }
         });
         const footerContent = groupFooter?.(group) ?? stageFooter?.(stageIndex);
@@ -430,7 +435,7 @@ export function VirtualizedWordList({
                 willChange: 'transform'
               }}
             >
-              {renderCard(item.word, item.stageIndex)}
+              {renderCard(item.word, item.blockIndex)}
             </div>
           );
         })}

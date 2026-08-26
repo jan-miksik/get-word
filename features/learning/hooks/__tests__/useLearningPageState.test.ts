@@ -46,6 +46,35 @@ const cappingGoal = {
 };
 
 describe('useLearningPageState', () => {
+  it('exposes a minigame-free reinforcement block for a beginner\'s new-only day', () => {
+    const words = Array.from({ length: 5 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress: {},
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: { min: 2, max: 2 },
+        categoryOrder: [],
+        studyGoal: { ...cappingGoal, wordsPerDay: 5, newWordsPerDay: 5 },
+        isSessionDataReady: true,
+        dayTargets: { resolvedNewTarget: 5, resolvedReviewTarget: 0, resolvedItemBudget: 17 },
+      })
+    );
+
+    expect(result.current.streamGroups).toHaveLength(2);
+    expect(result.current.streamGroups[0]).toMatchObject({ kind: 'new' });
+    expect(result.current.streamGroups[1]).toMatchObject({
+      kind: 'review',
+      reinforcement: true,
+    });
+    expect(result.current.streamGroups[1].items).toEqual(words);
+  });
+
   it('counts every due repeat, not only the ones today\'s plan took', () => {
     const words = Array.from({ length: 9 }, (_, index) => makeWord(`due-${index}`, 'list-a'));
     const overdue = Date.now() - 60_000;

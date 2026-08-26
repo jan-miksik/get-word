@@ -343,7 +343,11 @@ export function useProgress(
   );
 
   const setCustomStage = useCallback(
-    (wordId: string, stageIndex: number, opts?: { noRepeat?: boolean }) => {
+    (
+      wordId: string,
+      stageIndex: number,
+      opts?: { noRepeat?: boolean; countAsKnown?: boolean },
+    ) => {
       const now = Date.now();
       const noRepeat = opts?.noRepeat === true;
       const clampedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
@@ -362,7 +366,14 @@ export function useProgress(
       let lastKnownAt = current.lastKnownAt;
       let lastUnknownAt = current.lastUnknownAt;
 
-      if (noRepeat) {
+      if (opts?.countAsKnown) {
+        // Reinforcement is a real correct answer, but deliberately not an SRS
+        // promotion. Counting it gives the second-pass block a durable,
+        // reload-safe completion signal while the unchanged stage restarts its
+        // own interval (normally five minutes) from this answer.
+        knownCount += 1;
+        lastKnownAt = now;
+      } else if (noRepeat) {
         if (previousStageIndex < clampedStageIndex) {
           knownCount += 1;
         }

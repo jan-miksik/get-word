@@ -82,8 +82,17 @@ describe('StudyReminderOnboarding', () => {
     const { onComplete } = renderCard('granted-local');
     fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('cannot be delivered');
+    expect(await screen.findByRole('status')).toHaveTextContent('Background push is not enabled');
     fireEvent.click(screen.getByRole('button', { name: /continue without reminders/i }));
     expect(onComplete).toHaveBeenCalledWith({ enabled: false, localMinutes: 19 * 60 });
+  });
+
+  it('blames the app build rather than Brave when its VAPID key is missing', async () => {
+    renderCard('unconfigured');
+    fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
+
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent('not configured in this app build');
+    expect(notice).toHaveTextContent('NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY');
   });
 });

@@ -3,7 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveAuthenticatedUser } from '@/lib/auth';
 import { getStudyGoalState, getStudyGoalVersions, getUserDayStats, recomputeUserDayStat } from '@/lib/db';
 import { addDays, isoWeekStart } from '@/packages/domain/goals/week';
-import { calculateDailyStreak, calculateWeeklyAdherenceStreak, effectiveWeeklyTarget } from '@/packages/domain/goals/streak';
+import { calculateWeeklyAdherenceStreak } from '@/packages/domain/goals/streak';
+import {
+  calculateDailyStreak,
+  calculateWeeklyStreak,
+  preferredForDay,
+  resolveGoalWeek,
+  resolveDayStatus,
+  type DayStatsInput,
+  type DayStatus,
+  type StreakDayInput,
+} from '@/packages/domain/goals/studyStreak';
 import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { localDayKeyAt, normalizeIanaTimezone } from '@/lib/local-day';
 
@@ -16,37 +26,77 @@ function goalForDay(versions: StudyGoalVersion[], dayKey: string): StudyGoalVers
   return result?.enabled ? result : null;
 }
 
+type DayRow = Awaited<ReturnType<typeof getUserDayStats>>[number];
+
+function statusOf(row: DayRow | undefined, hasGoal: boolean): DayStatus {
+  // Measurement rows may exist before the learner creates a goal. Activity on
+  // such a day is real history, but it cannot be a missed or partial goal day.
+  if (!hasGoal) return 'nothing_due';
+  if (!row) return 'none';
+  return resolveDayStatus({
+    met: row.met,
+    goalStatus: row.goalStatus === 'nothing_due' ? 'nothing_due' : 'active',
+    goalMode: row.goalMode === 'words' || row.goalMode === 'minutes' ? row.goalMode : null,
+    answeredWords: row.answeredWords,
+    activeMs: row.activeMs,
+    introducedWords: row.introducedWords,
+    reviewedWords: row.reviewedWords,
+    resolvedNewTarget: row.resolvedNewTarget,
+    resolvedReviewTarget: row.resolvedReviewTarget,
+    resolvedItemBudget: row.resolvedItemBudget,
+    resolvedMinutesBudget: row.resolvedMinutesBudget,
+  } satisfies DayStatsInput);
+}
+
 function calculateStreaks(
-  rows: Awaited<ReturnType<typeof getUserDayStats>>,
+  rows: DayRow[],
   versions: StudyGoalVersion[],
   today: string,
-): { daily: number; weekly: number } {
+): {
+  daily: number;
+  weekly: number;
+  legacyWeekly: number;
+  currentWeek: { keptDays: number; target: number };
+  neutralWeekStarts: string[];
+} {
   const byDay = new Map(rows.map((row) => [row.dayKey, row]));
-  // An unfinished current day does not erase yesterday's streak before the
-  // learner has had the entire local day to act. Once it is met, it belongs at
-  // the head of the run immediately.
-  const todayRow = byDay.get(today);
-  const startOffset = todayRow?.met === true || todayRow?.goalStatus === 'nothing_due' ? 0 : 1;
-  const days = Array.from({ length: 84 - startOffset }, (_, index) => addDays(today, -(index + startOffset))).map((dayKey) => {
-    const row = byDay.get(dayKey);
-    const active = goalForDay(versions, dayKey) !== null;
-    return { active, met: row?.met === true, nothingDue: row?.goalStatus === 'nothing_due' };
+  // Every day in the window, not only the ones with a row: a day the learner
+  // never opened the app has no snapshot, and skipping it would quietly treat a
+  // missed day as neutral.
+  const days: StreakDayInput[] = Array.from({ length: 84 }, (_, index) => addDays(today, -index)).map((dayKey) => {
+    const hasGoal = goalForDay(versions, dayKey) !== null;
+    return { dayKey, status: statusOf(byDay.get(dayKey), hasGoal), hasGoal };
   });
+
   const currentMonday = isoWeekStart(today);
-  const weeks = Array.from({ length: 12 }, (_, index) => addDays(currentMonday, -7 * (index + 1))).map((monday) => {
-    const mondayGoal = goalForDay(versions, monday);
+  // Index 0 is the current week, which is pending rather than failed.
+  const weeks = Array.from({ length: 13 }, (_, index) => addDays(currentMonday, -7 * index)).map((monday) => {
     const weekDays = Array.from({ length: 7 }, (_, offset) => {
       const dayKey = addDays(monday, offset);
-      return { goal: goalForDay(versions, dayKey), row: byDay.get(dayKey) };
+      const goal = goalForDay(versions, dayKey);
+      return {
+        hasGoal: goal !== null,
+        daysPerWeek: goal?.daysPerWeek ?? null,
+        status: statusOf(byDay.get(dayKey), goal !== null),
+      };
     });
-    // Only a real, server-created nothing_due snapshot can make a day neutral.
-    // A missing row means no snapshot was taken, therefore a missed active day.
-    const activeEligibleDays = weekDays.filter(({ goal, row }) => goal !== null && row?.goalStatus !== 'nothing_due').length;
-    const metDays = weekDays.filter(({ goal, row }) => goal !== null && row?.met === true).length;
-    const required = effectiveWeeklyTarget(mondayGoal?.daysPerWeek ?? 0, activeEligibleDays);
-    return { active: mondayGoal !== null && activeEligibleDays > 0, metDays, required };
+    return {
+      monday,
+      ...resolveGoalWeek(weekDays, monday === currentMonday),
+    };
   });
-  return { daily: calculateDailyStreak(days), weekly: calculateWeeklyAdherenceStreak(weeks) };
+
+  const current = weeks[0];
+  return {
+    daily: calculateDailyStreak(days, today),
+    weekly: calculateWeeklyStreak(weeks),
+    // The older settings grid still reads the literal adherence figure.
+    legacyWeekly: calculateWeeklyAdherenceStreak(
+      weeks.slice(1).map((week) => ({ active: week.active, metDays: week.keptDays, required: week.target })),
+    ),
+    currentWeek: { keptDays: current?.keptDays ?? 0, target: current?.target ?? 0 },
+    neutralWeekStarts: weeks.filter((week) => week.partialStartNeutral).map((week) => week.monday),
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -82,12 +132,19 @@ export async function GET(request: NextRequest) {
       resolvedNewTarget: row.resolvedNewTarget, resolvedReviewTarget: row.resolvedReviewTarget,
       resolvedItemBudget: row.resolvedItemBudget, resolvedMinutesBudget: row.resolvedMinutesBudget,
       introducedWords: row.introducedWords, reviewedWords: row.reviewedWords, met: row.met,
+      preferred: preferredForDay(goalForDay(versions, row.dayKey), row.dayKey),
+      status: statusOf(row, goalForDay(versions, row.dayKey) !== null),
     })),
     // `streakWeeks` stays for older settings UI consumers. New clients use the
-    // explicit adherence name alongside the truly consecutive daily streak.
-    streakWeeks: streaks.weekly,
-    weeklyAdherenceStreak: streaks.weekly,
+    // explicit adherence name alongside the study streak.
+    streakWeeks: streaks.legacyWeekly,
+    weeklyAdherenceStreak: streaks.legacyWeekly,
+    // Compatibility for clients released before the explicit streak names.
     dailyStreakDays: streaks.daily,
+    dailyStreak: streaks.daily,
+    weeklyStreak: streaks.weekly,
+    currentWeek: streaks.currentWeek,
+    neutralWeekStarts: streaks.neutralWeekStarts,
     streakWeeksAtWindowStart: 0,
     graceCooldownRemainingAtWindowStart: 0,
   }, { headers: { 'Cache-Control': 'no-store' } });

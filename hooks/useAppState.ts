@@ -70,7 +70,11 @@ export function useAppState(words: NormalizedWord[]) {
     [progressState, resolveProgressId]
   );
   const setCustomStage = useCallback(
-    (wordId: string, stageIndex: number, opts?: { noRepeat?: boolean }) =>
+    (
+      wordId: string,
+      stageIndex: number,
+      opts?: { noRepeat?: boolean; countAsKnown?: boolean },
+    ) =>
       progressState.setCustomStage(resolveProgressId(wordId), stageIndex, opts),
     [progressState, resolveProgressId]
   );

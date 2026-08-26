@@ -29,14 +29,17 @@ function renderPicker(initial?: Partial<GoalPickerValue>) {
 }
 
 describe('StudyGoalPicker circular dial', () => {
-  it('starts with five words and the four planned weekdays', () => {
+  it('starts with five words and every weekday selected', () => {
     const { valueInput } = renderPicker();
 
     expect(valueInput()).toHaveValue('5');
     expect(screen.getByRole('button', { name: 'Mon' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Tue' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Wed' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Thu' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Fri' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Sat' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Sun' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('maps the start and end of the pointer arc to 1 and 30', () => {
@@ -73,8 +76,8 @@ describe('StudyGoalPicker circular dial', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       mode: 'words',
       newWordsPerDay: 1000,
-      daysPerWeek: 4,
-      weekdays: [1, 3, 5, 6],
+      daysPerWeek: 7,
+      weekdays: [1, 2, 3, 4, 5, 6, 7],
     }));
   });
 
@@ -143,8 +146,8 @@ describe('StudyGoalPicker circular dial', () => {
     fireEvent.click(everyDay);
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({
-      daysPerWeek: 4,
-      weekdays: [1, 3, 5, 6],
+      daysPerWeek: 7,
+      weekdays: [1, 2, 3, 4, 5, 6, 7],
     }));
   });
 

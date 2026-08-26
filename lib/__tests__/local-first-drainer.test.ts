@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   checkpoint: vi.fn(),
   sync: vi.fn(),
   publish: vi.fn(),
+  waitForAppends: vi.fn(),
 }));
 
 vi.mock('../local-first/availability', () => ({
@@ -21,6 +22,7 @@ vi.mock('../local-first/outbox', async (importOriginal) => ({
   deleteOps: mocks.delete,
   markFailed: mocks.markFailed,
   releaseOpsToPending: mocks.release,
+  waitForPendingAppends: mocks.waitForAppends,
 }));
 
 vi.mock('../local-first/hydrate', () => ({
@@ -77,15 +79,56 @@ const segmentOp = {
   },
 } satisfies OutboxOp;
 
+const secondProgressOp = {
+  ...progressOp,
+  clientOpId: 'progress-2',
+  batchId: 'batch-2',
+  clientCreatedAt: '2026-08-10T00:00:03.000Z',
+  payload: { ...progressOp.payload, word_id: 'word-2' },
+} satisfies OutboxOp;
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.claim.mockReset();
+  mocks.claim.mockResolvedValue([]);
   mocks.ensure.mockResolvedValue(true);
   mocks.delete.mockResolvedValue(undefined);
   mocks.markFailed.mockResolvedValue(undefined);
   mocks.release.mockResolvedValue(undefined);
+  mocks.waitForAppends.mockResolvedValue(undefined);
 });
 
 describe('local-first drainer acknowledgements', () => {
+  it('waits for in-flight appends and drains every ready batch before a read', async () => {
+    const firstAck = {
+      success: true,
+      is_delta: true,
+      user: { id: 'user-1' },
+      op_results: [{ clientOpId: 'progress-1', status: 'applied' }],
+    };
+    const secondAck = {
+      success: true,
+      is_delta: true,
+      user: { id: 'user-1' },
+      op_results: [{ clientOpId: 'progress-2', status: 'applied' }],
+    };
+    mocks.claim
+      .mockResolvedValueOnce([progressOp])
+      .mockResolvedValueOnce([secondProgressOp])
+      .mockResolvedValueOnce([]);
+    mocks.sync.mockResolvedValueOnce(firstAck).mockResolvedValueOnce(secondAck);
+    mocks.checkpoint.mockImplementation(async (response) => response);
+
+    await flushOutboxBeforeRead();
+
+    expect(mocks.waitForAppends).toHaveBeenCalledTimes(3);
+    expect(mocks.waitForAppends.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.claim.mock.invocationCallOrder[0]);
+    expect(mocks.sync).toHaveBeenCalledTimes(2);
+    expect(mocks.delete).toHaveBeenNthCalledWith(1, ['progress-1']);
+    expect(mocks.delete).toHaveBeenNthCalledWith(2, ['progress-2']);
+  });
+
   it('checkpoints acknowledged state before deleting the durable operation', async () => {
     const acknowledgement = {
       success: true,
@@ -95,7 +138,7 @@ describe('local-first drainer acknowledgements', () => {
       op_results: [{ clientOpId: 'progress-1', status: 'applied' }],
     };
     const reconciled = { ...acknowledgement, progress: {}, memory_hooks: {}, category_filters: [] };
-    mocks.claim.mockResolvedValue([progressOp]);
+    mocks.claim.mockResolvedValueOnce([progressOp]);
     mocks.sync.mockResolvedValue(acknowledgement);
     mocks.checkpoint.mockResolvedValue(reconciled);
 
@@ -121,7 +164,7 @@ describe('local-first drainer acknowledgements', () => {
       opType: 'set',
       payload: { field: 'settings_language', value: 'cs', baseRevision: 2 },
     } satisfies OutboxOp;
-    mocks.claim.mockResolvedValue([languageOp, progressOp]);
+    mocks.claim.mockResolvedValueOnce([languageOp, progressOp]);
     mocks.sync.mockRejectedValue(new SyncRequestError('Stale revision', 409, {
       op_results: [
         { clientOpId: 'language-1', status: 'conflict', code: 'STALE_REVISION' },
@@ -144,7 +187,7 @@ describe('local-first drainer acknowledgements', () => {
   it('keeps an operation the server deferred, and everything else in its batch', async () => {
     // The server stores measurement separately from the rest of the batch, so a
     // failed segment write comes back beside acknowledged progress.
-    mocks.claim.mockResolvedValue([progressOp, segmentOp]);
+    mocks.claim.mockResolvedValueOnce([progressOp, segmentOp]);
     const acknowledgement = {
       success: true,
       is_delta: true,
@@ -172,7 +215,7 @@ describe('local-first drainer acknowledgements', () => {
     // The compatibility path for servers that predate op_results deletes the
     // whole batch. A server that answered and acknowledged nothing means the
     // opposite, and an activity-only batch is exactly that shape.
-    mocks.claim.mockResolvedValue([segmentOp]);
+    mocks.claim.mockResolvedValueOnce([segmentOp]);
     const acknowledgement = {
       success: true,
       is_delta: true,
@@ -195,7 +238,7 @@ describe('local-first drainer acknowledgements', () => {
   });
 
   it('treats a present empty op_results array as the current acknowledgement protocol', async () => {
-    mocks.claim.mockResolvedValue([segmentOp]);
+    mocks.claim.mockResolvedValueOnce([segmentOp]);
     const acknowledgement = {
       success: true,
       is_delta: true,

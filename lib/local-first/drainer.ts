@@ -14,6 +14,7 @@ import {
   isRevisionAwareOperation,
   markFailed,
   releaseOpsToPending,
+  waitForPendingAppends,
   type OutboxFailureKind,
   type OutboxOp,
 } from './outbox';
@@ -26,7 +27,7 @@ const DEBOUNCE_MS = 30_000;
 const PERIODIC_DRAIN_MS = 10 * 60_000;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-let drainInFlight: Promise<void> | null = null;
+let drainInFlight: Promise<boolean> | null = null;
 let scheduledByVisibility = false;
 let periodicTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -51,7 +52,17 @@ export function scheduleDrain(): void {
  * ops queued for the next attempt and must not block the read.
  */
 export async function flushOutboxBeforeRead(): Promise<void> {
-  await drainOnce().catch(() => undefined);
+  // An answer may still be inside its IndexedDB transaction when the closing
+  // card asks for the server rollup. First make every append that has already
+  // started visible to the drainer, then keep claiming batches until no ready
+  // work remains. One `drainOnce` only carries MAX_BATCH operations; a longer
+  // study session routinely produces more than that.
+  await waitForPendingAppends();
+  while (await drainOnce().catch(() => false)) {
+    // Writes triggered while the previous request was in flight belong before
+    // the read too. Waiting here also prevents an empty claim racing them.
+    await waitForPendingAppends();
+  }
 }
 
 /**
@@ -67,7 +78,7 @@ export async function flushOutboxNow(): Promise<void> {
   await drainOnce().catch(() => undefined);
 }
 
-async function drainOnce(): Promise<void> {
+async function drainOnce(): Promise<boolean> {
   if (drainInFlight) return drainInFlight;
   drainInFlight = doDrain().finally(() => {
     drainInFlight = null;
@@ -75,17 +86,17 @@ async function drainOnce(): Promise<void> {
   return drainInFlight;
 }
 
-async function doDrain(): Promise<void> {
+async function doDrain(): Promise<boolean> {
   const available = await ensureLocalFirstAvailability();
-  if (!available) return;
+  if (!available) return false;
 
   const ops = await claimReadyBatch(MAX_BATCH);
-  if (ops.length === 0) return;
+  if (ops.length === 0) return false;
 
   const built = buildPayloadFromOps(ops, { owner: getSyncOwner() });
   if (!built) {
     await deleteOps(ops.map((op) => op.clientOpId));
-    return;
+    return true;
   }
 
   // Not a failure worth surfacing: activity measured under a previous account
@@ -102,7 +113,7 @@ async function doDrain(): Promise<void> {
       message: 'Stored operation payload is malformed and requires user recovery',
     });
   }
-  if (built.clientOpIds.length === 0) return;
+  if (built.clientOpIds.length === 0) return true;
 
   try {
     // The low-level transport must not publish the raw ack: it intentionally
@@ -110,6 +121,7 @@ async function doDrain(): Promise<void> {
     // projected durably and removed from the outbox.
     const response = await syncUserData(built.payload, { emitEvent: false });
     await handleSuccessfulResponse(response, ops, built.clientOpIds, built.payload.review_events);
+    return true;
   } catch (error) {
     if (isAuthRequiredError(error)) {
       await markFailed(built.clientOpIds, {
@@ -118,11 +130,12 @@ async function doDrain(): Promise<void> {
         message: error instanceof Error ? error.message : 'Authentication required',
         httpStatus: 401,
       });
-      return;
+      // Every later request would fail under the same missing session. Leave
+      // the rest untouched for the explicit resume-after-auth path.
+      return false;
     }
     if (error instanceof SyncRequestError && error.status === 409) {
-      await handleConflictResponse(error, ops, built.clientOpIds);
-      return;
+      return handleConflictResponse(error, ops, built.clientOpIds);
     }
     const message = error instanceof Error ? error.message : String(error);
     const classification = classifySyncFailure(error);
@@ -130,6 +143,9 @@ async function doDrain(): Promise<void> {
       ...classification,
       message,
     });
+    // This exact cohort is now in backoff or blocked. Other ready cohorts can
+    // still be flushed before the read.
+    return true;
   }
 }
 
@@ -236,7 +252,7 @@ async function handleConflictResponse(
   error: SyncRequestError,
   ops: OutboxOp[],
   clientOpIds: string[],
-): Promise<void> {
+): Promise<boolean> {
   const byId = new Map(ops.map((op) => [op.clientOpId, op]));
   const results = operationResults(error.payload);
   const reportedIds = new Set(results.map((result) => result.clientOpId));
@@ -269,6 +285,10 @@ async function handleConflictResponse(
     const unreported = clientOpIds.filter((id) => !reportedIds.has(id));
     await releaseOpsToPending(unreported.filter((id) => !conflictingIds.includes(id)));
   }
+  // A real revision-bearing conflict was isolated and blocked, so unrelated
+  // work can proceed. A malformed aggregate 409 released the identical cohort
+  // unchanged; retrying it in this loop would never terminate.
+  return conflictingIds.length > 0;
 }
 
 export function classifySyncFailure(error: unknown): {

@@ -49,6 +49,26 @@ export function answeredOnDay(entry: ProgressData | undefined, dayKey: string, t
   return timestamp > 0 && localDayKeyAt(timestamp, timezone) === dayKey;
 }
 
+/**
+ * New words first met on one local day, from the optimistic progress map.
+ *
+ * The server remains the durable source for history, but the closing card is
+ * rendered on the same tick as the last answer. Reading only its rollup there
+ * makes a completed twenty-word stretch briefly fall back to the frozen
+ * five-word plan. `introducedAt` is immutable, so this local count is safe to
+ * merge with (never subtract from) the server's figure while sync catches up.
+ */
+export function countIntroducedOnDay(
+  progress: Record<string, ProgressData>,
+  dayKey: string,
+  timezone?: string,
+): number {
+  return Object.values(progress).filter((entry) => {
+    const timestamp = entry.introducedAt ?? 0;
+    return timestamp > 0 && localDayKeyAt(timestamp, timezone) === dayKey;
+  }).length;
+}
+
 function answerCount(entry: ProgressData | undefined): number {
   return (entry?.knownCount ?? 0) + (entry?.unknownCount ?? 0);
 }

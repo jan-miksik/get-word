@@ -480,7 +480,7 @@ describe('CardDeckView', () => {
       }
     });
 
-    it('animates the final card after its completion overlay is confirmed', () => {
+    it('animates the final card directly into the done state', () => {
       vi.stubEnv('NODE_ENV', 'development');
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       try {
@@ -493,12 +493,10 @@ describe('CardDeckView', () => {
         );
 
         fireEvent.click(screen.getByText('Complete'));
-        expect(screen.getByText(/tap to continue/i)).toBeInTheDocument();
-
-        fireEvent.click(screen.getByText(/tap to continue/i));
         const animating = container.querySelector('[class*="animate-deck-exit"]');
         expect(animating).not.toBeNull();
         expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+        expect(screen.queryByText(/tap to continue/i)).not.toBeInTheDocument();
 
         fireExitAnimationEnd(animating!);
         expect(screen.getByText(/nothing due right now/i)).toBeInTheDocument();
@@ -739,7 +737,7 @@ describe('CardDeckView', () => {
       }
     });
 
-    it('marks the last card exactly once and keeps it visible under the done overlay', () => {
+    it('marks the last card exactly once after its exit animation', () => {
       vi.stubEnv('NODE_ENV', 'development');
       const swipeActions = makeSwipeActions();
       try {
@@ -752,11 +750,17 @@ describe('CardDeckView', () => {
           />
         );
         swipeRight(getDeckItem(container));
-        expect(swipeActions.markKnown).toHaveBeenCalledTimes(1);
-        expect(screen.getByText(/tap to continue/i)).toBeInTheDocument();
+        expect(swipeActions.markKnown).not.toHaveBeenCalled();
         expect(screen.getByTestId('card-w1')).toBeInTheDocument();
-        // No exit animation ran: the card springs back under the overlay.
-        expect(container.querySelector('.animate-deck-exit-swipe')).toBeNull();
+        const animating = container.querySelector('.animate-deck-exit-swipe');
+        expect(animating).not.toBeNull();
+        expect(screen.queryByText(/tap to continue/i)).not.toBeInTheDocument();
+
+        const event = new Event('animationend', { bubbles: true });
+        Object.defineProperty(event, 'animationName', { value: 'deck-exit-swipe' });
+        fireEvent(animating!, event);
+        expect(swipeActions.markKnown).toHaveBeenCalledTimes(1);
+        expect(screen.getByText(/nothing due right now/i)).toBeInTheDocument();
       } finally {
         vi.unstubAllEnvs();
       }

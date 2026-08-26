@@ -20,6 +20,10 @@ import type { I18nKey } from '@/lib/i18n/locales/en';
 type ReminderNotice = Exclude<StudyReminderPermissionResult, 'granted'>;
 
 const NOTICE_COPY: Record<ReminderNotice, { title: I18nKey; body: I18nKey }> = {
+  unconfigured: {
+    title: 'goal.reminderUnconfiguredTitle',
+    body: 'goal.reminderUnconfiguredBody',
+  },
   'granted-local': {
     title: 'goal.reminderLocalOnlyTitle',
     body: 'goal.reminderLocalOnlyBody',

@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { computeBlockProgress, answeredOnDay } from '../dayProgress';
+import { computeBlockProgress, answeredOnDay, countIntroducedOnDay } from '../dayProgress';
 
 const dayKey = '2026-08-20';
 
 describe('session day progress', () => {
+  it('counts every word first met on the local day, beyond the frozen plan', () => {
+    const today = Date.parse('2026-08-20T10:00:00Z');
+    const yesterday = Date.parse('2026-08-19T10:00:00Z');
+    const progress = Object.fromEntries([
+      ...Array.from({ length: 20 }, (_, index) => [
+        `today-${index}`,
+        { stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: today },
+      ]),
+      ['yesterday', { stageIndex: 2, knownCount: 2, unknownCount: 0, introducedAt: yesterday }],
+    ]);
+
+    expect(countIntroducedOnDay(progress, dayKey, 'UTC')).toBe(20);
+  });
+
   it('uses local-day answers as a monotonic frozen-plan numerator', () => {
     const today = Date.parse('2026-08-20T10:00:00Z');
     const yesterday = Date.parse('2026-08-19T23:59:00Z');

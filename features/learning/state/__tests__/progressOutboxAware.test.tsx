@@ -245,6 +245,41 @@ describe('useProgress outbox-aware merge', () => {
     });
   });
 
+  it('reinforces a known word without advancing past the five-minute stage', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-25T12:00:00.000Z'));
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => useProgress(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.applyServerProgress(serverProgress([{
+        id: 'w001',
+        stage: 1,
+        knownCount: 1,
+        nextDueAt: '2026-08-25T12:03:00.000Z',
+      }]));
+      result.current.setCustomStage('w001', 1, { countAsKnown: true });
+    });
+
+    expect(result.current.progress.w001).toMatchObject({
+      stageIndex: 1,
+      knownCount: 2,
+      unknownCount: 0,
+      lastKnownAt: Date.parse('2026-08-25T12:00:00.000Z'),
+      nextDueAt: Date.parse('2026-08-25T12:05:00.000Z'),
+    });
+    expect(enqueueOp).toHaveBeenLastCalledWith(expect.objectContaining({
+      entity: 'progress',
+      opType: 'upsert',
+      payload: expect.objectContaining({
+        stage_index: 1,
+        known_count: 2,
+        next_due_at: Date.parse('2026-08-25T12:05:00.000Z'),
+      }),
+    }));
+    vi.useRealTimers();
+  });
+
   it('randomizes the covered language and keeps it stable through rerenders', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0.25).mockReturnValueOnce(0.75);
     const isUpdatingFromServerRef = { current: false };

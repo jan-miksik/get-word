@@ -139,7 +139,10 @@ export function useLearningStreamGroups({
     return liveBlocks.map((block) => {
       if (block.words.length === 0) return { ...block, items: [] };
       let items: LearningStreamItem[] = [...block.words];
-      if (minigameFrequency !== 'off') {
+      // A reinforcement block is itself the short active-recall exercise. A
+      // review minigame would report ordinary SRS outcomes and could advance a
+      // word past the five-minute stage, so keep this block to study cards.
+      if (minigameFrequency !== 'off' && !block.reinforcement) {
         const { min, max } = minigameFrequency;
         const cacheKey = cacheKeyFor(block);
         const seed = hash32(`${baseIdentity}|${block.key}|${block.kind}`);
@@ -191,7 +194,13 @@ export function useLearningStreamGroups({
         items = enforceMinigameMinGap(items, min);
       }
       if (dismissedGames.size > 0) items = items.filter((item) => !('_isMinigame' in item) || !dismissedGames.has(item.id));
-      return { key: block.key, kind: block.kind, blockIndex: block.blockIndex, items };
+      return {
+        key: block.key,
+        kind: block.kind,
+        blockIndex: block.blockIndex,
+        ...(block.reinforcement ? { reinforcement: true as const } : {}),
+        items,
+      };
     }).filter((group) => group.items.length > 0);
   }, [
     blocks,

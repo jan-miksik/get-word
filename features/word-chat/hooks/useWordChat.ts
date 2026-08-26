@@ -1000,9 +1000,25 @@ export function useWordChat({
       // place instead of being remounted with the full answer at once.
       const conversationWithReply: WordChatMessage[] = [
         ...conversation,
-        { role: 'assistant', content: response.reply, id: assistantId },
+        // Keep the streamed identity alive for this render. The server may
+        // deliver a validated reply in one final chunk; marking it complete in
+        // the same React batch made the bubble mount as static text and skip
+        // StreamedText's reveal animation entirely.
+        { role: 'assistant', content: response.reply, id: assistantId, incomplete: true },
       ];
       setMessages(conversationWithReply);
+      const markReplyComplete = () => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantId ? { ...message, incomplete: undefined } : message,
+          ),
+        );
+      };
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(markReplyComplete);
+      } else {
+        window.setTimeout(markReplyComplete, 0);
+      }
       setSuggestions(response.suggestions);
 
       if (

@@ -15,6 +15,19 @@ const isMobileLayout = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(max-width: 767px)').matches === true;
 
+/**
+ * The immediate pass teaches with the five-minute exercise ladder even when a
+ * learner used a stronger first-pass action. A failed first encounter still
+ * has no known answer to test, so it keeps the gentle stage-zero reveal.
+ */
+export function progressForReinforcementExercise(
+  progress: ProgressData,
+  reinforcement: boolean,
+): ProgressData {
+  if (!reinforcement || (progress.knownCount ?? 0) <= 0) return progress;
+  return { ...progress, stageIndex: 1 };
+}
+
 interface UseLearningRenderersOptions {
   progress: Record<string, ProgressData>;
   role: LearningRole;
@@ -24,7 +37,13 @@ interface UseLearningRenderersOptions {
   markKnown: (wordId: string) => void;
   markReallyKnown: (wordId: string) => void;
   markUnknown: (wordId: string) => void;
-  setCustomStage: (wordId: string, stageIndex: number, opts?: { noRepeat?: boolean }) => void;
+  setCustomStage: (
+    wordId: string,
+    stageIndex: number,
+    opts?: { noRepeat?: boolean; countAsKnown?: boolean },
+  ) => void;
+  /** Frozen daily blocks, used to distinguish reinforcement from ordinary review. */
+  sessionBlocks?: ReadonlyArray<{ reinforcement?: true }>;
   setMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>, hook: string) => void;
   lastMovedId: string | null;
   showEnglish: boolean;
@@ -64,6 +83,7 @@ export function useLearningRenderers({
   markReallyKnown,
   markUnknown,
   setCustomStage,
+  sessionBlocks = [],
   setMemoryHook,
   lastMovedId,
   showEnglish,
@@ -103,35 +123,54 @@ export function useLearningRenderers({
   );
 
   const applyExerciseOutcome = useCallback(
-    (wordId: string, stageIndex: number, outcome: TypingOutcome) => {
-      if (outcome === 'known') markKnown(wordId);
+    (
+      wordId: string,
+      stageIndex: number,
+      outcome: TypingOutcome,
+      reinforcement = false,
+    ) => {
+      if (reinforcement && outcome !== 'unknown') {
+        if (stageIndex === 0) markKnown(wordId);
+        else setCustomStage(wordId, stageIndex, { countAsKnown: true });
+      } else if (outcome === 'known') markKnown(wordId);
       else if (outcome === 'unknown') markUnknown(wordId);
       else setCustomStage(wordId, stageIndex);
     },
     [markKnown, markUnknown, setCustomStage]
   );
 
-  const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
-    void _stageIndex;
+  const renderCard = useCallback((word: NormalizedWord, blockIndex?: number) => {
     const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+    const reinforcement = blockIndex !== undefined &&
+      sessionBlocks[blockIndex]?.reinforcement === true;
+    const exerciseProgress = progressForReinforcementExercise(prog, reinforcement);
+    const reinforceKnown = () => {
+      if (prog.stageIndex === 0) markKnown(word.id);
+      else setCustomStage(word.id, prog.stageIndex, { countAsKnown: true });
+    };
     return (
       <div key={word.id} className="pt-8">
         <StudyExerciseCard
           word={word}
-          progress={prog}
+          progress={exerciseProgress}
           role={role}
-          exercise={resolveExercise(word, prog)}
+          exercise={resolveExercise(word, exerciseProgress)}
           showAll={showAll}
           memoryHook={getMemoryHook(word)}
           suggestedHook={getSuggestedMemoryHook(word)}
           onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
           showMemoryHook={shouldRenderMemoryHook(word.id)}
-          onKnown={() => markKnown(word.id)}
-          onReallyKnown={() => markReallyKnown(word.id)}
+          onKnown={() => reinforcement ? reinforceKnown() : markKnown(word.id)}
+          onReallyKnown={() => reinforcement ? reinforceKnown() : markReallyKnown(word.id)}
           onUnknown={() => markUnknown(word.id)}
           onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
           onScore={applyExerciseScore}
-          onOutcome={(outcome) => applyExerciseOutcome(word.id, prog.stageIndex, outcome)}
+          onOutcome={(outcome) => applyExerciseOutcome(
+            word.id,
+            prog.stageIndex,
+            outcome,
+            reinforcement,
+          )}
           isMoved={lastMovedId === word.id}
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
@@ -145,7 +184,7 @@ export function useLearningRenderers({
         />
       </div>
     );
-  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome]);
+  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, sessionBlocks]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig, isActive = false) => {
     if (dismissedGames.has(config.id)) return null;
@@ -173,7 +212,7 @@ export function useLearningRenderers({
   const renderCardForDeck = useCallback(
     (
       word: NormalizedWord,
-      _stageIndex: number,
+      blockIndex: number,
       onComplete: (
         afterExit?: () => void,
         options?: { skipAnimation?: boolean },
@@ -181,6 +220,7 @@ export function useLearningRenderers({
       opts?: { isExiting: boolean }
     ) => {
       const liveProg = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+      const reinforcement = sessionBlocks[blockIndex]?.reinforcement === true;
       const isExiting = opts?.isExiting ?? false;
       // While a card animates out it must keep showing the answer the learner
       // just gave, not the progress the answer produced.
@@ -191,17 +231,22 @@ export function useLearningRenderers({
         lockedDeckCardStateRef.current.delete(word.id);
       }
       const prog = (isExiting ? lockedDeckCardStateRef.current.get(word.id)?.progress : null) ?? liveProg;
-      const exercise = resolveExercise(word, prog);
+      const exerciseProgress = progressForReinforcementExercise(prog, reinforcement);
+      const exercise = resolveExercise(word, exerciseProgress);
       // iOS only raises the keyboard reliably while the Continue tap is still
       // active, so a typing round on mobile skips the deck exit animation.
       const skipAnimation =
         exercise.method === 'typing' && typingMobileKeyboardAutoFocus && isMobileLayout();
+      const reinforceKnown = () => {
+        if (prog.stageIndex === 0) markKnown(word.id);
+        else setCustomStage(word.id, prog.stageIndex, { countAsKnown: true });
+      };
 
       return (
         <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
           <StudyExerciseCard
             word={word}
-            progress={prog}
+            progress={exerciseProgress}
             role={role}
             exercise={exercise}
             showAll={showAll}
@@ -209,8 +254,12 @@ export function useLearningRenderers({
             suggestedHook={getSuggestedMemoryHook(word)}
             onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
             showMemoryHook={shouldRenderMemoryHook(word.id)}
-            onKnown={() => { onComplete(() => markKnown(word.id)); }}
-            onReallyKnown={() => { onComplete(() => markReallyKnown(word.id)); }}
+            onKnown={() => {
+              onComplete(() => reinforcement ? reinforceKnown() : markKnown(word.id));
+            }}
+            onReallyKnown={() => {
+              onComplete(() => reinforcement ? reinforceKnown() : markReallyKnown(word.id));
+            }}
             onUnknown={() => { onComplete(() => markUnknown(word.id)); }}
             onCustomStage={(stageIndex, options) => {
               onComplete(() => setCustomStage(word.id, stageIndex, options), { skipAnimation });
@@ -218,7 +267,12 @@ export function useLearningRenderers({
             onScore={applyExerciseScore}
             onOutcome={(outcome) => {
               onComplete(
-                () => applyExerciseOutcome(word.id, prog.stageIndex, outcome),
+                () => applyExerciseOutcome(
+                  word.id,
+                  prog.stageIndex,
+                  outcome,
+                  reinforcement,
+                ),
                 { skipAnimation },
               );
             }}
@@ -239,7 +293,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome]
+    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, sessionBlocks]
   );
 
   const renderMiniGameForDeck = useCallback(

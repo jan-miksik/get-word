@@ -38,7 +38,8 @@ function isSessionPlan(value: unknown): value is SessionPlan {
       (block.kind === 'review' || block.kind === 'new') &&
       typeof block.key === 'string' &&
       Array.isArray(block.ids) &&
-      (block.pass === undefined || typeof block.pass === 'number'),
+      (block.pass === undefined || typeof block.pass === 'number') &&
+      (block.reinforcement === undefined || block.reinforcement === true),
     );
 }
 

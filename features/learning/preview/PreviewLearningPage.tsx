@@ -16,6 +16,7 @@ import { BubbleChoiceGame } from '@/features/learning/components/games/BubbleCho
 import { MultipleChoiceGame } from '@/features/learning/components/games/MultipleChoiceGame';
 import { SessionRail } from '@/features/learning/components/SessionRail';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
+import { SessionDoneCard } from '@/features/learning/components/SessionDoneCard';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import {
@@ -192,7 +193,8 @@ function PreviewStudy({
 
   // Dev-only harness switches render surfaces that are otherwise only
   // reachable mid-session in the real app, which makes them hard to iterate on
-  // visually. `session-done` mirrors a completed goal with optional reviews.
+  // visually. `session-done` mirrors a completed goal with optional reviews,
+  // and `session-short` the day that ran out of words before reaching it.
   const previewSurface = useSearchParams().get('preview');
   const [breatherStep, setBreatherStep] = useState(0);
   const previewBlocks = useMemo<SessionBlockProgress[]>(() => ([
@@ -364,25 +366,42 @@ function PreviewStudy({
         <main className="learning-card-main flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" aria-live="polite">
           <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             <SessionRail flow={previewFlow} />
-            {previewSurface === 'session' || previewSurface === 'session-done' ? (
+            {previewSurface === 'session-short' ? (
+              <div className="relative h-full">
+                <SessionDoneCard
+                  settlingCount={0}
+                  dayFlow={resolveSessionFlow([
+                    { ...previewBlocks[0], done: 4, total: 4, liveRemaining: 0 },
+                  ])}
+                  shortfall={6}
+                  onOpenWordChat={() => undefined}
+                />
+              </div>
+            ) : previewSurface === 'session-done' ? (
+              <div className="relative h-full">
+                <SessionDoneCard
+                  settlingCount={7}
+                  dueNowCount={39}
+                  newNowCount={6}
+                  dayFlow={resolveSessionFlow([
+                    { ...previewBlocks[0], done: 6, liveRemaining: 0 },
+                    { ...previewBlocks[1], done: 4, liveRemaining: 0 },
+                  ])}
+                  dayScore={{ introduced: 14, reviewed: 6, target: 15 }}
+                  dayResult={{ activeMs: 8 * 60_000 + 32_000, itemsDone: 20, secondsPerItem: 12 }}
+                  onStudyExtra={() => undefined}
+                  onOpenWordChat={() => undefined}
+                />
+              </div>
+            ) : previewSurface === 'session' ? (
               <div className="relative h-full">
                 <SessionBreatherCard
-                  breather={previewSurface === 'session-done'
-                    ? {
-                        kind: 'complete',
-                        flow: resolveSessionFlow([
-                          { ...previewBlocks[0], done: 6, liveRemaining: 0 },
-                        ]),
-                      }
-                    : {
-                        kind: 'between',
-                        finished: previewBlocks[0],
-                        next: previewBlocks[1],
-                        flow: previewFlow,
-                      }}
+                  breather={{
+                    finished: previewBlocks[0],
+                    next: previewBlocks[1],
+                    flow: previewFlow,
+                  }}
                   onContinue={() => setBreatherStep((step) => (step + 1) % 3)}
-                  extraReviewCount={previewSurface === 'session-done' ? 39 : 0}
-                  onContinueExtra={previewSurface === 'session-done' ? () => undefined : undefined}
                 />
               </div>
             ) : previewSurface === 'bubbles' ? (

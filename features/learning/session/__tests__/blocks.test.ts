@@ -22,6 +22,7 @@ describe('planSessionBlocks', () => {
     const blocks = planSessionBlocks({ warmUpIds: [], newIds: ids('n', 6), closingReviewIds: [], fillWithRepeats: true });
     expect(sizes(blocks)).toEqual(['N6', 'R6x2']);
     expect(blocks[1].ids).toEqual(blocks[0].ids);
+    expect(blocks[1].reinforcement).toBe(true);
   });
 
   it('leaves a first day without repeats alone when repeats are not wanted', () => {
@@ -73,6 +74,7 @@ describe('planTimeSessionBlocks', () => {
     // The closing stretch is a second pass over the very words just met, so a
     // day without repeats of its own still ends on consolidation.
     expect(blocks.at(-1)?.ids).toEqual(ids('n', 6));
+    expect(blocks.at(-1)?.reinforcement).toBe(true);
   });
 
   it('opens on new ground after a long absence rather than on the backlog', () => {

@@ -1,5 +1,7 @@
 'use client';
 
+import { StreakDays } from '@/features/learning/components/goals/StreakDays';
+import type { StreakChipData } from '@/features/learning/goals/streakWeek';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -37,6 +39,10 @@ interface TopMenuProps {
   categoryCount: number;
   categoryActive: boolean;
   score?: number;
+  /** The study series and its week; absent when no goal is active. */
+  streak?: StreakChipData | null;
+  /** Opens the progress surface. Without it the chip is display-only. */
+  onOpenStreak?: () => void;
   /** Rendered in center of bar (e.g. repeat count or Sign in button) */
   centerContent?: ReactNode;
   /** When logged in, rendered at top of menu dropdown */
@@ -64,6 +70,58 @@ interface TopMenuProps {
   activeSurface?: AppSurface;
   /** Switches workspace content while keeping the app shell mounted. */
   onSurfaceChange?: (surface: AppSurface) => void;
+}
+
+/**
+ * The study series, sitting where a number the learner acts on belongs.
+ *
+ * Deliberately not a flame: a badge asserts a number, while seven segments show
+ * what it is made of. `StreakDays` draws the week and the chip owns the figure,
+ * so the count appears exactly once.
+ */
+function StreakChip({ streak, onOpen }: { streak: StreakChipData; onOpen?: () => void }) {
+  const { t } = useI18n();
+  // The chip shows the strict daily figure while it is running, and falls back
+  // to the weekly one when it is not — a learner keeping a four-day goal on
+  // scattered days is doing exactly what they promised, and an empty chip would
+  // read as failure. The week beside it makes clear which number is which.
+  const showDaily = streak.dailyStreak > 0;
+  const value = showDaily ? streak.dailyStreak : streak.weeklyStreak;
+  const label = showDaily
+    ? t('goal.streakAria', { count: streak.dailyStreak })
+    : t('goal.streakWeeksLabel', { count: streak.weeklyStreak });
+  const title = streak.weekTarget > 0
+    ? `${label} — ${t('goal.streakWeekProgress', { count: streak.keptThisWeek, target: streak.weekTarget })}`
+    : label;
+
+  const content = (
+    <>
+      <StreakDays days={streak.days} size="compact" />
+      <span className="stat-chip-copy">
+        <span className="stat-chip-value">{value}</span>
+        {showDaily ? null : (
+          <span className="text-[0.6875rem] font-bold opacity-70" aria-hidden>t</span>
+        )}
+      </span>
+    </>
+  );
+
+  if (!onOpen) {
+    return <span className="stat-chip" aria-label={label} title={title}>{content}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      // `.stat-chip` carries the padding and shape; the button's own chrome has
+      // to be cleared or it renders a default border and background over it.
+      className="stat-chip cursor-pointer appearance-none border-0 bg-transparent"
+      aria-label={label}
+      title={title}
+    >
+      {content}
+    </button>
+  );
 }
 
 function shortenListName(name: string): string {
@@ -857,6 +915,8 @@ export function TopMenu({
   categoryActive,
   score,
   centerContent,
+  streak,
+  onOpenStreak,
   accountSlot,
   lists,
   activeListId,
@@ -885,6 +945,9 @@ export function TopMenu({
       >
         <div className="top-menu-stats">
           {score !== undefined && <ScoreBadge score={score} />}
+          {streak && (streak.dailyStreak > 0 || streak.weeklyStreak > 0) && (
+            <StreakChip streak={streak} onOpen={onOpenStreak} />
+          )}
           {centerContent}
         </div>
       </div>

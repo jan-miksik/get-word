@@ -18,11 +18,17 @@ const entryActions: WordChatEntryActions = {
 vi.mock('../WordChatFlow', () => ({
   WordChatFlow: ({
     onEntryActionsChange,
+    onStepChange,
   }: {
     onEntryActionsChange?: (actions: WordChatEntryActions | null) => void;
+    onStepChange?: (step: 'chat' | 'select') => void;
   }) => {
     onEntryActionsChange?.(entryActions);
-    return <div data-testid="word-chat-flow" />;
+    return (
+      <div data-testid="word-chat-flow">
+        <button type="button" onClick={() => onStepChange?.('select')}>show proposal</button>
+      </div>
+    );
   },
 }));
 
@@ -110,6 +116,22 @@ describe('AddWordsScreen tabs', () => {
     expect(entryActions.startChat).toHaveBeenCalledOnce();
   });
 
+  it('keeps the AI tab selected when the conversation advances to its proposal', () => {
+    renderScreen();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'With AI' }));
+    fireEvent.click(screen.getByRole('button', { name: 'show proposal' }));
+
+    expect(screen.getByRole('tab', { name: 'With AI' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: 'By typing' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+  });
+
   it('lets an interrupted batch outrank the remembered tab', () => {
     window.localStorage.setItem('get-word-add-words-tab', 'ai');
     window.localStorage.setItem(
@@ -138,5 +160,38 @@ describe('AddWordsScreen tabs', () => {
     renderScreen();
 
     expect(entryActions.startChat).not.toHaveBeenCalled();
+  });
+
+  it('recognizes a restored AI proposal even when typing was remembered last', () => {
+    window.localStorage.setItem('get-word-add-words-tab', 'manual');
+    window.localStorage.setItem(
+      'get-word-word-chat-draft:cs:vi',
+      JSON.stringify({
+        version: 5,
+        savedAt: Date.now(),
+        sessionId: 's',
+        creationKey: 'c',
+        step: 'select',
+        messages: [{ role: 'user', content: 'Kavárna' }],
+        addressRegister: null,
+        salutationGender: null,
+        languageLevel: null,
+        listName: 'Moje slovíčka',
+        categoryName: 'Kavárna',
+        reviewLabel: 'Cafe',
+        proposals: [{ kind: 'word', source: 'generated', text: 'káva', confidence: 0.9 }],
+        selectedKeys: [],
+        customItems: [],
+        reviewItems: [],
+        isPublic: null,
+      }),
+    );
+
+    renderScreen();
+
+    expect(screen.getByRole('tab', { name: 'With AI' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 });

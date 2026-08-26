@@ -63,7 +63,15 @@ function toSnapshot(row: typeof userDayStats.$inferSelect): DayGoalSnapshot {
 
 export async function ensureDayGoalSnapshot(userId: string, dayKey: string, timezone: string): Promise<DayGoalSnapshot | null> {
   const [existing] = await db.select().from(userDayStats).where(and(eq(userDayStats.userId, userId), eq(userDayStats.dayKey, dayKey))).limit(1);
-  if (existing?.snapshotCreatedAt) return toSnapshot(existing);
+  if (existing?.snapshotCreatedAt) {
+    // Self-heal accounts that added their first words under an older build:
+    // their commit could not reopen the already-frozen 0/0 day, but the first
+    // answer under this build must count against a real target.
+    if (existing.goalStatus === 'nothing_due') {
+      return reopenNothingDueDayGoalSnapshot(userId, dayKey, timezone);
+    }
+    return toSnapshot(existing);
+  }
   return db.transaction(async (tx) => {
     // A unique key prevents duplicate rows; the advisory lock additionally
     // gives the winner one coherent pre-event view while it derives fields for
@@ -103,6 +111,81 @@ export async function ensureDayGoalSnapshot(userId: string, dayKey: string, time
     const [winner] = await tx.select().from(userDayStats)
       .where(and(eq(userDayStats.userId, userId), eq(userDayStats.dayKey, dayKey))).limit(1);
     return winner ? toSnapshot(winner) : null;
+  });
+}
+
+/**
+ * Reopen today's zero-work snapshot after the learner adds study material.
+ *
+ * Activity tracking can legitimately claim a words day while onboarding or an
+ * add-words surface is still open. With no items yet that immutable snapshot is
+ * `nothing_due` and has 0/0 targets. It must stay immutable during ordinary
+ * studying, but it is no longer truthful once a commit creates the first words.
+ */
+export async function reopenNothingDueDayGoalSnapshot(
+  userId: string,
+  dayKey: string,
+  timezone: string,
+): Promise<DayGoalSnapshot | null> {
+  const [existing] = await db.select().from(userDayStats)
+    .where(and(eq(userDayStats.userId, userId), eq(userDayStats.dayKey, dayKey)))
+    .limit(1);
+  if (!existing?.snapshotCreatedAt || existing.goalStatus !== 'nothing_due') {
+    return existing ? toSnapshot(existing) : null;
+  }
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}), hashtext(${dayKey}))`);
+    const [locked] = await tx.select().from(userDayStats)
+      .where(and(eq(userDayStats.userId, userId), eq(userDayStats.dayKey, dayKey)))
+      .limit(1);
+    if (!locked?.snapshotCreatedAt || locked.goalStatus !== 'nothing_due') {
+      return locked ? toSnapshot(locked) : null;
+    }
+
+    const now = new Date();
+    const [goal, counts] = await Promise.all([
+      getGoalVersionForDay(userId, dayKey),
+      getEligibleCounts(userId, now),
+    ]);
+    if (!goal?.enabled || goal.mode !== 'words') return toSnapshot(locked);
+
+    const targets = resolveGoalTargets(goal);
+    const backlogAdjustedNew = adjustNewTargetForBacklog(
+      targets.desiredNew,
+      counts.dueReviewCount,
+      targets.itemBudget,
+    );
+    const resolvedNewTarget = Math.min(backlogAdjustedNew, counts.availableNewWords);
+    const resolvedReviewTarget = Math.min(
+      targets.itemBudget - backlogAdjustedNew,
+      counts.dueReviewCount,
+    );
+    if (resolvedNewTarget === 0 && resolvedReviewTarget === 0) return toSnapshot(locked);
+
+    await tx.update(userDayStats).set({
+      timezone,
+      goalVersionId: goal.id,
+      goalDaysPerWeek: goal.daysPerWeek,
+      goalMinutes: goal.minutesPerDay,
+      goalWords: goal.wordsPerDay,
+      goalMode: goal.mode,
+      goalStatus: 'active',
+      snapshotCreatedAt: now,
+      availableNewWords: counts.availableNewWords,
+      dueReviewCount: counts.dueReviewCount,
+      resolvedNewTarget,
+      resolvedReviewTarget,
+      resolvedItemBudget: targets.itemBudget,
+      resolvedMinutesBudget: targets.minutesPerDay,
+      met: false,
+      computedAt: now,
+    }).where(and(eq(userDayStats.userId, userId), eq(userDayStats.dayKey, dayKey)));
+
+    const [updated] = await tx.select().from(userDayStats)
+      .where(and(eq(userDayStats.userId, userId), eq(userDayStats.dayKey, dayKey)))
+      .limit(1);
+    return updated ? toSnapshot(updated) : null;
   });
 }
 
@@ -207,8 +290,15 @@ export async function recomputeUserDayStat(userId: string, dayKey: string, timez
     met, firstActivityAt, lastActivityAt, computedAt: new Date(),
   }).onConflictDoUpdate({ target: [userDayStats.userId, userDayStats.dayKey], set: {
     activeMs, answeredWords, introducedWords, reviewedWords, met: sql`${userDayStats.met} OR ${met}`,
-    firstActivityAt: sql`least(${userDayStats.firstActivityAt}, ${firstActivityAt})`,
-    lastActivityAt: sql`greatest(${userDayStats.lastActivityAt}, ${lastActivityAt})`, computedAt: new Date(),
+    // Use the typed INSERT values. Passing a Date directly through a raw SQL
+    // interpolation gives postgres-js a `text` parameter, and Postgres cannot
+    // resolve `least(timestamptz, text)` / `greatest(timestamptz, text)`. That
+    // made every recompute with real activity fail after it had already
+    // correctly derived 20 introductions and `met = true`, leaving the stale
+    // five-word row visible forever.
+    firstActivityAt: sql`least(${userDayStats.firstActivityAt}, excluded.first_activity_at)`,
+    lastActivityAt: sql`greatest(${userDayStats.lastActivityAt}, excluded.last_activity_at)`,
+    computedAt: sql`excluded.computed_at`,
   }});
 }
 

@@ -1,10 +1,28 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import { DeleteAccountModal } from '../DeleteAccountModal';
 
+const mocks = vi.hoisted(() => ({
+  deviceJsonFetch: vi.fn(),
+  clearLearningCache: vi.fn(async () => undefined),
+  clearPendingSync: vi.fn(),
+  resetSyncIdentity: vi.fn(),
+  deleteDeviceId: vi.fn(),
+  runSignOutHandler: vi.fn(async () => true),
+}));
+
 vi.mock('@/features/shared/http/device-json-fetch', () => ({
-  deviceJsonFetch: vi.fn(async () => ({ ok: false, json: async () => null })),
+  deviceJsonFetch: mocks.deviceJsonFetch,
+}));
+vi.mock('@/lib/local-learning-cache', () => ({ clearLearningCache: mocks.clearLearningCache }));
+vi.mock('@/lib/sync', () => ({
+  clearPendingSync: mocks.clearPendingSync,
+  resetSyncIdentity: mocks.resetSyncIdentity,
+}));
+vi.mock('@/lib/device-id', () => ({ deleteDeviceId: mocks.deleteDeviceId }));
+vi.mock('@/features/auth/client/sign-out-runtime', () => ({
+  runSignOutHandler: mocks.runSignOutHandler,
 }));
 
 function renderModal(authEmail?: string) {
@@ -38,6 +56,8 @@ function stubLayout(body: HTMLElement, input: HTMLElement) {
 
 describe('DeleteAccountModal', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.deviceJsonFetch.mockResolvedValue({ ok: false, json: async () => null });
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       cb(0);
       return 1;
@@ -73,5 +93,28 @@ describe('DeleteAccountModal', () => {
     renderModal('a@b.com');
     const input = screen.getByPlaceholderText('a@b.com');
     expect(input.getAttribute('autocapitalize')).toBe('none');
+  });
+
+  it('clears the offline snapshot and sync identity after account deletion', async () => {
+    mocks.deviceJsonFetch.mockImplementation(async (url: string) =>
+      url.endsWith('/deletion-preview')
+        ? { ok: true, json: async () => ({ keptLists: [], deletedListCount: 1 }) }
+        : { ok: true, json: async () => ({ status: 'deleted' }) },
+    );
+    localStorage.setItem('get-word-old-account', 'old');
+    sessionStorage.setItem('get_word_onboarding', 'complete');
+    localStorage.setItem('unrelated', 'keep');
+
+    renderModal();
+    fireEvent.change(screen.getByPlaceholderText('DELETE'), { target: { value: 'DELETE' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Smazat můj účet' }));
+
+    await waitFor(() => expect(mocks.clearLearningCache).toHaveBeenCalledOnce());
+    expect(mocks.clearPendingSync).toHaveBeenCalledOnce();
+    expect(mocks.resetSyncIdentity).toHaveBeenCalledOnce();
+    expect(mocks.deleteDeviceId).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('get-word-old-account')).toBeNull();
+    expect(sessionStorage.getItem('get_word_onboarding')).toBeNull();
+    expect(localStorage.getItem('unrelated')).toBe('keep');
   });
 });

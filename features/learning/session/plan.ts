@@ -87,11 +87,31 @@ export function planSession(input: SessionPlanInput): SessionPlan {
   // finish line for a learner moving faster than the pacing estimate.
   const resolvedTargets = resolveGoalTargets(goal);
   const isWordsGoal = goal.mode === 'words';
+  // A summary refresh can create today's measurement row before the first
+  // answer. Its targets are intentionally null until the server snapshots the
+  // first study event; treating those nulls as zero made a freshly added first
+  // list look like an already empty session. Until both targets are frozen,
+  // build the client plan from the selected goal. The server then freezes the
+  // same first event against the words that actually existed at that moment.
+  const dayNewTarget = input.dayTargets?.resolvedNewTarget;
+  const dayReviewTarget = input.dayTargets?.resolvedReviewTarget;
+  const hasLiveCandidates =
+    input.priorityWords.length + input.dueWords.length + input.newWords.length > 0;
+  const frozenWordTargets = isWordsGoal &&
+    typeof dayNewTarget === 'number' &&
+    typeof dayReviewTarget === 'number' &&
+    // A day can be snapshotted as `nothing_due` while the learner is still in
+    // the add-words flow. Once the freshly committed words arrive, a frozen
+    // 0/0 target is stale by definition; using it would discard every live
+    // candidate and render the misleading "nothing to review" card.
+    (dayNewTarget + dayReviewTarget > 0 || !hasLiveCandidates)
+    ? { newTarget: dayNewTarget, reviewTarget: dayReviewTarget }
+    : null;
   // The immutable item budget is useful to diagnose backlog, but an actual
   // words-mode session is only as large as today's two resolved targets. In
   // particular, missing content must not silently turn into extra review.
-  const cap = isWordsGoal && input.dayTargets
-    ? (input.dayTargets.resolvedNewTarget ?? 0) + (input.dayTargets.resolvedReviewTarget ?? 0)
+  const cap = frozenWordTargets
+    ? frozenWordTargets.newTarget + frozenWordTargets.reviewTarget
     : input.dayTargets?.resolvedItemBudget ?? resolvedTargets.itemBudget;
   const isNew = (word: NormalizedWord) => !hasIntroducedWord(input.progress[word.id]);
 
@@ -118,22 +138,22 @@ export function planSession(input: SessionPlanInput): SessionPlan {
     }),
   ];
 
-  const newTarget = isWordsGoal
-    ? input.dayTargets?.resolvedNewTarget ?? resolvedTargets.desiredNew
+  const newTarget = frozenWordTargets
+    ? frozenWordTargets.newTarget
     : clamp(Math.round(cap * (rampUp ? NEW_SHARE_RAMP : NEW_SHARE)), NEW_MIN, NEW_MAX);
-  const reviewTarget = isWordsGoal
-    ? input.dayTargets?.resolvedReviewTarget ?? resolvedTargets.desiredReviewTarget
+  const reviewTarget = frozenWordTargets
+    ? frozenWordTargets.reviewTarget
     : Math.max(0, cap - newTarget);
   const baseNew = newPool.slice(0, Math.min(newTarget, cap));
   const selectedReview = reviewPool.slice(0, Math.min(reviewTarget, cap - baseNew.length));
   // Repeats did not fill their half of the day. Hand the room back to new words
   // before falling back on repeating what was just seen — real growth beats a
   // second pass, up to the ceiling on how much new ground one day can hold.
-  const spare = isWordsGoal ? 0 : cap - baseNew.length - selectedReview.length;
+  const spare = frozenWordTargets ? 0 : cap - baseNew.length - selectedReview.length;
   const selectedNew = spare > 0
     ? newPool.slice(0, Math.min(baseNew.length + spare, NEW_MAX, cap))
     : baseNew;
-  const reviewBudget = isWordsGoal ? reviewTarget : cap - selectedNew.length;
+  const reviewBudget = frozenWordTargets ? reviewTarget : cap - selectedNew.length;
 
   // Coming back after a week starts on new ground rather than on a wall of
   // overdue repeats, so the warm-up is skipped and the whole review budget
@@ -147,7 +167,8 @@ export function planSession(input: SessionPlanInput): SessionPlan {
 
   // Repeats ran out before the budget did: the day is closed with a second pass
   // over today's new words instead of being left short of review entirely.
-  const fillWithRepeats = selectedReview.length < reviewBudget && newIds.length > 0;
+  const fillWithRepeats = newIds.length > 0 &&
+    (selectedReview.length === 0 || selectedReview.length < reviewBudget);
   // A minutes day is cut by the clock rather than by card counts, so it gets
   // the three time stretches instead of the words day's batched blocks.
   const blocks = isWordsGoal

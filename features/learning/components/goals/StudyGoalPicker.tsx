@@ -22,7 +22,7 @@ const ARC_DEGREES = 300;
 const RING_RADIUS = 82;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const RING_ARC_LENGTH = RING_CIRCUMFERENCE * (ARC_DEGREES / 360);
-const DEFAULT_WEEKDAYS: GoalWeekday[] = defaultGoalWeekdays(4);
+const DEFAULT_WEEKDAYS: GoalWeekday[] = defaultGoalWeekdays(7);
 const ALL_WEEKDAYS: GoalWeekday[] = defaultGoalWeekdays(7);
 
 export type GoalPickerValue = {
@@ -278,7 +278,7 @@ export function StudyGoalPicker({
   const { t } = useI18n();
   const [mode, setMode] = useState<GoalMode>(initial?.mode ?? 'words');
   const initialWeekdays = normalizeGoalWeekdays(initial?.weekdays)
-    ?? defaultGoalWeekdays(initial?.daysPerWeek ?? 4);
+    ?? defaultGoalWeekdays(initial?.daysPerWeek ?? 7);
   const [weekdays, setWeekdays] = useState<GoalWeekday[]>(initialWeekdays);
   const [minutesPerDay, setMinutesPerDay] = useState(initial?.minutesPerDay ?? 10);
   const [newWordsPerDay, setNewWordsPerDay] = useState(initial?.newWordsPerDay ?? 5);

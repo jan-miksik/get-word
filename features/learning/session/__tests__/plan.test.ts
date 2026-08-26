@@ -49,6 +49,78 @@ describe('planSession', () => {
     expect(plan.shortfall).toBe(0);
   });
 
+  it('uses the selected goal while today\'s server snapshot is still empty', () => {
+    const firstSession = { ...goal, mode: 'words' as const, wordsPerDay: 5, newWordsPerDay: 5 };
+    const plan = planSession({
+      goal: firstSession,
+      priorityWords: [],
+      dueWords: [],
+      newWords: Array.from({ length: 5 }, (_, i) => word(`new-${i}`)),
+      progress: {},
+      // A goal-summary read can create a measurement row before the first
+      // study event has frozen its target fields.
+      dayTargets: { resolvedNewTarget: null, resolvedReviewTarget: null, resolvedItemBudget: 17 },
+    });
+
+    expect(plan.newIds).toHaveLength(5);
+    expect(plan.blocks).not.toEqual([]);
+  });
+
+  it('adds reinforcement when a frozen words day has new words but no due reviews', () => {
+    const firstSession = { ...goal, mode: 'words' as const, wordsPerDay: 5, newWordsPerDay: 5 };
+    const plan = planSession({
+      goal: firstSession,
+      priorityWords: [],
+      dueWords: [],
+      newWords: Array.from({ length: 5 }, (_, i) => word(`new-${i}`)),
+      progress: {},
+      dayTargets: { resolvedNewTarget: 5, resolvedReviewTarget: 0, resolvedItemBudget: 17 },
+    });
+
+    expect(plan.blocks.map((block) => ({
+      kind: block.kind,
+      ids: block.ids,
+      pass: block.pass ?? 1,
+      reinforcement: block.reinforcement ?? false,
+    }))).toEqual([
+      {
+        kind: 'new',
+        ids: ['new-0', 'new-1', 'new-2', 'new-3', 'new-4'],
+        pass: 1,
+        reinforcement: false,
+      },
+      {
+        kind: 'review',
+        ids: ['new-0', 'new-1', 'new-2', 'new-3', 'new-4'],
+        pass: 2,
+        reinforcement: true,
+      },
+    ]);
+    expect(plan.answerBaseline).toEqual({
+      'new-0': 0,
+      'new-1': 0,
+      'new-2': 0,
+      'new-3': 0,
+      'new-4': 0,
+    });
+  });
+
+  it('reopens a stale zero target when newly committed words are live', () => {
+    const firstSession = { ...goal, mode: 'words' as const, wordsPerDay: 5, newWordsPerDay: 5 };
+    const plan = planSession({
+      goal: firstSession,
+      priorityWords: Array.from({ length: 5 }, (_, i) => word(`committed-${i}`)),
+      dueWords: [],
+      newWords: [],
+      progress: {},
+      // Activity tracking froze the day before the add-words commit finished.
+      dayTargets: { resolvedNewTarget: 0, resolvedReviewTarget: 0, resolvedItemBudget: 5 },
+    });
+
+    expect(plan.newIds).toHaveLength(5);
+    expect(plan.blocks[0]).toMatchObject({ kind: 'new' });
+  });
+
   it('cuts a minutes day into its three time stretches', () => {
     const roomy = { ...goal, wordsPerDay: 40 };
     const plan = planSession({

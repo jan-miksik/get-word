@@ -116,6 +116,16 @@ export function AddWordsScreen({
   // State rather than a ref: the photo tab is a render prop, so its handler is
   // built during render and cannot read a ref to find the flow's actions.
   const [entryActions, setEntryActions] = useState<WordChatEntryActions | null>(null);
+  // Later steps no longer identify how this batch was started. Preserve the
+  // entry choice so an AI-created proposal does not highlight "By typing" as
+  // soon as the conversation advances from `chat` to `select`.
+  const [entryTab, setEntryTab] = useState<Exclude<AddWordsTab, 'photo'>>(() => {
+    const draft = loadDraft(languageFrom, languageTo);
+    if (draft) {
+      return draft.messages.length > 0 || draft.proposals.length > 0 ? 'ai' : 'manual';
+    }
+    return readAddWordsTab() === 'ai' ? 'ai' : 'manual';
+  });
   const restoredTabRef = useRef(false);
   const screenRef = useRef<HTMLDivElement | null>(null);
   const keyboardOpen = useMobileKeyboardOpen(screenRef, active && !photoTabActive);
@@ -145,7 +155,7 @@ export function AddWordsScreen({
     setEntryActions(actions);
   }, []);
 
-  const activeTab: AddWordsTab = photoTabActive ? 'photo' : step === 'chat' ? 'ai' : 'manual';
+  const activeTab: AddWordsTab = photoTabActive ? 'photo' : entryTab;
   // Collecting words is what the tabs are for. Once the translations are on
   // screen the learner is working on one batch, and switching the way in would
   // only be a way to lose it.
@@ -155,6 +165,7 @@ export function AddWordsScreen({
     (tab: AddWordsTab) => {
       if (tab === activeTab) return;
       storeAddWordsTab(tab);
+      if (tab !== 'photo') setEntryTab(tab);
       // The surface moves first — the flow's own tabs live behind `?surface=chat`,
       // and telling it to switch while the photo tab is still up would run the
       // change on a screen nobody is looking at.
@@ -191,10 +202,11 @@ export function AddWordsScreen({
   useEffect(() => {
     if (!active || !entryActions || restoredTabRef.current) return;
     restoredTabRef.current = true;
-    if (photoTabActive || readAddWordsTab() !== 'ai') return;
+    if (photoTabActive) return;
     if (loadDraft(languageFrom, languageTo)) return;
+    if (entryTab !== 'ai') return;
     entryActions.startChat();
-  }, [active, entryActions, languageFrom, languageTo, photoTabActive]);
+  }, [active, entryActions, entryTab, languageFrom, languageTo, photoTabActive]);
 
   // While the keyboard is up on a phone there is barely a third of the screen
   // left, and the top menu is not usable mid-sentence anyway. Hand its space to
@@ -373,7 +385,12 @@ export function AddWordsScreen({
             refreshAfterCommit={refreshAfterCommit}
             onLanguagePairChange={changeLanguagePair}
             onDone={returnToStudyAfterDone}
-            onStepChange={setStep}
+            onStepChange={(nextStep) => {
+              setStep(nextStep);
+              // Also covers a restored conversation that enters chat from
+              // inside the flow instead of through the host tab button.
+              if (nextStep === 'chat') setEntryTab('ai');
+            }}
             onHeaderBackActionChange={handleHeaderBackActionChange}
             settingsPlacement="screen-header"
             headerSlot={headerSlot}

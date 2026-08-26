@@ -65,6 +65,9 @@ type LearningUiState = {
 
 type SessionDay = { dayKey: string; timezone: string };
 
+/** The extra helping of new words offered when the goal names no size itself. */
+const DEFAULT_EXTRA_NEW_WORDS = 5;
+
 /**
  * The stretch the learner opted into once they had already earned the day.
  *
@@ -247,6 +250,7 @@ export function useLearningPageState({
         key: block.key,
         kind: block.kind,
         blockIndex,
+        ...(block.reinforcement ? { reinforcement: true as const } : {}),
         words: block.ids
           .map((id) => liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined))
           .filter((word): word is NormalizedWord => Boolean(word)),
@@ -269,6 +273,25 @@ export function useLearningPageState({
   // panel lists — which is why the closing card quotes this number instead of
   // reading an emptied plan as "nothing due".
   const dueNowCount = priorityDueCount + dueWords.length;
+  // The learner's own words lead the stream whether or not they have ever been
+  // studied, so the priority bucket holds both kinds. The two halves of a bonus
+  // round have to be told apart, and each half has to match the number the
+  // closing card puts on its button.
+  const bonusReviewWords = useMemo(
+    () => [...priorityWords.slice(0, priorityDueCount), ...dueWords],
+    [dueWords, priorityDueCount, priorityWords],
+  );
+  // Leftover repeats are work already owed, so all of them are offered. New
+  // words are not: a goal of five a day exists to pace exactly them, and
+  // handing over a whole freshly imported list the moment the day closes would
+  // undo it. What is offered is one more helping of the size the learner
+  // themselves chose — enough to reach words added an hour ago, not the pile.
+  const extraNewLimit = Math.max(1, dayTargets?.resolvedNewTarget ?? DEFAULT_EXTRA_NEW_WORDS);
+  const bonusNewWords = useMemo(
+    () => [...priorityWords.slice(priorityDueCount), ...newWords].slice(0, extraNewLimit),
+    [extraNewLimit, newWords, priorityDueCount, priorityWords],
+  );
+  const newNowCount = bonusNewWords.length;
 
   const learnedPool = useMemo(
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
@@ -322,8 +345,8 @@ export function useLearningPageState({
     // Frozen once. Every later run — the learner is answering, so `progress`
     // changes constantly — resolves to the snapshot already held and stops.
     const next = !continueAnyway ? null : bonus ?? freezeBonusRound({
-      reviewWords: [...priorityWords, ...dueWords],
-      newWords,
+      reviewWords: bonusReviewWords,
+      newWords: bonusNewWords,
       progress,
     });
     if (next === bonus) return;
@@ -331,7 +354,7 @@ export function useLearningPageState({
     // live stream, and it is written exactly once per bonus round.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBonus(next);
-  }, [bonus, continueAnyway, dueWords, newWords, priorityWords, progress]);
+  }, [bonus, bonusNewWords, bonusReviewWords, continueAnyway, progress]);
 
   const bonusBlockProgress = useMemo(
     () => computeBlockProgress(bonus?.blocks ?? [], {
@@ -371,6 +394,7 @@ export function useLearningPageState({
     setDismissedGames,
     dueWords: plannedDueWords,
     dueNowCount,
+    newNowCount,
     session,
     settlingWords,
     streamGroups,

@@ -7,6 +7,8 @@ import { useI18n } from '@/components/I18nProvider';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
 import { runSignOutHandler } from '@/features/auth/client/sign-out-runtime';
 import { deleteDeviceId } from '@/lib/device-id';
+import { clearLearningCache } from '@/lib/local-learning-cache';
+import { clearPendingSync, resetSyncIdentity } from '@/lib/sync';
 
 interface DeleteAccountModalProps {
   isOpen: boolean;
@@ -23,18 +25,20 @@ type Preview = {
 
 type Phase = 'confirm' | 'deleting' | 'deleted' | 'completing' | 'error';
 
-/** Remove only Get-Word-owned localStorage keys; leave unrelated keys alone. */
-function clearGetWordLocalStorage() {
+/** Remove Get Word's browser state without touching another site's keys. */
+function clearGetWordBrowserStorage() {
   try {
     deleteDeviceId();
-    const toRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('get_word') || key.startsWith('get-word'))) {
-        toRemove.push(key);
+    for (const storage of [localStorage, sessionStorage]) {
+      const toRemove: string[] = [];
+      for (let i = 0; i < storage.length; i += 1) {
+        const key = storage.key(i);
+        if (key && (key.startsWith('get_word') || key.startsWith('get-word'))) {
+          toRemove.push(key);
+        }
       }
+      toRemove.forEach((key) => storage.removeItem(key));
     }
-    toRemove.forEach((key) => localStorage.removeItem(key));
   } catch {
     // Ignore storage access errors (private mode, etc.).
   }
@@ -139,7 +143,15 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
         return;
       }
       const data = (await res.json()) as { status: 'deleted' | 'completing' };
-      clearGetWordLocalStorage();
+      // Account deletion used to clear a few localStorage values only. The
+      // offline snapshot and mutation outbox therefore survived and could
+      // hydrate a newly-created account with the deleted account's completed
+      // onboarding. Stop every pending writer first, then remove the complete
+      // local-first database before navigating to registration.
+      clearPendingSync();
+      resetSyncIdentity();
+      clearGetWordBrowserStorage();
+      await clearLearningCache();
       setPhase(data.status === 'completing' ? 'completing' : 'deleted');
       // Give the user a moment to read the confirmation, then drop into a fully
       // signed-out state. On the web that is a hard reload once the session

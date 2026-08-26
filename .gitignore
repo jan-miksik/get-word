@@ -24,6 +24,9 @@ node_modules/
 # production
 /build
 
+# Local Google Play release package (contains the private upload key and passwords)
+/google-play-package/
+
 # misc
 .DS_Store
 *.pem

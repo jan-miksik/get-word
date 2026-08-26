@@ -1,5 +1,6 @@
 'use client';
 
+import type { StreakChipData } from '@/features/learning/goals/streakWeek';
 import { AppLayout } from '@/components/AppLayout';
 import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
 import { VirtualizedWordList } from './VirtualizedWordList';
@@ -87,8 +88,24 @@ interface LearningStudyContentProps {
   settlingCount: number;
   /** Repeats due right now that today's plan did not take. */
   dueNowCount?: number;
-  /** Lifts the day's cap so those repeats join the stream. */
+  /** Words never studied that today's plan did not reach. */
+  newNowCount?: number;
+  /** Lifts the day's cap so those leftovers join the stream. */
   onStudyExtra?: () => void;
+  /**
+   * The day's plan. A complete one turns the emptied deck from "nothing due"
+   * into the card that closes the day — which is the only place that card
+   * lives, because a finished day is a state rather than an event.
+   */
+  dayFlow?: SessionFlowState | null;
+  /** The whole day as the server counted it, bonus round included. */
+  dayScore?: { introduced: number; reviewed: number; target: number | null } | null;
+  /** How far the day's plan fell short of the goal for want of words. */
+  shortfall?: number;
+  /** The finished day's settled cost, once the day is closed. */
+  dayResult?: { activeMs: number; itemsDone: number; secondsPerItem: number } | null;
+  /** The study series, for the closing card and the header chip alike. */
+  streak?: StreakChipData | null;
   onToggleShowNotReady: () => void;
 }
 
@@ -130,7 +147,13 @@ export function LearningStudyContent({
   showNotReady,
   settlingCount,
   dueNowCount = 0,
+  newNowCount = 0,
   onStudyExtra,
+  dayFlow = null,
+  dayScore = null,
+  shortfall = 0,
+  dayResult = null,
+  streak = null,
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
   const { t, language: uiLanguage } = useI18n();
@@ -172,14 +195,22 @@ export function LearningStudyContent({
   ) : null;
 
   // The deck emptying is never a dead end: the same card that says there is
-  // nothing due also carries a way to keep going. `noPersonalWordsState` still
-  // wins where the pair has no words at all, because that needs its own
-  // explanation and offers.
+  // nothing due also carries a way to keep going. It is also where a finished
+  // day is announced — once, here, instead of as an interstitial that has to be
+  // dismissed onto a second copy of itself. `noPersonalWordsState` still wins
+  // where the pair has no words at all, because that needs its own explanation
+  // and offers.
   const sessionDoneState = (title?: string) => (
     <SessionDoneCard
       title={title}
       settlingCount={settlingCount}
       dueNowCount={dueNowCount}
+      newNowCount={newNowCount}
+      dayFlow={dayFlow}
+      dayScore={dayScore}
+      shortfall={shortfall}
+      dayResult={dayResult}
+      streak={streak}
       onStudyExtra={onStudyExtra}
       onOpenWordChat={onOpenWordChat}
     />
@@ -202,6 +233,7 @@ export function LearningStudyContent({
       onSurfaceChange={onSurfaceChange}
       categories={categories}
       progressStats={progressStats}
+      streak={streak}
     >
       <main
         className="app-workspace-main relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
@@ -233,7 +265,11 @@ export function LearningStudyContent({
           className={viewMode === 'card' ? 'learning-card-main px-3 sm:px-0' : ''}
         >
           {viewMode === 'card' ? (
-            <div className="learning-card-viewport relative mx-auto flex h-full w-full max-w-[800px] flex-col gap-2">
+            // No width cap here. The 800px reading width belongs to the cards
+            // being studied, and `CardDeckView` applies it to those directly —
+            // capping the whole column instead also caps the card that closes
+            // the day, which is the one thing meant to own the screen.
+            <div className="learning-card-viewport relative mx-auto flex h-full w-full flex-col gap-2">
               <div className="min-h-0 flex-1">
                 <CardDeckView
                   streamGroups={streamGroups}

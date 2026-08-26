@@ -8,6 +8,14 @@ import { StudyCountdown } from '@/features/learning/components/goals/StudyCountd
 import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
 import { StudyGoalPicker, type GoalPickerValue } from '@/features/learning/components/goals/StudyGoalPicker';
 import { SessionRail } from '@/features/learning/components/SessionRail';
+import { StreakDays, StreakSummary } from '@/features/learning/components/goals/StreakDays';
+import { SessionCardShell } from '@/features/learning/components/SessionCardShell';
+import {
+  STREAK_VARIANTS,
+  useStreakVariant,
+  writeStreakVariant,
+} from '@/features/learning/components/goals/streakVariant';
+import type { StreakChipData, StreakDay } from '@/features/learning/goals/streakWeek';
 import { SessionTimeStrip } from '@/features/learning/components/SessionTimeStrip';
 import { currentIanaTimezone } from '@/lib/local-day';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
@@ -24,9 +32,9 @@ import type { ReviewLoadInput } from '@/packages/domain/goals/forecast';
 import type { StudyGoalVersion, StudyPacing } from '@/packages/domain/goals/goal';
 
 type GoalDay = GoalSummary['days'][number];
-type View = 'setup' | 'countdown' | 'forecast';
+type View = 'setup' | 'countdown' | 'streak' | 'forecast';
 
-const VIEWS: View[] = ['setup', 'countdown', 'forecast'];
+const VIEWS: View[] = ['setup', 'countdown', 'streak', 'forecast'];
 
 /**
  * The app's default pacing, not an empty one. An empty stage table collapses
@@ -69,6 +77,139 @@ function goalFrom(value: GoalPickerValue): ReviewLoadInput['goal'] {
     newWordsPerDay: isWords ? value.newWordsPerDay : null,
     pacing,
   };
+}
+
+/**
+ * Every state a segment can take, side by side.
+ *
+ * The states that matter most here are the quiet ones: a `nothing_due` day must
+ * not read as a miss, and a planned day still ahead must stay visible or the
+ * rhythm of a 4/7 goal disappears.
+ */
+const STREAK_CASES: Array<{ label: string; day: Partial<StreakDay> }> = [
+  { label: 'nic neudělal', day: { status: 'none' } },
+  { label: 'něco, ale málo', day: { status: 'partial' } },
+  { label: 'splnil cíl', day: { status: 'met' } },
+  { label: 'splnil a ještě víc', day: { status: 'exceeded' } },
+  { label: 'splnil mimo své dny', day: { status: 'met', preferred: false } },
+  { label: 'dnešek splněný', day: { status: 'met', isToday: true } },
+  { label: 'dnešek otevřený', day: { status: 'none', isToday: true } },
+  { label: 'nebylo co opakovat', day: { status: 'nothing_due' } },
+  { label: 'preferovaný, teprve přijde', day: { status: 'none', isFuture: true } },
+  { label: 'mimo preferenci', day: { status: 'none', preferred: false, isFuture: true } },
+];
+
+function streakDay(index: number, overrides: Partial<StreakDay>): StreakDay {
+  return {
+    dayKey: `2026-08-${String(24 + index).padStart(2, '0')}`,
+    weekday: index + 1,
+    status: 'none',
+    preferred: true,
+    isToday: false,
+    isFuture: false,
+    ...overrides,
+  };
+}
+
+function StreakView() {
+  const variant = useStreakVariant();
+
+  // A four-day goal preferring Mon/Wed/Fri/Sun, lived differently: Monday met,
+  // Tuesday exceeded though it was not a preferred day, Wednesday only partial,
+  // today (Thursday) met. Three days kept out of four, with the week still open.
+  const week: StreakDay[] = [
+    streakDay(0, { status: 'met' }),
+    streakDay(1, { status: 'exceeded', preferred: false }),
+    streakDay(2, { status: 'partial' }),
+    streakDay(3, { status: 'met', isToday: true }),
+    streakDay(4, { status: 'none', isFuture: true }),
+    streakDay(5, { status: 'none', preferred: false, isFuture: true }),
+    streakDay(6, { status: 'none', isFuture: true }),
+  ];
+
+  // Six weeks of plausible history, so the long-arc variant has something real
+  // to show rather than one week repeated.
+  const history: StreakDay[][] = [
+    [0, 2, 3, 1, 0, 4, 0],
+    [3, 0, 3, 0, 2, 3, 0],
+    [3, 3, 0, 3, 0, 0, 3],
+    [4, 0, 3, 2, 3, 0, 0],
+    [3, 3, 3, 0, 3, 0, 1],
+  ].map((row) => row.map((code, index) => streakDay(index, {
+    status: (['none', 'partial', 'met', 'exceeded'] as const)[Math.min(code, 3)],
+    preferred: [1, 3, 5, 7].includes(index + 1),
+  }))).concat([week]);
+
+  const streak: StreakChipData = {
+    days: week, weeks: history, dailyStreak: 1, weeklyStreak: 6, keptThisWeek: 3, weekTarget: 4,
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Card title="Varianta (sdílená s běžící appkou)">
+        <div className="flex flex-wrap gap-2">
+          {STREAK_VARIANTS.map((option) => (
+            <button
+              key={option} type="button" onClick={() => writeStreakVariant(option)}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold ${variant === option ? 'bg-[#a95e2a] text-white' : 'bg-[#eadfc8]'}`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        <p className="m-0 mt-2 text-xs text-[#735d43]">
+          Všechny varianty čtou stejnou sémantiku (kolik z dne, jaká barva,
+          dnešek) — liší se jen forma, ne co je pravda.
+        </p>
+      </Card>
+
+      <Card title="Všechny varianty vedle sebe">
+        <div className="flex flex-col gap-4">
+          {STREAK_VARIANTS.map((option) => (
+            <div key={option} className="flex items-center gap-4 rounded-xl bg-[#f6f1e6] p-4">
+              <span className="w-14 shrink-0 text-xs font-black uppercase tracking-wide text-[#735d43]">{option}</span>
+              <StreakDays days={week} weeks={history} size="full" variant={option} value={1} />
+              <span className="ml-auto flex items-center gap-2">
+                <span className="stat-chip">
+                  <StreakDays days={week} weeks={history} size="compact" variant={option} value={1} />
+                  <span className="stat-chip-copy"><span className="stat-chip-value">1</span></span>
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Deliberately outside `Card`, and wrapped in the same two constraints
+          the real deck imposes — the 800px viewport cap and the phone gutter —
+          because escaping those is the whole point of the card's full-bleed. */}
+      <div className="-mx-6 sm:mx-0">
+        <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide text-[#735d43]">
+          Karta konce dne (uvnitř skutečného guttteru decku, sloupec bez capu)
+        </p>
+        <div className="px-3 sm:px-0">
+          <div className="relative mx-auto flex w-full max-w-none flex-col">
+            <SessionCardShell celebratory>
+              <h2 className="m-0 text-2xl font-black text-[#1f1a12]">Pro dnešek hotovo!</h2>
+              <p className="m-0 mt-2 text-sm text-[#4a4032]">Další várka čeká zítra.</p>
+              <StreakSummary streak={streak} />
+            </SessionCardShell>
+          </div>
+        </div>
+      </div>
+
+      <Card title="Všechny stavy dne">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {STREAK_CASES.map((entry) => (
+            <div key={entry.label} className="flex flex-col items-center gap-2 rounded-xl bg-[#f6f1e6] p-3 text-center">
+              <StreakDays days={[streakDay(0, entry.day)]} size="full" />
+              <span className="text-[0.6875rem] font-bold leading-tight text-[#735d43]">{entry.label}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -136,6 +277,7 @@ function CountdownView() {
     resolvedNewTarget: 10, resolvedReviewTarget: 23,
     resolvedItemBudget: 33, resolvedMinutesBudget: 10,
     introducedWords: introduced, reviewedWords: reviewed, met: false,
+    preferred: true, status: nothingDue ? 'nothing_due' : 'none',
   };
   const goal = {
     id: 'dev', effectiveFromDay: DEV_DAY_KEY, enabled: true, mode,
@@ -341,7 +483,7 @@ export function StudyGoalDevPreview() {
             </button>
           ))}
         </div>
-        {view === 'setup' ? <SetupView /> : view === 'countdown' ? <CountdownView /> : <ForecastView />}
+        {view === 'setup' ? <SetupView /> : view === 'countdown' ? <CountdownView /> : view === 'streak' ? <StreakView /> : <ForecastView />}
       </main>
     </I18nProvider>
   );

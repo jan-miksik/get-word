@@ -36,6 +36,8 @@ export type ReminderCapability =
   | 'native'
   /** Notifications and a usable push subscription path both look present. */
   | 'web-push'
+  /** This build has no public VAPID key, so the app cannot request Push. */
+  | 'unconfigured'
   /** Notifications work; nothing here can deliver them in the background. */
   | 'local-only'
   /** Notifications need https; this page is not in a secure context. */
@@ -50,8 +52,7 @@ function hasNotificationApi(): boolean {
 function pushSubscriptionLooksAvailable(): boolean {
   return typeof window !== 'undefined'
     && 'serviceWorker' in navigator
-    && 'PushManager' in window
-    && vapidPublicKey() !== null;
+    && 'PushManager' in window;
 }
 
 /**
@@ -66,6 +67,7 @@ export function detectReminderCapability(hasNativePort = false): ReminderCapabil
   // all is unsupported whatever the origin, and http://localhost counts as a
   // secure context, so this only fires on a genuinely insecure page.
   if (!window.isSecureContext) return 'insecure-context';
+  if (!vapidPublicKey()) return 'unconfigured';
   return pushSubscriptionLooksAvailable() ? 'web-push' : 'local-only';
 }
 
@@ -81,6 +83,8 @@ export type StudyReminderPermissionResult =
   | 'granted'
   /** Permission exists, but this app has no delivery transport on this device. */
   | 'granted-local'
+  /** The deployed app is missing its browser-push public key. */
+  | 'unconfigured'
   /** The learner said no, or the site is blocked in browser settings. */
   | 'denied'
   /** The prompt was closed without an answer; asking again is allowed. */
@@ -115,25 +119,46 @@ async function readyServiceWorker(timeoutMs = 5000): Promise<ServiceWorkerRegist
   }
 }
 
+/**
+ * `PWARegister` normally owns installation. A previously failed registration,
+ * however, left Brave's retry button waiting on `ready` forever. On a direct
+ * user retry we may safely repair the same root-scoped registration and then
+ * ask for its active worker again.
+ */
+async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  const ready = await readyServiceWorker(2000);
+  if (ready) return ready;
+  if (!('serviceWorker' in navigator)) return null;
+
+  try {
+    const version = process.env.NEXT_PUBLIC_APP_VERSION ?? 'push-recovery';
+    await navigator.serviceWorker.register(
+      `/sw.js?build=${encodeURIComponent(version)}`,
+      { scope: '/', updateViaCache: 'none' },
+    );
+    return readyServiceWorker(5000);
+  } catch (error) {
+    console.warn('[reminders] service worker recovery failed:', error);
+    return null;
+  }
+}
+
 /** Must be called from a direct settings interaction because browsers reject
  * notification permission prompts not initiated by a user gesture. */
 async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResult> {
   const capability = detectReminderCapability();
-  if (capability === 'unsupported' || capability === 'insecure-context') return 'unsupported';
+  if (
+    capability === 'unsupported'
+    || capability === 'insecure-context'
+    || capability === 'unconfigured'
+  ) return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
   if (Notification.permission === 'default') {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return 'denied';
   }
-  if (capability === 'local-only') {
-    if (!vapidPublicKey()) {
-      console.warn(
-        '[reminders] NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY is not set, so this build cannot create push subscriptions.',
-      );
-    }
-    return 'push-unavailable';
-  }
-  const registration = await readyServiceWorker();
+  if (capability === 'local-only') return 'push-unavailable';
+  const registration = await ensureServiceWorker();
   if (!registration) return 'push-unavailable';
   const existing = await registration.pushManager.getSubscription();
   // Brave (and any browser whose push service is switched off) rejects here
@@ -146,8 +171,20 @@ async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResult> {
         applicationServerKey: base64UrlToApplicationServerKey(vapidPublicKey()!),
       });
     } catch (error) {
-      console.warn('[reminders] this browser refused a push subscription:', error);
-      return 'push-unavailable';
+      // Brave can keep a registration created while its Google push service was
+      // disabled. Refresh the worker and retry once now that the learner has
+      // enabled the service; this avoids requiring an app reinstall.
+      console.warn('[reminders] first push subscription attempt failed:', error);
+      try {
+        await registration.update();
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64UrlToApplicationServerKey(vapidPublicKey()!),
+        });
+      } catch (retryError) {
+        console.warn('[reminders] this browser refused a push subscription:', retryError);
+        return 'push-unavailable';
+      }
     }
   }
   const response = await apiFetch('/api/goals/push-subscription', {
@@ -172,6 +209,12 @@ export async function requestStudyReminderPermission(): Promise<StudyReminderPer
   const capability = detectReminderCapability();
   if (capability === 'unsupported') return 'unsupported';
   if (capability === 'insecure-context') return 'insecure-context';
+  if (capability === 'unconfigured') {
+    console.warn(
+      '[reminders] NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY is not set, so this build cannot create push subscriptions.',
+    );
+    return 'unconfigured';
+  }
 
   // Asked before subscribing so a closed prompt ("default" afterwards) can be
   // told apart from an explicit no.

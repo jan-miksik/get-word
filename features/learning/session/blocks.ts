@@ -16,6 +16,12 @@ export interface SessionBlock {
    */
   pass?: number;
   /**
+   * A same-session check of words introduced by the preceding new block.
+   * It uses the word's current (normally five-minute) exercise configuration,
+   * but a successful answer reinforces that stage instead of advancing it.
+   */
+  reinforcement?: true;
+  /**
    * Which stretch of a minutes day this block belongs to, 0–2. Present only on
    * a time plan: a words day is walked block by block, a minutes day is walked
    * by the clock, and the phase is what ties one to the other.
@@ -64,13 +70,14 @@ function push(
   blocks: SessionBlock[],
   kind: SessionBlockKind,
   ids: string[],
-  options: { pass?: number; phase?: number } = {},
+  options: { pass?: number; phase?: number; reinforcement?: true } = {},
 ): void {
   if (ids.length === 0) return;
   const key = `${kind}-${blocks.filter((block) => block.kind === kind).length}`;
   const block: SessionBlock = { key, kind, ids };
   if (options.pass && options.pass > 1) block.pass = options.pass;
   if (options.phase !== undefined) block.phase = options.phase;
+  if (options.reinforcement) block.reinforcement = true;
   blocks.push(block);
 }
 
@@ -118,7 +125,9 @@ export function planSessionBlocks(input: SessionBlockPlanInput): SessionBlock[] 
     if (review.length > 0) push(blocks, 'review', review);
     // A day with no repeats of its own still closes on review: the words from
     // the batch just seen come back for a second pass.
-    else if (input.fillWithRepeats) push(blocks, 'review', batch, { pass: 2 });
+    else if (input.fillWithRepeats) {
+      push(blocks, 'review', batch, { pass: 2, reinforcement: true });
+    }
   });
   return blocks;
 }
@@ -180,6 +189,8 @@ export function planTimeSessionBlocks(input: TimeSessionBlockPlanInput): Session
   // come back for a second pass, so the day still ends on consolidation rather
   // than on unknown words — or, worse, on an empty stretch that would close the
   // day at sixty per cent of its own budget.
-  if (input.fillWithRepeats) push(blocks, 'review', [...input.newIds], { pass: 2, phase: 2 });
+  if (input.fillWithRepeats) {
+    push(blocks, 'review', [...input.newIds], { pass: 2, phase: 2, reinforcement: true });
+  }
   return blocks;
 }

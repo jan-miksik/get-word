@@ -89,6 +89,7 @@ interface DeckEntry {
   item: StreamItem;
   key: string;
   blockIndex: number;
+  reinforcement?: true;
 }
 
 export interface CardDeckSwipeActions {
@@ -143,9 +144,6 @@ export function CardDeckView({
   const [exitAnim, setExitAnim] = useState<string | null>(null);
   const [enterAnim, setEnterAnim] = useState<string | null>(null);
   const [audioNetworkRevision, setAudioNetworkRevision] = useState(0);
-  // When the last card completes we show an overlay instead of jumping straight
-  // to the done screen — the user taps the overlay to confirm.
-  const [showDoneOverlay, setShowDoneOverlay] = useState(false);
 
   const normalizedGroups = useMemo<LearningStreamGroup[]>(
     () => streamGroups ?? (groupedWords ?? []).map((items, blockIndex) => ({
@@ -162,6 +160,7 @@ export function CardDeckView({
         item,
         key: deckEntryKey(group.key, item),
         blockIndex: group.blockIndex,
+        ...(group.reinforcement ? { reinforcement: true as const } : {}),
       })),
     ),
     [normalizedGroups],
@@ -203,10 +202,6 @@ export function CardDeckView({
   }, []);
 
   useEffect(() => {
-    // The final-card confirmation deliberately keeps showing the completed card
-    // even if the live queue removes it immediately after its review is saved.
-    if (showDoneOverlay) return;
-
     const availableKeys = new Set(entries.map((entry) => entry.key));
     for (const key of completedItemKeysRef.current) {
       if (!availableKeys.has(key)) completedItemKeysRef.current.delete(key);
@@ -227,8 +222,7 @@ export function CardDeckView({
     );
     setCurrentIndex(nextIndex >= 0 ? nextIndex : entries.length);
     updateLastEntry(nextIndex >= 0 ? entries[nextIndex] : null);
-    setShowDoneOverlay(false);
-  }, [entries, showDoneOverlay, updateLastEntry]);
+  }, [entries, updateLastEntry]);
 
   // Clear any pending fallback timer on unmount.
   useEffect(() => () => {
@@ -306,17 +300,15 @@ export function CardDeckView({
   // afterExit contract, by return value:
   //   'exit'    — runs exactly once when the exit animation ends (or the
   //               EXIT_FALLBACK_MS timer fires).
-  //   'overlay' — last-card path: runs synchronously, then the done overlay shows.
   //   'skipped' — test/skipAnimation path: runs synchronously.
   //   'ignored' — re-entrant call rejected before afterExit is stashed: never runs.
   const advance = useCallback((opts?: {
     skipAnimation?: boolean;
     afterExit?: () => void;
     exitAnim?: string;
-  }): 'exit' | 'overlay' | 'skipped' | 'ignored' => {
+  }): 'exit' | 'skipped' | 'ignored' => {
     const idx = currentIndexRef.current;
     const currentEntries = entriesRef.current;
-    const last = currentEntries.length > 0 ? currentEntries.length - 1 : -1;
     const skip = opts?.skipAnimation ?? false;
     // Ignore taps while an exit animation is already running — otherwise a second
     // tap overwrites the pending callback and can re-pick the same animation
@@ -345,19 +337,6 @@ export function CardDeckView({
     }
 
     if (currentEntry) setLockedEntry(currentEntry);
-
-    const hasAnotherEntry = currentEntries.some(
-      (candidate) => !completedItemKeysRef.current.has(candidate.key),
-    );
-    if (last >= 0 && !hasAnotherEntry) {
-      if (!isMinigame) {
-        setShowDoneOverlay(true);
-        const afterExit = pendingAfterExitRef.current;
-        pendingAfterExitRef.current = null;
-        afterExit?.();
-        return 'overlay';
-      }
-    }
 
     beginExit(opts?.exitAnim);
     return 'exit';
@@ -391,7 +370,7 @@ export function CardDeckView({
     return currentItem.id;
   }, [isSwipeBlockedForWord]);
   const swipeConfigured = Boolean(swipeActions);
-  const swipeEnabled = swipeConfigured && !interstitialCard && !showDoneOverlay && !exitAnim;
+  const swipeEnabled = swipeConfigured && !interstitialCard && !exitAnim;
   const swipe = useSwipeGesture({
     enabled: swipeEnabled,
     allowHorizontal: allowHorizontalSwipe,
@@ -406,8 +385,7 @@ export function CardDeckView({
         },
         exitAnim: 'animate-deck-exit-swipe',
       });
-      // No exit animation started (last-card overlay, re-entrant call): keep
-      // the card visible and spring it back under the overlay.
+      // No exit animation started (a re-entrant call): spring the card back.
       if (result !== 'exit') swipe.reset();
     },
   });
@@ -445,14 +423,14 @@ export function CardDeckView({
     // `features/learning/onboarding/featureTourSteps.ts`.
     <div
       data-tour="study"
-      className="card-deck-view relative flex h-full w-full flex-col overflow-visible"
+      className="card-deck-view relative mx-auto flex h-full w-full max-w-[800px] flex-col overflow-visible"
     >
         {interstitialCard}
       </div>
     );
   }
 
-  if (isDone && !showDoneOverlay) {
+  if (isDone) {
     return (
       <div className="flex h-full items-center justify-center">
         {emptyState ?? (
@@ -482,7 +460,10 @@ export function CardDeckView({
   const isMinigame = '_isMinigame' in item;
   const itemKey = entry.key;
   const isExiting = Boolean(exitAnim);
-  const swipeActive = swipeConfigured && !isMinigame;
+  // Reinforcement has asymmetric SRS semantics: a correct answer confirms the
+  // five-minute stage instead of advancing it. The deck-level swipe callbacks
+  // are ordinary known/unknown actions, so keep this short block button-driven.
+  const swipeActive = swipeConfigured && !isMinigame && !entry.reinforcement;
   const horizontalSwipeActive = swipeActive && allowHorizontalSwipe;
 
   // Swipe badges show when the word comes back rather than a right/wrong
@@ -508,7 +489,10 @@ export function CardDeckView({
     // `features/learning/onboarding/featureTourSteps.ts`.
     <div
       data-tour="study"
-      className="card-deck-view relative flex h-full w-full flex-col overflow-visible"
+      // The reading width for a card being studied. It lives here rather than
+      // on the column so that the empty states — the card that closes the day
+      // above all — are free to use the whole screen.
+      className="card-deck-view relative mx-auto flex h-full w-full max-w-[800px] flex-col overflow-visible"
     >
       <div
         key={itemKey}
@@ -583,37 +567,6 @@ export function CardDeckView({
         </div>
       )}
 
-      {/* Overlay shown after the last card completes — waits for an explicit tap */}
-      {showDoneOverlay && (
-        <div
-          className="absolute inset-0 z-20 flex flex-col items-center justify-end cursor-pointer"
-          onClick={() => {
-            setShowDoneOverlay(false);
-            beginExit();
-          }}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              setShowDoneOverlay(false);
-              beginExit();
-            }
-          }}
-        >
-          <div
-            className="flex items-center justify-center w-full px-4 py-4 rounded-b-xl max-sm:rounded-b-none"
-            style={{ animation: 'deck-done-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
-          >
-            <span className="text-sm font-medium text-[#2A2218]">{t('card.tapToContinue')}</span>
-          </div>
-          <style>{`
-            @keyframes deck-done-slide {
-              0% { opacity: 0; transform: translateY(8px); }
-              100% { opacity: 1; transform: translateY(0); }
-            }
-          `}</style>
-        </div>
-      )}
     </div>
   );
 }

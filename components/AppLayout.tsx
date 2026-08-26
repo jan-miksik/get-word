@@ -1,5 +1,6 @@
 'use client';
 
+import type { StreakChipData } from '@/features/learning/goals/streakWeek';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { TopMenu } from '@/components/TopMenu';
 import type { SchoolMembership } from '@/features/auth/client/useAuth';
@@ -51,6 +52,8 @@ interface AppLayoutProps {
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
+  /** The study series for the header chip; absent when no goal is active. */
+  streak?: StreakChipData | null;
   // Layout
   header?: ReactNode;
   children: ReactNode;
@@ -73,6 +76,7 @@ export function AppLayout({
   onSurfaceChange,
   categories,
   progressStats,
+  streak,
   header,
   children,
 }: AppLayoutProps) {
@@ -83,7 +87,9 @@ export function AppLayout({
     categoryOpen,
     memoryHooksOpen,
     upcomingOpen,
+    openRequest,
     toggle,
+    open,
     closeAll,
   } = useMenuPanels();
 
@@ -155,6 +161,8 @@ export function AppLayout({
           showAll={showAll}
           onShowAll={() => setShowAll(!showAll)}
           onMenuAction={toggle}
+          streak={streak}
+          onOpenStreak={() => open('upcoming', { section: 'progress' })}
           categoryCount={selectedCategories.size}
           categoryActive={categories.length > 0 && selectedCategories.size < categories.length}
           score={gameScore}
@@ -265,7 +273,13 @@ export function AppLayout({
         isOpen={memoryHooksOpen}
         onClose={closeAll}
       />
-      <UpcomingPanel isOpen={upcomingOpen} onClose={closeAll} progressStats={progressStats} />
+      <UpcomingPanel
+        isOpen={upcomingOpen}
+        onClose={closeAll}
+        progressStats={progressStats}
+        focusSection={openRequest?.panel === 'upcoming' ? openRequest.section : null}
+        focusRequestId={openRequest?.panel === 'upcoming' ? openRequest.requestId : undefined}
+      />
 
       <PWAInstallBanner />
       {children}

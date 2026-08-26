@@ -13,6 +13,8 @@ import {
   MAX_WORD_CHAT_ID_CHARS,
   MAX_WORD_CHAT_ITEM_CHARS,
 } from "@/features/word-chat/server/config";
+import { reopenNothingDueDayGoalSnapshot } from "@/lib/db";
+import { localDayKeyAt, normalizeIanaTimezone } from "@/lib/local-day";
 
 export const runtime = "nodejs";
 
@@ -115,6 +117,16 @@ export async function POST(request: NextRequest) {
         messages: sanitizeMessages(body.messages),
       },
     });
+
+    // An activity segment may have frozen today as 0/0 while this add-words
+    // flow was still open. The committed rows now make that verdict stale;
+    // reopen it before the client refreshes its snapshot and starts studying.
+    const timezone = normalizeIanaTimezone(user.timezone);
+    await reopenNothingDueDayGoalSnapshot(
+      user.id,
+      localDayKeyAt(Date.now(), timezone),
+      timezone,
+    );
 
     return NextResponse.json({
       list_id: result.listId,
