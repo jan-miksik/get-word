@@ -1,4 +1,15 @@
 import type { NormalizedWord } from '@/lib/words';
+import type { WordSide } from '@/features/learning/state/learningRole';
+
+/** The word's text on one physical side of the pair. */
+export function termOnSide(word: NormalizedWord, side: WordSide): string {
+  return side === 'from' ? word.cz : word.vi;
+}
+
+/** Extra spellings that also count as correct on that side. */
+export function acceptedOnSide(word: NormalizedWord, side: WordSide): string[] {
+  return side === 'from' ? word.acceptedKnown ?? [] : word.acceptedTarget ?? [];
+}
 
 /**
  * Categories that describe a word's *form* rather than its topic. They say

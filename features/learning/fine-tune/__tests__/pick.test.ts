@@ -375,3 +375,102 @@ describe('pickMatchRound', () => {
     expect(round!.words[0].id).toBe(pool[0].id);
   });
 });
+
+describe('pickExerciseForWord — invented lookalikes', () => {
+  // A Vietnamese-side list with no near-twins in it at all: any band III round
+  // built from this pool alone would have to degrade.
+  const vietnamesePool = (): NormalizedWord[] => [
+    word('a', 'matka', 'người'),
+    word('b', 'dům', 'nhà'),
+    word('c', 'kniha', 'sách'),
+    word('d', 'voda', 'nước'),
+    word('e', 'stůl', 'bàn'),
+    word('f', 'chleba', 'bánh mì'),
+    word('g', 'zahrada', 'vườn'),
+    word('h', 'oblak', 'mây'),
+  ];
+
+  const chooseWith = (variant: ChoiceVariant, pool: NormalizedWord[]) => {
+    const config = configWithStage(5, stage({ choice: { weight: 1, variants: [variant] } }));
+    const exercise = pickExerciseForWord({
+      word: pool[0],
+      stageIndex: 5,
+      knownCount: 3,
+      unknownCount: 0,
+      config,
+      distractorPool: pool,
+      role: 'knownLanguage',
+    });
+    if (exercise.method !== 'choice') throw new Error(`expected choice, got ${exercise.method}`);
+    return exercise;
+  };
+
+  const inventedIn = (exercise: { distractors: NormalizedWord[] }) =>
+    exercise.distractors.filter((entry) => entry.id.startsWith('invented:'));
+
+  it('reaches band III on a list that holds no real near-twins', () => {
+    const exercise = chooseWith('5:III:foreign', vietnamesePool());
+    expect(exercise.effectiveBand).toBe('III');
+    expect(inventedIn(exercise).length).toBeGreaterThan(0);
+    expect(exercise.distractors).toHaveLength(4);
+  });
+
+  it('caps invented options at two and never lets them take the whole round', () => {
+    for (const variant of ['3:III:foreign', '5:III:foreign', '8:III:foreign'] as ChoiceVariant[]) {
+      const exercise = chooseWith(variant, vietnamesePool());
+      const invented = inventedIn(exercise);
+      expect(invented.length).toBeLessThanOrEqual(2);
+      expect(invented.length).toBeLessThan(exercise.distractors.length);
+    }
+  });
+
+  it('bends only the side the options are written in', () => {
+    const exercise = chooseWith('5:III:foreign', vietnamesePool());
+    for (const entry of inventedIn(exercise)) {
+      // 'foreign' options for this role read the to-side, so the lookalike is
+      // built from 'người' rather than from the Czech prompt.
+      expect(entry.vi).not.toBe('người');
+      expect(entry.vi.normalize('NFD').replace(/[̀-ͯ]/g, ''))
+        .toBe('người'.normalize('NFD').replace(/[̀-ͯ]/g, ''));
+    }
+  });
+
+  it('leaves the easier bands to real vocabulary', () => {
+    for (const variant of ['5:II:foreign', '5:I:foreign'] as ChoiceVariant[]) {
+      expect(inventedIn(chooseWith(variant, vietnamesePool()))).toHaveLength(0);
+    }
+  });
+
+  it('never invents a spelling that is a word in the list', () => {
+    // 'nuoc' is deliberately present as its own entry, so the accent-stripped
+    // lookalike of 'nước' must not be offered as a wrong answer.
+    const pool = vietnamesePool();
+    pool[0] = word('a', 'voda', 'nước');
+    pool.push(word('z', 'jine', 'nuoc'));
+    const exercise = chooseWith('6:III:foreign', pool);
+    expect(inventedIn(exercise).map((entry) => entry.vi)).not.toContain('nuoc');
+  });
+
+  it('carries no audio or accepted spellings over from the real word', () => {
+    const pool = vietnamesePool();
+    pool[0] = { ...pool[0], viAudio: 'https://example.test/a.mp3', acceptedTarget: ['nguoi'] };
+    const exercise = chooseWith('5:III:foreign', pool);
+    for (const entry of inventedIn(exercise)) {
+      expect(entry.viAudio).toBeUndefined();
+      expect(entry.acceptedTarget).toBeUndefined();
+      expect(entry.vi).not.toBe('nguoi');
+    }
+  });
+
+  it('stays out of matching rounds, which need two real sides', () => {
+    const config = configWithStage(5, stage({ match: { variants: ['4:III'] } }));
+    const round = pickMatchRound({
+      anchor: vietnamesePool()[0],
+      stageIndex: 5,
+      config,
+      pool: vietnamesePool(),
+      seed: 7,
+    });
+    expect(round?.words.every((entry) => !entry.id.startsWith('invented:'))).toBe(true);
+  });
+});

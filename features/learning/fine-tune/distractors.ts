@@ -6,7 +6,17 @@ import {
   type SimilarityBand,
 } from '@/features/learning/minigames/similarity';
 import type { WordSide } from '@/features/learning/state/learningRole';
-import { hasDistinctVisibleAnswers, sharesLearningScope } from '@/features/learning/minigames/word-pool';
+import {
+  acceptedOnSide,
+  hasDistinctVisibleAnswers,
+  sharesLearningScope,
+  termOnSide,
+} from '@/features/learning/minigames/word-pool';
+import {
+  inventLookalikeForms,
+  scriptAlphabet,
+  surfaceKey,
+} from '@/features/learning/minigames/invented-forms';
 
 /**
  * Order in which a requested difficulty gives way when the list simply does not
@@ -29,6 +39,22 @@ const BAND_DEGRADATION_ORDER: readonly SimilarityBand[] = ['III', 'II', 'I'];
 export const MIN_IN_BAND_OPTIONS = (optionCount: number): number =>
   Math.min(2, Math.max(0, optionCount - 1));
 
+/**
+ * How many of an exercise's distractors may be invented lookalikes of the answer
+ * rather than real words from the list.
+ *
+ * Two things are being balanced. Invented forms are the only reliable way to
+ * reach band III — a real near-twin of any given word rarely exists in a real
+ * list — but every slot spent on one is a slot not spent on genuine vocabulary
+ * the learner gets a free glance at. So they never take more than half the
+ * options, and never more than two however large the round; a round with two
+ * near-misses is already as careful a read as anyone can be asked for. The
+ * floor of one is what makes the smallest band III variants (a straight
+ * two-option "which spelling") possible at all.
+ */
+export const MAX_INVENTED_OPTIONS = (distractorCount: number): number =>
+  distractorCount <= 0 ? 0 : Math.max(1, Math.min(2, Math.floor(distractorCount / 2)));
+
 /** Same idea for matching, counted over the words that form the round. */
 export const MIN_IN_BAND_PAIRS = (pairCount: number): number =>
   Math.min(2, Math.max(0, Math.floor(pairCount / 2)));
@@ -45,6 +71,8 @@ export interface ResolvedDistractors {
   requestedBand: SimilarityBand;
   /** Lower than requested when the list ran out of similar-enough words. */
   effectiveBand: SimilarityBand;
+  /** How many of them are invented lookalikes rather than words from the list. */
+  inventedCount: number;
 }
 
 interface ScoredCandidate {
@@ -52,6 +80,8 @@ interface ScoredCandidate {
   band: SimilarityBand;
   /** Words from the same lesson make better company than random ones. */
   inScope: boolean;
+  /** Bent out of the answer itself rather than drawn from the list. */
+  invented?: boolean;
 }
 
 function scanSlice(pool: NormalizedWord[], targetId: string): NormalizedWord[] {
@@ -90,6 +120,84 @@ function scoreCandidates(
   return scored;
 }
 
+/**
+ * An invented form wearing just enough of a word to be rendered as an option.
+ *
+ * The bent text sits on *both* sides on purpose. Only the option side is ever
+ * drawn, but leaving the target's real text on the other side would mean a
+ * round that read the opposite direction printed the correct answer twice.
+ * Everything tied to a real entry — audio, pronunciation, hints, the spellings
+ * that count as correct — is dropped rather than inherited.
+ */
+function inventedWord(
+  target: NormalizedWord,
+  form: string,
+  index: number,
+): NormalizedWord {
+  return {
+    ...target,
+    id: `invented:${target.id}:${index}:${surfaceKey(form)}`,
+    cz: form,
+    vi: form,
+    en: '',
+    czPron: undefined,
+    viPron: undefined,
+    czAudio: undefined,
+    viAudio: undefined,
+    czHint: undefined,
+    viHint: undefined,
+    acceptedKnown: undefined,
+    acceptedTarget: undefined,
+    canonicalWordId: null,
+    comment: null,
+  };
+}
+
+/**
+ * Lookalikes of the answer, ready to compete with the real candidates.
+ *
+ * Nothing the learner could defend as a correct answer is allowed through: every
+ * spelling anywhere in their lists, on this side, is off limits — both the words
+ * themselves and the alternative spellings each one accepts.
+ */
+function buildInventedCandidates({
+  target,
+  pool,
+  side,
+  limit,
+  random,
+}: {
+  target: NormalizedWord;
+  pool: NormalizedWord[];
+  side: WordSide;
+  limit: number;
+  random: () => number;
+}): ScoredCandidate[] {
+  if (limit <= 0) return [];
+
+  const taken = new Set<string>();
+  for (const word of pool) {
+    taken.add(surfaceKey(termOnSide(word, side)));
+    for (const accepted of acceptedOnSide(word, side)) taken.add(surfaceKey(accepted));
+  }
+
+  const forms = inventLookalikeForms({
+    term: termOnSide(target, side),
+    alphabet: scriptAlphabet(scanSlice(pool, target.id).map((word) => termOnSide(word, side))),
+    isTaken: (candidate) => taken.has(surfaceKey(candidate)),
+    limit,
+    random,
+  });
+
+  return forms.map((form, index) => ({
+    word: inventedWord(target, form, index),
+    // One diacritic away from the answer is the definition of band III.
+    band: 'III' as SimilarityBand,
+    inScope: true,
+    invented: true,
+  }));
+}
+
 const BAND_RANK: Record<SimilarityBand, number> = { I: 0, II: 1, III: 2 };
 
 function takeDeterministic<T>(items: T[], count: number, random: () => number): T[] {
@@ -119,6 +227,7 @@ export function resolveVariantDistractors({
   minInBand,
   random,
   side,
+  allowInvented = false,
 }: {
   target: NormalizedWord;
   pool: NormalizedWord[];
@@ -128,23 +237,51 @@ export function resolveVariantDistractors({
   random: () => number;
   /** The side the options are shown on, when the exercise fixes one. */
   side?: WordSide;
+  /**
+   * Let band III be filled with invented lookalikes of the answer when the list
+   * cannot supply real near-twins. Needs `side`: a bent word only exists in the
+   * one language the options are written in, so an exercise that has not fixed a
+   * direction — matching, bubbles — can never use them.
+   */
+  allowInvented?: boolean;
 }): ResolvedDistractors | null {
   if (count <= 0) {
-    return { distractors: [], requestedBand: band, effectiveBand: band };
+    return { distractors: [], requestedBand: band, effectiveBand: band, inventedCount: 0 };
   }
 
   const candidates = scoreCandidates(target, pool, side);
   if (candidates.length < count) return null;
+
+  const invented = allowInvented && side
+    ? buildInventedCandidates({
+        target,
+        pool,
+        side,
+        limit: MAX_INVENTED_OPTIONS(count),
+        random,
+      })
+    : [];
 
   const required = minInBand(count + 1);
   const startAt = BAND_DEGRADATION_ORDER.indexOf(band);
 
   for (let step = startAt < 0 ? 0 : startAt; step < BAND_DEGRADATION_ORDER.length; step += 1) {
     const attempt = BAND_DEGRADATION_ORDER[step];
+    // Invented forms are near-twins by construction, so they have nothing to
+    // offer an attempt that has already settled for looser company.
+    const usableInvented = attempt === 'III' ? invented : [];
     const inBand = candidates.filter((candidate) => bandAtLeast(candidate.band, attempt));
-    if (inBand.length < Math.min(required, count)) continue;
+    if (inBand.length + usableInvented.length < Math.min(required, count)) continue;
 
-    const chosen = takeDeterministic(preferInScope(inBand), Math.min(count, inBand.length), random);
+    // Already in random order from the generator, and already capped by
+    // MAX_INVENTED_OPTIONS when it was built.
+    const chosenInvented = usableInvented.slice(0, count);
+    const chosenReal = takeDeterministic(
+      preferInScope(inBand),
+      Math.min(count - chosenInvented.length, inBand.length),
+      random,
+    );
+    const chosen = [...chosenInvented, ...chosenReal];
     const chosenIds = new Set(chosen.map((candidate) => candidate.word.id));
 
     // Fill the remaining slots with the next-best words available: they keep the
@@ -164,6 +301,7 @@ export function resolveVariantDistractors({
       distractors: distractors.map((candidate) => candidate.word),
       requestedBand: band,
       effectiveBand: attempt,
+      inventedCount: distractors.filter((candidate) => candidate.invented).length,
     };
   }
 

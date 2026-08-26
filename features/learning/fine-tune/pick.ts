@@ -11,6 +11,10 @@ import {
   similarityBandForTerms,
   type SimilarityBand,
 } from '@/features/learning/minigames/similarity';
+import {
+  confusableLetters,
+  lettersAreConfusable,
+} from '@/features/learning/minigames/letter-families';
 import { stageConfigAt } from './config';
 import {
   MIN_IN_BAND_OPTIONS,
@@ -147,48 +151,10 @@ function feasibleAssemblyVariants(
   });
 }
 
-const LETTER_FAMILIES = [
-  'aáàảãạăắằẳẵặâấầẩẫậ',
-  'cč',
-  'dďđ',
-  'eéěèẻẽẹêếềểễệ',
-  'iíìỉĩị',
-  'nň',
-  'oóòỏõọôốồổỗộơớờởỡợ',
-  'rř',
-  'sš',
-  'tť',
-  'uúůùủũụưứừửữự',
-  'yýỳỷỹỵ',
-  'zž',
-] as const;
-
 function fallbackExtraParts(answer: string, unit: 'letters' | 'words'): string[] {
   if (unit === 'words') return ['…', '?', '—', '+', '•', '×'];
   const used = new Set(answer.toLocaleLowerCase());
   return [...'abcdefghijklmnopqrstuvwxyz'].filter((letter) => !used.has(letter));
-}
-
-function confusableLetters(correct: string[]): string[] {
-  const correctSet = new Set(correct.map((part) => part.toLocaleLowerCase()));
-  const output: string[] = [];
-  for (const part of correctSet) {
-    const family = LETTER_FAMILIES.find((candidate) => candidate.includes(part));
-    if (!family) continue;
-    for (const candidate of splitGraphemes(family)) {
-      if (!correctSet.has(candidate)) output.push(candidate);
-    }
-  }
-  return output;
-}
-
-function lettersAreConfusable(left: string, right: string): boolean {
-  const normalizedLeft = left.toLocaleLowerCase();
-  const normalizedRight = right.toLocaleLowerCase();
-  if (normalizedLeft === normalizedRight) return true;
-  return LETTER_FAMILIES.some(
-    (family) => family.includes(normalizedLeft) && family.includes(normalizedRight),
-  );
 }
 
 function uniqueParts(parts: string[], excluded: Set<string>): string[] {
@@ -355,6 +321,11 @@ export function pickExerciseForWord({
     // Difficulty is about the words the learner has to tell apart, so it is
     // measured on the side the options are actually written in.
     side: wordSideForOptions(side, role),
+    // Only the hardest band. Below it the exercise is asking the learner to tell
+    // words apart, and real vocabulary does that job; band III is asking them to
+    // read one word precisely, which is what a one-diacritic near-miss tests and
+    // what no list reliably supplies on its own.
+    allowInvented: band === 'III',
   });
 
   if (!resolved) return FALLBACK_EXERCISE;
