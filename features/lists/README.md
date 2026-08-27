@@ -35,8 +35,8 @@ Owns list browsing, category editing, translation review, audio generation flow,
 - Lists maintenance/category/repair actions: `features/lists/hooks/useListsMaintenanceActions.ts`
 - Pending common-list audio marker: `features/lists/hooks/usePendingListAudioMarker.ts`
 - Shared lists UI: `features/lists/components/*`
-- Translation review shell, row, editors, dialogs, transformations, and provider workflow: `features/lists/components/translation-step/*`
-- Category browser metadata and repair workflow: `features/lists/components/category-browser/*`
+- Translation review shell, row, editors, review dialogs, transformations, and provider workflow: `features/lists/components/translation-step/*`
+- Category browser metadata, repair workflow, and repair preview dialog: `features/lists/components/category-browser/*`
 - Sidebar item and create workflow: `features/lists/components/list-sidebar/*`
 - Audio-step shell: `features/lists/audio-step/AudioStep.tsx`
 - Audio-step row UI: `features/lists/audio-step/AudioStepRow.tsx`

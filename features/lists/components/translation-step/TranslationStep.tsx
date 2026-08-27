@@ -16,9 +16,10 @@ import {
   BULK_ACCEPTED_ANSWERS_CONCURRENCY,
   BULK_ACCEPTED_ANSWERS_CHUNK_SIZE,
 } from '@/lib/word-item-accepted-answers';
-import type { PolishFixCode, PolishWarningCode } from '@/lib/formatting-polish';
 import { AcceptedAnswersDialog } from './AcceptedAnswersDialog';
+import { BulkAcceptedReviewDialog } from './BulkAcceptedReviewDialog';
 import { ClearTranslationColumnDialog, DuplicateRowsDialog } from './TranslationDialogs';
+import { PolishReviewDialog } from './PolishReviewDialog';
 import { TranslationRow as TranslationRowView } from './TranslationRow';
 import { useTranslationWorkflow } from './useTranslationWorkflow';
 import {
@@ -32,7 +33,6 @@ import type {
   BulkAcceptedEntry,
   BulkAcceptedScan,
   PolishChange,
-  PolishField,
   PolishScan,
   TranslationProvider,
   TranslationRow,
@@ -964,76 +964,20 @@ export function TranslationStep({
     });
   }, []);
 
-  const describePolishFix = useCallback(
-    (code: PolishFixCode) => {
-      switch (code) {
-        case 'trim':
-          return t('lists.polishFixTrim');
-        case 'collapse_spaces':
-          return t('lists.polishFixCollapse');
-        case 'space_before_punctuation':
-          return t('lists.polishFixSpaceBeforePunct');
-        case 'capitalize_sentence':
-          return t('lists.polishFixCapitalize');
-        case 'add_final_period':
-          return t('lists.polishFixPeriod');
-      }
-    },
-    [t],
-  );
-
-  const describePolishWarning = useCallback(
-    (code: PolishWarningCode) => {
-      switch (code) {
-        case 'maybe_question':
-          return t('lists.polishWarningQuestion');
-        case 'maybe_exclamation':
-          return t('lists.polishWarningExclamation');
-      }
-    },
-    [t],
-  );
-
   const polishFieldLabel = useCallback(
-    (field: PolishField) =>
+    (field: AcceptedSide) =>
       formatLanguageLabel(field === 'known' ? list.languageFrom : list.languageTo),
     [formatLanguageLabel, list.languageFrom, list.languageTo],
   );
-
-  const polishSelectedCount = polishScan
-    ? polishScan.changes.filter((change) => polishSelected.has(change.key)).length
-    : 0;
-
-  const bulkAcceptedSelectedCount = bulkAcceptedScan
-    ? bulkAcceptedScan.entries.filter((entry) => bulkAcceptedSelected.has(entry.key)).length
-    : 0;
-  // Modal groups follow the row order of the table; each group carries the
-  // row's texts so a suggestion is reviewable without scrolling back.
-  const bulkAcceptedGroups = bulkAcceptedScan
-    ? rows
-        .map((row) => ({
-          row,
-          entries: bulkAcceptedScan.entries.filter((entry) => entry.rowId === row.id),
-        }))
-        .filter((group) => group.entries.length > 0)
-    : [];
-  const bulkAcceptedSummaryToCopy = bulkAcceptedGroups
-    .map((group) => [
-      `${group.row.textKnown} → ${group.row.textTarget}`,
-      ...group.entries.map(
-        (entry) => `${polishFieldLabel(entry.side)}: ${entry.value}`,
-      ),
-    ].join('\n'))
-    .join('\n\n');
   const acceptedAnswersEditRow = acceptedAnswersRowId
     ? rows.find((row) => row.id === acceptedAnswersRowId) ?? null
     : null;
 
-  const handleCopyBulkAcceptedSummary = async () => {
-    if (!bulkAcceptedSummaryToCopy) return;
+  const handleCopyBulkAcceptedSummary = async (summary: string) => {
+    if (!summary) return;
     setError(null);
     try {
-      await copyTextToClipboard(bulkAcceptedSummaryToCopy);
+      await copyTextToClipboard(summary);
       setBulkAcceptedCopied(true);
     } catch {
       setError(t('lists.acceptedAnswersBulkCopyFailed'));
@@ -1162,231 +1106,30 @@ export function TranslationStep({
       )}
 
       {showPolishModal && polishScan && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setShowPolishModal(false)}
-        >
-          <div
-            className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-base font-semibold text-text">{t('lists.polishTitle')}</h2>
-            <p className="mt-1 text-sm text-text-soft">{t('lists.polishHint')}</p>
-
-            <div className="mt-4 flex-1 overflow-y-auto">
-              {polishScan.changes.length > 0 && (
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-wide text-text-soft">
-                    {t('lists.polishSuggestedFixes', { count: polishScan.changes.length })}
-                  </div>
-                  <div className="mt-2 space-y-1.5">
-                    {polishScan.changes.map((change) => (
-                      <label
-                        key={change.key}
-                        className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-background-elevated"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={polishSelected.has(change.key)}
-                          onChange={() => togglePolishChange(change.key)}
-                          className="mt-1 accent-accent"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="text-[11px] uppercase tracking-wide text-text-soft/70">
-                            {polishFieldLabel(change.field)}
-                          </span>
-                          <span className="mt-0.5 block break-words text-sm">
-                            <span className="text-text-soft line-through">{change.before}</span>
-                            <span className="text-text-soft"> → </span>
-                            <span className="text-text">{change.after}</span>
-                          </span>
-                          <span className="mt-0.5 flex flex-wrap gap-1">
-                            {change.fixCodes.map((code) => (
-                              <span
-                                key={code}
-                                className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent"
-                              >
-                                {describePolishFix(code)}
-                              </span>
-                            ))}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {polishScan.warnings.length > 0 && (
-                <div className={polishScan.changes.length > 0 ? 'mt-4' : ''}>
-                  <div className="text-xs font-medium uppercase tracking-wide text-text-soft">
-                    {t('lists.polishWarnings', { count: polishScan.warnings.length })}
-                  </div>
-                  <div className="mt-2 space-y-1.5">
-                    {polishScan.warnings.map((warning) => (
-                      <div
-                        key={warning.key}
-                        className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-600"
-                      >
-                        <span className="text-[11px] uppercase tracking-wide opacity-80">
-                          {polishFieldLabel(warning.field)}
-                        </span>
-                        <span className="ml-1.5 break-words text-text-soft">“{warning.text}”</span>
-                        <div className="mt-0.5">{describePolishWarning(warning.code)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft transition-colors hover:bg-background-elevated"
-                onClick={() => setShowPolishModal(false)}
-              >
-                {polishScan.changes.length > 0 ? t('common.cancel') : t('common.close')}
-              </button>
-              {polishScan.changes.length > 0 && (
-                <button
-                  type="button"
-                  disabled={polishSelectedCount === 0}
-                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
-                  onClick={handleApplyPolish}
-                >
-                  {t('lists.polishApply', { count: polishSelectedCount })}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <PolishReviewDialog
+          scan={polishScan}
+          selected={polishSelected}
+          fieldLabel={polishFieldLabel}
+          onToggle={togglePolishChange}
+          onApply={handleApplyPolish}
+          onClose={() => setShowPolishModal(false)}
+        />
       )}
 
       {showBulkAcceptedModal && bulkAcceptedScan && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={cancelBulkAcceptedReview}
-        >
-          <div
-            className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-base font-semibold text-text">
-              {t('lists.acceptedAnswersBulkTitle')}
-            </h2>
-            <p className="mt-1 text-sm text-text-soft">{t('lists.acceptedAnswersBulkMessage')}</p>
-
-            {bulkAcceptedScan.failedCount > 0 && (
-              <div className="mt-3 rounded-md border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs text-danger">
-                <p>
-                  {t('lists.acceptedAnswersBulkFailed', {
-                    count: bulkAcceptedScan.failedCount,
-                  })}
-                </p>
-                {bulkAcceptedScan.failureMessage && (
-                  <p className="mt-1 break-words opacity-90">{bulkAcceptedScan.failureMessage}</p>
-                )}
-              </div>
-            )}
-            {bulkAcceptedScan.skippedCount > 0 && (
-              <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-600">
-                {t('lists.acceptedAnswersBulkSkipped', {
-                  count: bulkAcceptedScan.skippedCount,
-                })}
-              </div>
-            )}
-
-            {bulkAcceptedScan.entries.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <button
-                  type="button"
-                  className="rounded border border-border-subtle px-2 py-1 text-text-soft transition-colors hover:bg-background-elevated"
-                  onClick={() => void handleCopyBulkAcceptedSummary()}
-                >
-                  {bulkAcceptedCopied ? t('common.copied') : t('lists.acceptedAnswersBulkCopy')}
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-border-subtle px-2 py-1 text-text-soft transition-colors hover:bg-background-elevated"
-                  onClick={() =>
-                    setBulkAcceptedSelected(
-                      new Set(bulkAcceptedScan.entries.map((entry) => entry.key)),
-                    )
-                  }
-                >
-                  {t('lists.acceptedAnswersBulkSelectAll')}
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-border-subtle px-2 py-1 text-text-soft transition-colors hover:bg-background-elevated"
-                  onClick={() => setBulkAcceptedSelected(new Set())}
-                >
-                  {t('lists.acceptedAnswersBulkSelectNone')}
-                </button>
-                <span className="text-text-soft">
-                  {t('lists.acceptedAnswersBulkSelectedCount', {
-                    selected: bulkAcceptedSelectedCount,
-                    total: bulkAcceptedScan.entries.length,
-                  })}
-                </span>
-              </div>
-            )}
-
-            <div className="mt-4 flex-1 space-y-3 overflow-y-auto">
-              {bulkAcceptedGroups.map((group) => (
-                <div key={group.row.id} className="rounded-md border border-border-subtle p-2.5">
-                  <div className="break-words text-sm font-medium text-text">
-                    {group.row.textKnown}
-                    <span className="text-text-soft"> → </span>
-                    {group.row.textTarget}
-                  </div>
-                  <div className="mt-1.5 space-y-1">
-                    {group.entries.map((entry) => (
-                      <label
-                        key={entry.key}
-                        className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1 hover:bg-background-elevated"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={bulkAcceptedSelected.has(entry.key)}
-                          onChange={() => toggleBulkAcceptedEntry(entry.key)}
-                          className="mt-0.5 accent-accent"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="text-[11px] uppercase tracking-wide text-text-soft/70">
-                            {polishFieldLabel(entry.side)}
-                          </span>
-                          <span className="ml-1.5 break-words text-sm text-text">{entry.value}</span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft transition-colors hover:bg-background-elevated"
-                onClick={cancelBulkAcceptedReview}
-              >
-                {bulkAcceptedScan.entries.length > 0 ? t('common.cancel') : t('common.close')}
-              </button>
-              {bulkAcceptedScan.entries.length > 0 && (
-                <button
-                  type="button"
-                  disabled={bulkAcceptedSelectedCount === 0 || bulkAcceptedApplying}
-                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
-                  onClick={handleApplyBulkAccepted}
-                >
-                  {t('lists.acceptedAnswersBulkApply', { count: bulkAcceptedSelectedCount })}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <BulkAcceptedReviewDialog
+          rows={rows}
+          scan={bulkAcceptedScan}
+          selected={bulkAcceptedSelected}
+          applying={bulkAcceptedApplying}
+          copied={bulkAcceptedCopied}
+          fieldLabel={polishFieldLabel}
+          onCopy={(summary) => void handleCopyBulkAcceptedSummary(summary)}
+          onSelect={setBulkAcceptedSelected}
+          onToggle={toggleBulkAcceptedEntry}
+          onApply={handleApplyBulkAccepted}
+          onClose={cancelBulkAcceptedReview}
+        />
       )}
 
       {provider === 'google' && isGooglePaused && (
