@@ -11,7 +11,10 @@ review, and the idempotent commit into a personal list.
 - `types.ts` — shared chat, proposal, review, and preference shapes.
 - `components/WordChatFlow.tsx` — step-level UI composition.
 - `hooks/useWordChat.ts` — client workflow orchestration.
+- `hooks/review-items.ts` — pure translation-to-review mapping and review-row transitions.
+- `hooks/useReviewItemState.ts`, `hooks/useAudioJobQueue.ts` — async Review state invariants.
 - `client/api.ts` — browser transport for the word-chat routes.
+- `client/audio-generation.ts` — retry/caching policy for generated clips.
 - `client/storage.ts` — durable interrupted-session draft.
 - `server/prompt.ts` — prompt construction and conversation policy.
 - `server/chat.ts`, `server/propose.ts`, `server/translate.ts` — model-backed services.
@@ -60,9 +63,11 @@ The UI moves through `chat -> select -> review -> done`. Manual entry begins at
 ## Refactoring Guidance
 
 `hooks/useWordChat.ts` is currently the main hotspot. Prefer safe extraction of
-one lifecycle at a time—draft restore, preferences, proposal/selection,
-translation/review/audio, or commit/retry—while keeping the hook's external
-contract stable. Move pure transformations out before moving async orchestration.
+one remaining lifecycle at a time—draft restore, preferences,
+proposal/selection, or commit/retry—while keeping the hook's external contract
+stable. Review transformations, synchronous Review state, and the audio job
+queue already have focused modules; extend those instead of moving their logic
+back into the controller.
 
 Keep tests grouped by lifecycle instead of extending a single end-to-end hook
 test indefinitely.

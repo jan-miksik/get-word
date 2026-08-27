@@ -10,18 +10,17 @@ import {
   readSalutationGenderPreference,
   storeSalutationGenderPreference,
 } from '@/features/shared/user-preferences/salutation-gender';
-import { limitKeepingPrimaries } from '../addressFormPairs';
 import {
   WordChatApiError,
   commitSession,
   fetchWordChatContext,
-  generateAudio,
   requestProposal,
   saveWordChatPreferences,
   sendChatMessageStream,
   translateSelection,
 } from '../client/api';
-import { forgetClip, prefetchClips, storeClipBytes } from '../client/clip-playback';
+import { forgetClip, prefetchClips } from '../client/clip-playback';
+import { generateAudioWithRetries } from '../client/audio-generation';
 import { clearDraft, loadDraft, saveDraft } from '../client/storage';
 import type { CallDiagnostics } from '../client/api';
 import { personalListName } from '../personal-list-name';
@@ -37,6 +36,15 @@ import type {
   WordChatSalutationGender,
 } from '../types';
 import { hasGenderedSalutation, readLanguageLevel } from '../preferences';
+import {
+  audioMatchKey,
+  buildTranslatedReview,
+  patchReviewItems,
+  removeReviewItem as removeReviewItemFromState,
+  reviewPairKey,
+} from './review-items';
+import { useAudioJobQueue } from './useAudioJobQueue';
+import { useReviewItemState } from './useReviewItemState';
 
 export type WordChatStep = 'chat' | 'select' | 'review' | 'done';
 
@@ -92,14 +100,6 @@ export type TranslationDiagnostics = {
 const MAX_CONSECUTIVE_FAILURES = 3;
 
 /**
- * How long Save waits for clips that are still being generated. Generous on
- * purpose — a batch of a dozen rows plus its retries is slower than it sounds —
- * but bounded, so a wedged request degrades to "saved without audio" instead of
- * a button that never finishes.
- */
-const AUDIO_WAIT_TIMEOUT_MS = 60_000;
-
-/**
  * The review label a manually typed batch is committed under. Not learner-facing
  * (it is a workbench label on the session), so it stays English — and because it
  * is persisted in the draft, it is also what tells a restored session that it was
@@ -147,12 +147,6 @@ function classifyCustomItem(text: string): 'sentence' | 'word' {
  * and typed by hand — and to match a Review row back to the photo pair it came
  * from.
  */
-function pairKey(item: { textKnown: string; textTarget: string }): string {
-  return `${item.textKnown.trim().toLocaleLowerCase()}\u0000${item.textTarget
-    .trim()
-    .toLocaleLowerCase()}`;
-}
-
 function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -168,9 +162,6 @@ function completeTranscript(messages: WordChatMessage[]): WordChatMessage[] {
     .map((message) => ({ role: message.role, content: message.content }));
 }
 
-/** Both identifiers of one generated clip: the id is saved, the hash is played. */
-type GeneratedClip = { assetId: string; contentHash: string | null };
-
 type SelectedTranslationItem = {
   kind: 'sentence' | 'word';
   text: string;
@@ -178,62 +169,6 @@ type SelectedTranslationItem = {
   takeoverCandidate?: TakeoverReference;
   audioDisabled?: boolean;
 };
-
-/**
- * Joins a translated row back to the item it was submitted as.
- *
- * The server keys its results on the text it received but may return a polished
- * variant of it — capitalisation, collapsed spacing, a sentence's final period.
- * Polishing never rewords, so ignoring exactly those three is enough to match
- * the pair reliably without depending on the response's ordering.
- */
-function audioMatchKey(text: string): string {
-  return text
-    .toLocaleLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/[.!?]+$/, '');
-}
-
-async function generateAudioWithRetries(
-  items: { key: string; text: string; language: string }[],
-  maxAttempts = 3,
-): Promise<Map<string, GeneratedClip>> {
-  const assets = new Map<string, GeneratedClip>();
-  let pending = [...items];
-
-  for (let attempt = 0; attempt < maxAttempts && pending.length > 0; attempt += 1) {
-    const response = await generateAudio({ items: pending }).catch(() => null);
-    if (!response) continue;
-
-    const finishedKeys = new Set<string>();
-    for (const result of response.results) {
-      if (result.status === 'ok' && result.asset_id) {
-        assets.set(result.key, {
-          assetId: result.asset_id,
-          contentHash: result.content_hash,
-        });
-        // Keep the bytes we were just handed: playing them beats waiting for an
-        // Arweave gateway to start serving a clip uploaded seconds ago.
-        if (result.content_hash && result.audio_base64) {
-          storeClipBytes(result.content_hash, result.audio_base64);
-        }
-        finishedKeys.add(result.key);
-      } else if (result.status === 'skipped') {
-        // `skipped` is normally quota exhaustion. Retrying it only burns another
-        // request and cannot create a clip.
-        finishedKeys.add(result.key);
-      }
-    }
-    if (response.quota_exhausted) break;
-    // Explicit errors and keys omitted from a partial response are transient:
-    // keep both pending for the next attempt.
-    pending = pending.filter((item) => !finishedKeys.has(item.key));
-  }
-
-  return assets;
-}
-
 
 export type UseWordChatOptions = {
   languageFrom: string;
@@ -351,59 +286,9 @@ export function useWordChat({
    * monthly allowance on work that is done.
    */
   const [pretranslatedItems, setPretranslatedItems] = useState<ReviewItem[]>([]);
-  const [reviewItems, setReviewItemsState] = useState<ReviewItem[]>([]);
-  // A synchronous mirror of `reviewItems`. Saving waits for the audio jobs to
-  // finish and then has to read the rows they just wrote; a `useState` value is
-  // still the pre-await one at that point, so the commit would post the rows
-  // without their fresh `audioAssetId`s and save silent words.
-  const reviewItemsRef = useRef<ReviewItem[]>([]);
-  const setReviewItems = useCallback(
-    (update: ReviewItem[] | ((current: ReviewItem[]) => ReviewItem[])) => {
-      const next =
-        typeof update === 'function' ? update(reviewItemsRef.current) : update;
-      reviewItemsRef.current = next;
-      setReviewItemsState(next);
-    },
-    [],
-  );
+  const { reviewItems, reviewItemsRef, setReviewItems } = useReviewItemState();
 
-  // Audio generation started in the background, so Review can open while clips
-  // are still being made. Saving awaits whatever is in flight — a row committed
-  // before its clip lands is stored without audio and needs a manual repair
-  // pass later.
-  const audioJobsRef = useRef(new Set<Promise<unknown>>());
-  const trackAudioJob = useCallback(<T,>(job: Promise<T>): Promise<T> => {
-    const jobs = audioJobsRef.current;
-    jobs.add(job);
-    void job.catch(() => undefined).finally(() => {
-      jobs.delete(job);
-    });
-    return job;
-  }, []);
-  /**
-   * Resolves once no audio job is running. Jobs can queue further jobs (a retry
-   * batch), so the set is drained rather than awaited once. The cap keeps a
-   * wedged request from holding the save button hostage forever; passing it
-   * falls back to the old behaviour of committing what is voiced so far.
-   */
-  const waitForAudioJobs = useCallback(async () => {
-    const deadline = Date.now() + AUDIO_WAIT_TIMEOUT_MS;
-    while (audioJobsRef.current.size > 0) {
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) return;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      try {
-        await Promise.race([
-          Promise.all([...audioJobsRef.current].map((job) => job.catch(() => undefined))),
-          new Promise<void>((resolve) => {
-            timer = setTimeout(resolve, remaining);
-          }),
-        ]);
-      } finally {
-        if (timer) clearTimeout(timer);
-      }
-    }
-  }, []);
+  const { trackAudioJob, waitForAudioJobs, hasAudioJobs } = useAudioJobQueue();
   const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
   const [refreshStatus, setRefreshStatus] =
     useState<'idle' | 'pending' | 'success' | 'error'>('idle');
@@ -1171,14 +1056,14 @@ export function useWordChat({
   const addPretranslatedItems = useCallback(
     (incoming: { textKnown: string; textTarget: string; audioHash?: string | null }[]) => {
       setPretranslatedItems((current) => {
-        const seen = new Set(current.map(pairKey));
+        const seen = new Set(current.map(reviewPairKey));
         const next = [...current];
         for (const item of incoming) {
           if (next.length + selectedItems.length >= limits.maxItemsPerSession) break;
           const textKnown = item.textKnown.trim().replace(/\s+/g, ' ');
           const textTarget = item.textTarget.trim().replace(/\s+/g, ' ');
           if (!textKnown || !textTarget) continue;
-          const key = pairKey({ textKnown, textTarget });
+          const key = reviewPairKey({ textKnown, textTarget });
           if (seen.has(key)) continue;
           seen.add(key);
           next.push({
@@ -1199,7 +1084,7 @@ export function useWordChat({
   );
 
   const removePretranslatedItem = useCallback((key: string) => {
-    setPretranslatedItems((current) => current.filter((item) => pairKey(item) !== key));
+    setPretranslatedItems((current) => current.filter((item) => reviewPairKey(item) !== key));
   }, []);
 
   const removeCustomItem = useCallback((text: string) => {
@@ -1256,8 +1141,8 @@ export function useWordChat({
     // clip recorded. They join the Check step as they are — never a second time,
     // and never through the translator.
     const mergePretranslated = (rows: ReviewItem[]): ReviewItem[] => {
-      const present = new Set(rows.map(pairKey));
-      return [...rows, ...pretranslatedItems.filter((item) => !present.has(pairKey(item)))];
+      const present = new Set(rows.map(reviewPairKey));
+      return [...rows, ...pretranslatedItems.filter((item) => !present.has(reviewPairKey(item)))];
     };
 
     // A batch that is only photo words has nothing to translate: it is already
@@ -1320,66 +1205,14 @@ export function useWordChat({
           .filter((item) => item.audioDisabled === true)
           .map((item) => audioMatchKey(item.text)),
       );
-      // A row that offers the other form of address becomes TWO review rows.
-      // They share a transient group key so the server can re-validate the pair
-      // and, only if both survive, mint a persistent group id for them.
-      const expanded: ReviewItem[] = [];
-      translated.items.forEach((row, sourceIndex) => {
-        const audioDisabled = mutedKnownTexts.has(audioMatchKey(row.text_known));
-        const primary: ReviewItem = {
-          kind: row.kind,
-          textKnown: row.text_known,
-          textTarget: row.text_target,
-          ...(row.corpus_item_id ? { corpusItemId: row.corpus_item_id } : {}),
-          ...(row.takeover ? { takeover: row.takeover } : {}),
-          audioStatus: row.audio_asset_id ? 'ready' : audioDisabled ? 'idle' : 'pending',
-          audioAssetId: row.audio_asset_id,
-          audioHash: row.audio_hash,
-          knownAudioAssetId: row.known_audio_asset_id,
-          audioDisabled,
-          ...(row.address_form ? { addressForm: { form: row.address_form } } : {}),
-        };
-
-        if (!row.address_alternative) {
-          expanded.push(primary);
-          return;
-        }
-
-        const variantGroupKey = `${sourceIndex}:address`;
-        expanded.push({ ...primary, variantGroupKey });
-        // The twin says something different, so it cannot borrow the primary's
-        // clip, its corpus origin, or its takeover claim — those belong to the
-        // exact pair they came from. It gets its own audio from scratch.
-        expanded.push({
-          kind: row.kind,
-          textKnown: row.text_known,
-          textTarget: row.address_alternative.text_target,
-          audioStatus: audioDisabled ? 'idle' : 'pending',
-          audioAssetId: null,
-          audioHash: null,
-          knownAudioAssetId: row.known_audio_asset_id,
-          audioDisabled,
-          addressForm: { form: row.address_alternative.address_form },
-          variantGroupKey,
-        });
+      const review = buildTranslatedReview({
+        translatedItems: translated.items,
+        mutedKnownTexts,
+        // Only an estimate: the server re-applies the real balance at commit.
+        limit: Math.min(limits.maxItemsPerSession, monthlyRemaining),
       });
-
-      // Only an estimate of what will fit: the server re-applies this over the
-      // real monthly balance at commit and is the one that decides.
-      const rows = limitKeepingPrimaries(
-        expanded,
-        Math.min(limits.maxItemsPerSession, monthlyRemaining),
-      );
-
-      // Keyed by pair, not by source text: the two rows of a pair share their
-      // source text, so a text-keyed map would give both the same warnings.
-      setWarningsByPair(
-        Object.fromEntries(
-          translated.items
-            .filter((row) => row.warnings.length > 0)
-            .map((row) => [`${row.text_known}\u0000${row.text_target}`, row.warnings]),
-        ),
-      );
+      const rows = review.items;
+      setWarningsByPair(review.warningsByPair);
       setReviewItems(mergePretranslated(rows));
       translatedSignatureRef.current = signature;
 
@@ -1474,48 +1307,13 @@ export function useWordChat({
   const updateReviewItem = useCallback(
     (index: number, patch: Partial<Pick<ReviewItem, 'textKnown' | 'textTarget'>>) => {
       const original = reviewItemsRef.current[index];
-      const editedPairKey =
-        original &&
-        ((patch.textTarget !== undefined && patch.textTarget !== original.textTarget) ||
-          (patch.textKnown !== undefined && patch.textKnown !== original.textKnown))
-          ? original.variantGroupKey
-          : undefined;
-      setReviewItems((current) =>
-        current.map((row, rowIndex) => {
-          if (rowIndex !== index) {
-            if (!editedPairKey || row.variantGroupKey !== editedPairKey) return row;
-            const unpaired = { ...row };
-            delete unpaired.variantGroupKey;
-            return unpaired;
-          }
-          const targetChanged =
-            patch.textTarget !== undefined && patch.textTarget !== row.textTarget;
-          const knownChanged =
-            patch.textKnown !== undefined && patch.textKnown !== row.textKnown;
-          if (targetChanged) forgetClip(row.audioHash);
-          const next = {
-            ...row,
-            ...patch,
-            ...(targetChanged
-              ? { audioStatus: 'idle' as const, audioAssetId: null, audioHash: null }
-              : {}),
-          };
-          if (targetChanged || knownChanged) {
-            delete next.corpusItemId;
-            delete next.takeover;
-            // The model certified the form and the twin for the old wording,
-            // not arbitrary text typed afterwards. The untouched sibling keeps
-            // its own truthful label but no longer claims this row as its pair.
-            delete next.addressForm;
-            delete next.variantGroupKey;
-          }
-          return next;
-        }),
-      );
+      const updated = patchReviewItems(reviewItemsRef.current, index, patch);
+      if (updated.forgottenAudioHash) forgetClip(updated.forgottenAudioHash);
+      setReviewItems(updated.items);
       if (original) {
         setPretranslatedItems((items) =>
           items.map((item) => {
-            if (pairKey(item) !== pairKey(original)) return item;
+            if (reviewPairKey(item) !== reviewPairKey(original)) return item;
             const targetChanged =
               patch.textTarget !== undefined && patch.textTarget !== item.textTarget;
             return {
@@ -1529,29 +1327,23 @@ export function useWordChat({
         );
       }
     },
-    [setReviewItems],
+    [reviewItemsRef, setReviewItems],
   );
 
   const removeReviewItem = useCallback(
     (index: number) => {
-      setReviewItems((current) => {
-        const removed = current[index];
-        // A photo pair dropped here is dropped from the basket too, or stepping
-        // back and continuing would quietly bring it back.
-        if (removed) setPretranslatedItems((items) => items.filter((item) => pairKey(item) !== pairKey(removed)));
-        return current
-          .filter((_, rowIndex) => rowIndex !== index)
-          .map((row) => {
-            if (!removed?.variantGroupKey || row.variantGroupKey !== removed.variantGroupKey) {
-              return row;
-            }
-            const unpaired = { ...row };
-            delete unpaired.variantGroupKey;
-            return unpaired;
-          });
-      });
+      const next = removeReviewItemFromState(reviewItemsRef.current, index);
+      // A photo pair dropped here is dropped from the basket too, or stepping
+      // back and continuing would quietly bring it back.
+      const removed = next.removed;
+      if (removed) {
+        setPretranslatedItems((items) =>
+          items.filter((item) => reviewPairKey(item) !== reviewPairKey(removed)),
+        );
+      }
+      setReviewItems(next.items);
     },
-    [setReviewItems],
+    [reviewItemsRef, setReviewItems],
   );
 
   const regenerateAudio = useCallback(
@@ -1591,7 +1383,7 @@ export function useWordChat({
         })(),
       );
     },
-    [languageTo, setReviewItems, trackAudioJob],
+    [languageTo, reviewItemsRef, setReviewItems, trackAudioJob],
   );
 
   const commit = useCallback(async () => {
@@ -1601,7 +1393,7 @@ export function useWordChat({
     // store the rows with a null asset id, and the learner would have to come
     // back later to generate audio for words that were already on their way to
     // having it.
-    if (audioJobsRef.current.size > 0) {
+    if (hasAudioJobs()) {
       setBusy('audio');
       await waitForAudioJobs();
     }
@@ -1613,8 +1405,9 @@ export function useWordChat({
       // in the batch means the word chat's own flow asked, so it opts in as
       // before. An existing list keeps whatever it was created with.
       const rows = reviewItemsRef.current;
-      const photoKeys = new Set(pretranslatedItems.map(pairKey));
-      const photoOnlyBatch = rows.length > 0 && rows.every((row) => photoKeys.has(pairKey(row)));
+      const photoKeys = new Set(pretranslatedItems.map(reviewPairKey));
+      const photoOnlyBatch =
+        rows.length > 0 && rows.every((row) => photoKeys.has(reviewPairKey(row)));
       const result = await commitSession({
         creationKey,
         sessionId,
@@ -1678,6 +1471,7 @@ export function useWordChat({
     chatLanguage,
     creationKey,
     handleError,
+    hasAudioJobs,
     isPublic,
     languageFrom,
     languageTo,
@@ -1686,6 +1480,7 @@ export function useWordChat({
     noteSuccess,
     onCommitted,
     pretranslatedItems,
+    reviewItemsRef,
     reviewLabel,
     refreshAfterCommit,
     sessionId,

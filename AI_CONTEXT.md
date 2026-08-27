@@ -176,7 +176,7 @@ subsystem decisions and data-model notes.
 
 ## Current Hotspots
 
-- `features/word-chat/hooks/useWordChat.ts` is the word-chat workflow controller. It currently coordinates draft restore, preferences, chat, selection, translation/audio, review, commit, and retry behavior. Extend focused helpers where possible; do not add another lifecycle to the central hook.
+- `features/word-chat/hooks/useWordChat.ts` is the word-chat workflow controller. It still coordinates draft restore, preferences, chat, selection, translation, commit, and retry behavior. Review-row transforms live in `hooks/review-items.ts`; synchronous Review state and background audio tracking live in `hooks/useReviewItemState.ts` and `hooks/useAudioJobQueue.ts`; clip retry/caching policy lives in `client/audio-generation.ts`. Extend those focused modules rather than moving these lifecycles back into the central hook.
 - `features/lists/screens/ListsScreen.tsx` is the shared web/mobile composition shell. Lists UI lives under `features/lists/components`, while page data, maintenance actions, pending-audio state, forking, and wizard state live in focused `features/lists/hooks/*` hooks. Consumers enter through `features/lists/public.client.ts`.
 - `features/lists/components/translation-step/TranslationStep.tsx` remains the largest lists shell. Provider workflow, pure transformations, row UI, editors, and dialogs are separate modules in the same folder; extend those modules instead of adding another responsibility to the shell.
 - `app/api/sync/route.ts` is the stable HTTP/auth shell. Legacy item/word ID mutation compatibility lives in `features/sync/server/apply-mutations.ts`; conditional/delta/full reads live in `features/sync/server/read-payload.ts`.
