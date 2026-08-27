@@ -188,7 +188,7 @@ subsystem decisions and data-model notes.
 - `features/photo-lab/components/PhotoLabPage.tsx` is the render shell; analysis,
   local persistence, history refresh, audio enrichment, and blob URL cleanup live
   in `usePhotoLabStudio.ts`.
-- `lib/db/queries/quality-pool.ts` deliberately centralizes the pool-key and consent SQL used by reads, audits, verdicts, and suggestions. If it is split, keep those expressions in one shared query module so their semantics cannot drift.
+- `lib/db/queries/quality-pool.ts` is the stable quality-pool facade. Canonical pool-key/consent SQL lives in `quality-pool-shared.ts`; aggregate reads, admin writes, and learner suggestions/lifecycle live in the adjacent `quality-pool-{read,writes,suggestions}.ts` modules. Keep consumers on the facade unless they are implementing the query subsystem itself.
 - `lib/db/queries/usage-stats.ts` is the remaining admin-query monolith. Put reusable time-window/normalization helpers in `stats-shared.ts`; prefer a focused query module for a new dashboard panel instead of extending the main function.
 - Landing demo data is intentionally large/generated. Extend UI under
   `features/landing`, but regenerate `lib/landing-demo-word-data.ts` instead of

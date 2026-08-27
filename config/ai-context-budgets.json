@@ -15,7 +15,7 @@
     "features/lists/components/category-browser/CategoryBrowser.tsx": 1090,
     "features/learning/components/HomeClient.tsx": 1090,
     "features/learning/onboarding/server/autogenerate-common-list/index.ts": 1070,
-    "lib/db/queries/quality-pool.ts": 1040,
+    "lib/db/queries/quality-pool-read.ts": 520,
     "components/TopMenu.tsx": 990,
     "features/learning/components/TypingStudyCard.tsx": 930,
     "lib/db/queries/usage-stats.ts": 920
