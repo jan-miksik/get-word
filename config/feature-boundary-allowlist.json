@@ -1,7 +1,5 @@
 [
-  "features/learning/components/HomeClient.tsx -> @/features/photo-lab/components/PhotoLabPage",
   "features/learning/components/HomeClient.tsx -> @/features/word-chat/client/storage",
-  "features/learning/components/HomeClient.tsx -> @/features/word-chat/components/AddWordsScreen",
   "features/learning/onboarding/LearningLanguageOnboarding.tsx -> @/features/word-chat/components/LanguagePairChangedBanner",
   "features/learning/onboarding/LearningLanguageOnboarding.tsx -> @/features/word-chat/components/WordChatFlow",
   "features/learning/onboarding/LearningLanguageOnboarding.tsx -> @/features/word-chat/hooks/useWordChat",

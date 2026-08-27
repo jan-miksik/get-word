@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import dynamic from 'next/dynamic';
 import { LearningStudyContent } from '@/features/learning/components/LearningStudyContent';
+import { LearningAddWordsSurface } from '@/features/learning/components/LearningAddWordsSurface';
+import { LearningOnboardingContent } from '@/features/learning/components/LearningOnboardingContent';
 import { useViewModePreference } from '@/features/learning/app-state/useViewModePreference';
 import { useMinigameFrequencyPreference } from '@/features/learning/hooks/useMinigameFrequencyPreference';
 import { useLearningPageState } from '@/features/learning/hooks/useLearningPageState';
@@ -32,7 +33,6 @@ import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/features/auth/public.client';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
-import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';
 import {
   readLandingLanguagePair,
   markLandingLanguagePairConsumed,
@@ -59,15 +59,9 @@ import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
 import { resolveStreakData } from '@/features/learning/goals/streakWeek';
 import { useStudyCountdown } from '@/features/learning/goals/useStudyCountdown';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
-import {
-  normalizeGoalWeekdays,
-  type StudyGoalVersion,
-  type StudyPacing,
-} from '@/packages/domain/goals/goal';
+import type { StudyGoalVersion, StudyPacing } from '@/packages/domain/goals/goal';
 import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
-import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
 import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
-import { StudyReminderOnboarding } from '@/features/learning/onboarding/StudyReminderOnboarding';
 import {
   applyOnboardingBack,
   hasConfiguredGoal,
@@ -75,38 +69,11 @@ import {
   resolveLearningOnboardingStep,
   type LearningOnboardingStep,
 } from '@/features/learning/onboarding/flow';
-import { LanguageLevelOnboarding } from '@/features/learning/onboarding/LanguageLevelOnboarding';
 import { useLanguageLevelStep } from '@/features/learning/onboarding/useLanguageLevelStep';
 import { unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
 import { syncUserData } from '@/lib/sync';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
-
-// A surface now swaps in place instead of replacing the screen, so an empty
-// panel while its chunk downloads just reads as broken. Say something instead.
-function SurfaceLoading() {
-  return (
-    <div className="flex min-h-40 items-center justify-center p-8">
-      <span
-        aria-hidden="true"
-        className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent opacity-40 motion-reduce:animate-none"
-      />
-    </div>
-  );
-}
-
-const AddWordsScreen = dynamic(
-  () => import('@/features/word-chat/components/AddWordsScreen').then((m) => m.AddWordsScreen),
-  { ssr: false, loading: SurfaceLoading },
-);
-
-// Photo lab is a whole second UI (camera flow, IndexedDB store, zoom canvas).
-// Opening it in place must not put any of that in the study page's bundle, so
-// it is fetched the first time a learner actually opens it.
-const PhotoLabPage = dynamic(
-  () => import('@/features/photo-lab/components/PhotoLabPage').then((m) => m.PhotoLabPage),
-  { ssr: false, loading: SurfaceLoading },
-);
 
 // The learning app now runs entirely on synced word_list_items; there is no
 // legacy seed word set. Stable identity avoids needless memo recomputes.
@@ -976,91 +943,32 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
           <LoadingScreen />
         ) : isListRefreshPending && !onboardingCompletedAt ? (
           <LoadingScreen />
-        ) : needsLanguageOnboarding ? (
-          <LearningLanguageOnboarding
-            phase="languages"
-            showProgress={isSettingUp}
+        ) : onboardingStep !== 'app' ? (
+          <LearningOnboardingContent
+            step={onboardingStep}
+            isSettingUp={isSettingUp}
             initialFrom={onboardingInitialFrom}
             initialTo={onboardingInitialTo}
             accountEmail={displayEmail}
-            onSignOut={signOut}
-            autoOpenWordChat={forceWordChat}
-            // Only someone who is already set up can walk away from this screen;
-            // for everyone else it is the required first step. For them Back is
-            // that same exit — there is no earlier step to return to, but a
-            // screen opened from the menu must still be closable.
-            onExit={leaveLanguageScreen}
-            onBack={leaveLanguageScreen}
-            onComplete={completeLanguagePair}
-            onSelectList={setActiveListId}
-          />
-        ) : onboardingStep === 'loading' ? (
-          <LoadingScreen />
-        ) : needsLanguageLevel ? (
-          <LanguageLevelOnboarding
+            forceWordChat={forceWordChat}
+            languageScreenExit={leaveLanguageScreen}
             targetLanguage={learningLanguageTo}
-            initialLevel={languageLevelStep.level}
-            pending={languageLevelStep.saving}
-            onBack={goToPreviousOnboardingStep}
-            onSubmit={(level) => {
-              leaveOnboardingStep();
-              void languageLevelStep.save(level);
-            }}
-          />
-        ) : needsStudyGoal ? (
-          <StudyGoalSetupCard
-            // The picker snapshots `initial` on mount, so the key has to change
-            // with the stored goal: coming back to this step after saving one
-            // must show what was saved, not the defaults.
-            key={`goal-${goalSummary?.goal.revision ?? 'new'}`}
-            pacing={goalPacing}
-            pending={isSavingStudyGoal}
-            showProgress={isSettingUp}
-            initial={editableGoal ? {
-              mode: editableGoal.mode,
-              daysPerWeek: editableGoal.daysPerWeek,
-              weekdays: normalizeGoalWeekdays(editableGoal.weekdays) ?? undefined,
-              minutesPerDay: editableGoal.minutesPerDay,
-              newWordsPerDay: editableGoal.newWordsPerDay ?? 5,
-            } : undefined}
-            onBack={goToPreviousOnboardingStep}
-            onSave={(value) => {
-              void saveStudyGoal(value).then((saved) => {
-                if (saved) leaveOnboardingStep();
-              });
-            }}
-          />
-        ) : needsReminderOnboarding ? (
-          <StudyReminderOnboarding
-            initialMinutes={goalSummary?.reminder.localMinutes ?? 19 * 60}
-            pending={isSavingReminderOnboarding}
-            showProgress={isSettingUp}
-            onBack={goToPreviousOnboardingStep}
-            onComplete={(value) => {
-              void completeReminderOnboarding(value).then((saved) => {
-                if (saved) leaveOnboardingStep();
-              });
-            }}
-          />
-        ) : needsFirstWords ? (
-          // The last step: the chat now knows the languages, the level, and how
-          // much study the learner signed up for, so it can propose a first list
-          // that fits instead of asking for all of that itself.
-          <LearningLanguageOnboarding
-            phase="words"
-            showProgress
-            autoOpenWordChat
-            initialFrom={onboardingInitialFrom}
-            initialTo={onboardingInitialTo}
-            accountEmail={displayEmail}
+            languageLevel={languageLevelStep.level}
+            languageLevelSaving={languageLevelStep.saving}
+            goalRevision={goalSummary?.goal.revision}
+            goalPacing={goalPacing}
+            goalSaving={isSavingStudyGoal}
+            editableGoal={editableGoal}
+            reminderMinutes={goalSummary?.reminder.localMinutes ?? 19 * 60}
+            reminderSaving={isSavingReminderOnboarding}
             onSignOut={signOut}
             onBack={goToPreviousOnboardingStep}
-            // The chat opens straight away here, so its own back control is the
-            // one the learner sees; leaving the chat at its first question means
-            // stepping back to the reminder rather than to an empty screen.
-            onExit={goToPreviousOnboardingStep}
-            onComplete={(from, to) => completeLanguagePair(from, to, { refreshStudySnapshot: true })}
+            onLeaveStep={leaveOnboardingStep}
+            onCompleteLanguagePair={completeLanguagePair}
             onSelectList={setActiveListId}
+            onSaveLanguageLevel={languageLevelStep.save}
+            onSaveGoal={saveStudyGoal}
+            onCompleteReminder={completeReminderOnboarding}
           />
         ) : (
           <>
@@ -1088,60 +996,28 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               onLearningLanguagePairChange={changeLearningLanguagePair}
               activeSurface={activeSurface}
               onSurfaceChange={changeSurface}
-              chatContent={
-                visitedSurfaces.has('chat') || visitedSurfaces.has('photo') ? (
-                  <AddWordsScreen
-                    languageFrom={learningLanguageFrom as string}
-                    languageTo={learningLanguageTo as string}
-                    baseListId={
-                      activeListMatchesLearningPair &&
-                      !appState.activeList?.isOwnedPersonal
-                        ? appState.activeListId
-                        : null
-                    }
-                    refreshAfterCommit={refreshFullSnapshot}
-                    onLanguagePairChange={changeLearningLanguagePair}
-                    onClose={returnToStudy}
-                    active={activeSurface !== 'study'}
-                    photoTabAvailable={photoLabEnabled}
-                    photoTabActive={activeSurface === 'photo'}
-                    // Tabs replace the surface rather than pushing onto it:
-                    // Back belongs to "leave adding words", not to a walk
-                    // through every tab the learner tried on the way.
-                    onTabChange={(tab) =>
-                      replaceSurface(tab === 'photo' ? 'photo' : 'chat')
-                    }
-                    photoTab={
-                      visitedSurfaces.has('photo') && photoLabEnabled
-                        ? ({ pickWords }) => (
-                            <div className={photoDisplayFontClass ?? ''}>
-                              <PhotoLabPage
-                                variant="embedded"
-                                active={activeSurface === 'photo'}
-                                hideLanguagePair
-                                languageFrom={learningLanguageFrom as string}
-                                languageTo={learningLanguageTo as string}
-                                onLanguagePairChange={changeLearningLanguagePair}
-                                // The lab no longer saves anything of its
-                                // own here: the picked pairs go into the
-                                // add-words basket and are saved once, with
-                                // everything else in the batch.
-                                onPickWords={pickWords}
-                              />
-                            </div>
-                          )
-                        : undefined
-                    }
-                    onCommitted={(result) => {
-                      // Normally personal words overlay the current base list,
-                      // so keep studying that base. After a pair change with no
-                      // existing matching list, the newly created personal list
-                      // is the first valid study surface for the new pair.
-                      if (!activeListMatchesLearningPair) setActiveListId(result.listId);
-                    }}
-                  />
-                ) : undefined
-              }
+              chatContent={visitedSurfaces.has('chat') || visitedSurfaces.has('photo') ? (
+                <LearningAddWordsSurface
+                  languageFrom={learningLanguageFrom as string}
+                  languageTo={learningLanguageTo as string}
+                  baseListId={
+                    activeListMatchesLearningPair && !appState.activeList?.isOwnedPersonal
+                      ? appState.activeListId
+                      : null
+                  }
+                  activeSurface={activeSurface}
+                  visitedSurfaces={visitedSurfaces}
+                  photoLabEnabled={photoLabEnabled}
+                  photoDisplayFontClass={photoDisplayFontClass}
+                  refreshAfterCommit={refreshFullSnapshot}
+                  onLanguagePairChange={changeLearningLanguagePair}
+                  onClose={returnToStudy}
+                  onReplaceSurface={replaceSurface}
+                  onCommitted={(listId) => {
+                    if (!activeListMatchesLearningPair) setActiveListId(listId);
+                  }}
+                />
+              ) : undefined}
               practiceRun={
                 quickPractice.rounds ? (
                   <QuickPracticeRun

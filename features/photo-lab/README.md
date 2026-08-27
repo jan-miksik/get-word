@@ -6,7 +6,7 @@ and keeps a bounded device-local history.
 ## Read First
 
 - Route shell: `app/photo-lab/page.tsx`; shared display font: `features/photo-lab/font.ts`
-- UI composition: `features/photo-lab/components/PhotoLabPage.tsx`
+- Public client entrypoint: `features/photo-lab/public.client.ts`; UI composition: `features/photo-lab/components/PhotoLabPage.tsx`
 - Client workflow and blob URL lifecycle: `features/photo-lab/components/usePhotoLabStudio.ts`
 - IndexedDB history: `features/photo-lab/client/photoStore.ts`
 - Analysis/audio services: `features/photo-lab/server/analyze.ts`, `audio.ts`
@@ -47,7 +47,7 @@ learner wants, and a pre-filled list makes the picking step easy to walk past.
 
 ## Entry points
 
-The study view (`app/HomeClient.tsx`) opens the lab **in place**, the way it
+The study view (`features/learning/components/LearningAddWordsSurface.tsx`) opens the lab **in place**, the way it
 opens the word chat: `PhotoLabPage` replaces the study tree, gets its own
 history entry so the phone's back gesture closes it, and `onClose` drops back
 onto the deck that kept running behind it. The page is loaded lazily, so none of

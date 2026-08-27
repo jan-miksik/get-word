@@ -19,3 +19,8 @@ export { fetchWordChatContext, saveWordChatPreferences } from './client/api';
 export { WORD_CHAT_LANGUAGE_LEVELS } from './preferences';
 export { wordChatLevelLabelKey, splitWordChatLevelLabel } from './levelLabels';
 export type { WordChatLanguageLevel } from './types';
+
+/** Keeps the full add-words workspace out of consumers' initial bundles. */
+export async function loadAddWordsScreen() {
+  return import('./components/AddWordsScreen').then((module) => module.AddWordsScreen);
+}
