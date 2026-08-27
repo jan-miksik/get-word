@@ -18,6 +18,13 @@ operator workflows share the behavior.
 - School pilot access: `school-access.ts`
 - Per-account feature limits: `user-limits.ts`
 
+## Development guardrails
+
+- `check-feature-boundaries.mjs` rejects new internal imports across features.
+- `check-ai-context-budgets.mjs` prevents orchestration hotspots from silently
+  growing back past their ratcheted line budgets. Generated/declarative data and
+  tests are excluded; update a budget only when growth is intentional.
+
 `scripts/lib/audio-quality.ts` is the canonical ffprobe/ffmpeg quality policy for
 both landing-audio generators. Scripts may perform destructive production work;
 preserve their dry-run/confirmation guards and never invoke them as part of the

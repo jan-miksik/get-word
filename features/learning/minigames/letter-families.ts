@@ -9,7 +9,7 @@ import { splitGraphemes } from '@/lib/answer-normalization';
  * the letters an assembly round should offer as decoys, and the single edit an
  * invented lookalike is built from.
  */
-export const LETTER_FAMILIES = [
+const LETTER_FAMILIES = [
   'aáàảãạăắằẳẵặâấầẩẫậ',
   'cč',
   'dďđ',

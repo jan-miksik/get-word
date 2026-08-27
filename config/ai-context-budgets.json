@@ -1,0 +1,23 @@
+{
+  "defaultMaxLines": 1000,
+  "exclude": [
+    "**/__tests__/**",
+    "lib/db/schema.ts",
+    "lib/i18n/locales/**",
+    "lib/landing-demo-word-data.ts",
+    "components/scratch-field/motifs.ts"
+  ],
+  "budgets": {
+    "features/word-chat/hooks/useWordChat.ts": 1700,
+    "features/lists/components/translation-step/TranslationStep.tsx": 1530,
+    "features/admin/components/AdminStatsPage.tsx": 1140,
+    "lib/activity/runtime.ts": 1110,
+    "features/lists/components/category-browser/CategoryBrowser.tsx": 1090,
+    "features/learning/components/HomeClient.tsx": 1090,
+    "features/learning/onboarding/server/autogenerate-common-list/index.ts": 1070,
+    "lib/db/queries/quality-pool.ts": 1040,
+    "components/TopMenu.tsx": 990,
+    "features/learning/components/TypingStudyCard.tsx": 930,
+    "lib/db/queries/usage-stats.ts": 920
+  }
+}

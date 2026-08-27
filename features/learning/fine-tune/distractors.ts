@@ -52,7 +52,7 @@ export const MIN_IN_BAND_OPTIONS = (optionCount: number): number =>
  * floor of one is what makes the smallest band III variants (a straight
  * two-option "which spelling") possible at all.
  */
-export const MAX_INVENTED_OPTIONS = (distractorCount: number): number =>
+const MAX_INVENTED_OPTIONS = (distractorCount: number): number =>
   distractorCount <= 0 ? 0 : Math.max(1, Math.min(2, Math.floor(distractorCount / 2)));
 
 /** Same idea for matching, counted over the words that form the round. */

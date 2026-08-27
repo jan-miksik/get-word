@@ -188,6 +188,8 @@ subsystem decisions and data-model notes.
 - `features/photo-lab/components/PhotoLabPage.tsx` is the render shell; analysis,
   local persistence, history refresh, audio enrichment, and blob URL cleanup live
   in `usePhotoLabStudio.ts`.
+- `lib/db/queries/quality-pool.ts` deliberately centralizes the pool-key and consent SQL used by reads, audits, verdicts, and suggestions. If it is split, keep those expressions in one shared query module so their semantics cannot drift.
+- `lib/db/queries/usage-stats.ts` is the remaining admin-query monolith. Put reusable time-window/normalization helpers in `stats-shared.ts`; prefer a focused query module for a new dashboard panel instead of extending the main function.
 - Landing demo data is intentionally large/generated. Extend UI under
   `features/landing`, but regenerate `lib/landing-demo-word-data.ts` instead of
   hand-splitting or hand-editing it.
@@ -199,6 +201,7 @@ subsystem decisions and data-model notes.
 - Import runtime sync request contracts from `packages/contracts/src/sync.ts`; response compatibility remains in `features/sync/types.ts` and `lib/sync.ts` remains the low-level transport surface.
 - Mobile must never import `app/**`. Shared screens are exposed through narrow `public.client.ts` entrypoints. Inside a feature, import internals directly rather than routing through its public entrypoint.
 - Run `pnpm check:boundaries` after changing feature imports. It permits public client/server and contract entrypoints, rejects new internal cross-feature edges, and rejects stale allowlist entries after an edge is fixed.
+- Run `pnpm check:ai-context` after changing a tracked hotspot. It rejects new source files over 1,000 lines and prevents existing orchestrators from growing past the ratcheted budgets in `config/ai-context-budgets.json`.
 - New feature-specific types belong in `features/<feature>/types.ts`, not page files.
 - New list browser HTTP calls should go through `features/lists/api.ts` or `features/lists/client/actions.ts`.
 - New learning state belongs under `features/learning/state` or `features/learning/app-state`.
