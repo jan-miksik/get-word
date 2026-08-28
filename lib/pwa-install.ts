@@ -65,57 +65,27 @@ export function isStandalone() {
   );
 }
 
-export type SimulatedPlatform = 'ios' | 'ios-non-safari' | 'android' | null;
+/**
+ * Dev-preview override for the install card, from `?previewPWAInstallIntro=`.
+ * There used to be an `ios-non-safari` variant as well: iOS's home-screen flow
+ * only worked in Safari, so third-party browsers got their own warning screen.
+ * On iOS we now send people to the App Store, which every browser can open, so
+ * the distinction stopped meaning anything.
+ */
+export type SimulatedPlatform = 'ios' | 'android' | null;
 
 export function getInstallPlatform(simulated?: SimulatedPlatform) {
-  if (simulated === 'ios') {
-    return { isIOS: true, isIOSSafari: true };
-  }
-  if (simulated === 'ios-non-safari') {
-    return { isIOS: true, isIOSSafari: false };
-  }
-  if (simulated === 'android') {
-    return { isIOS: false, isIOSSafari: false };
-  }
+  if (simulated === 'ios') return { isIOS: true };
+  if (simulated === 'android') return { isIOS: false };
 
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return { isIOS: false, isIOSSafari: false };
+    return { isIOS: false };
   }
 
   const ua = navigator.userAgent;
   const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
-  const isIOSSafari = isIOS && isLikelySafari(ua, navigator);
 
-  return { isIOS, isIOSSafari };
-}
-
-// Affirmative "is this Safari?" check — safer than blacklisting third-party
-// browser tokens. We only treat the browser as Safari when:
-//   1. It is *not* Brave (Brave's UA on iOS is identical to Safari, so the
-//      only reliable signal is `navigator.brave.isBrave`).
-//   2. The UA has both `Safari/` and `Version/` tokens (real mobile Safari
-//      always sets both; most third-party iOS browsers strip `Version/`).
-//   3. The UA does not include a known third-party or in-app browser token.
-// Anything we can't positively identify as Safari falls through to the
-// non-Safari warning banner — false negatives (Safari mis-flagged as
-// non-Safari) are far less harmful than false positives, since the install
-// flow simply won't work in third-party iOS browsers.
-function isLikelySafari(ua: string, nav: Navigator): boolean {
-  const braveNav = nav as Navigator & { brave?: { isBrave?: () => Promise<boolean> } };
-  if (braveNav.brave?.isBrave) return false;
-  if (!/Safari\//.test(ua)) return false;
-  if (!/Version\//.test(ua)) return false;
-  // Third-party iOS browsers + the most common in-app webviews (social /
-  // messaging apps) — all of these can't trigger Safari's Add-to-Home-Screen
-  // flow, so they should see the "open in Safari" banner.
-  if (
-    /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|DuckDuckGo|GSA\/|YaBrowser|FBAN|FBAV|Instagram|Line\/|MicroMessenger|Snapchat|Pinterest|TikTok|musical_ly/i.test(
-      ua
-    )
-  ) {
-    return false;
-  }
-  return true;
+  return { isIOS };
 }
 
 export function isSmallScreen() {
@@ -156,15 +126,14 @@ export function openPWAInstallHelp() {
   window.dispatchEvent(new Event(PWA_INSTALL_HELP_EVENT));
 }
 
-// Reads `?previewPWAInstallIntro=ios|ios-non-safari|android` from the current
-// URL so any entry point into the install modal (preview card on app/page,
-// menu button via PWAInstallBanner) can show the simulated platform variant
-// instead of the UA-detected one. Returns null when no valid param is set.
+// Reads `?previewPWAInstallIntro=ios|android` from the current URL so any entry
+// point into the install modal (preview card on app/page, menu button via
+// PWAInstallBanner) can show the simulated platform variant instead of the
+// UA-detected one. Returns null when no valid param is set.
 export function readSimulatedPlatformFromUrl(): SimulatedPlatform {
   if (typeof window === 'undefined') return null;
   const raw = (new URLSearchParams(window.location.search).get('previewPWAInstallIntro') ?? '').toLowerCase();
   if (raw === 'ios') return 'ios';
-  if (raw === 'ios-non-safari') return 'ios-non-safari';
   if (raw === 'android') return 'android';
   return null;
 }

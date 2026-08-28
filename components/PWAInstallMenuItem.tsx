@@ -3,19 +3,19 @@
 import { openPWAInstallHelp } from '@/lib/pwa-install';
 import { InstallAppIcon } from '@/components/icons/AppIcons';
 import { useI18n } from '@/components/I18nProvider';
-import { useMobileViewport, useStandaloneStatus } from '@/hooks/usePWAInstallState';
+import { useAppInstallPlan } from '@/hooks/usePWAInstallState';
 
 export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
   const { t } = useI18n();
-  const installed = useStandaloneStatus();
-  const isMobileViewport = useMobileViewport();
+  // Null on a desktop, inside the shipped apps, and once the app is installed —
+  // the three cases where there is nothing to offer.
+  const plan = useAppInstallPlan();
 
-  if (!isMobileViewport || installed) return null;
+  if (!plan) return null;
 
   const handleClick = () => {
-    // Always open the in-app guide modal; the modal itself picks the right
-    // platform variant (iOS, iOS non-Safari, or Android) and shows the native
-    // install dialog from inside its own CTA when possible.
+    // Always open the in-app card; it decides between the store button and the
+    // home-screen prompt, so this entry point never has to.
     openPWAInstallHelp();
     if (onClick) onClick();
   };

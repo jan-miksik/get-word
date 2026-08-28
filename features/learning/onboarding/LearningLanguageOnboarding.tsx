@@ -2,6 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
+import {
+  persistAppInstallOnboardingAnswered,
+  readAppInstallOnboardingAnswered,
+} from '@/features/learning/app-state/storage';
+import { useAppInstallPlan } from '@/hooks/usePWAInstallState';
+import { AppInstallOnboardingStep } from './AppInstallOnboardingStep';
 import { isReverseDirectionList } from '@/features/learning/onboarding/listRecommendations';
 import { formatNumber } from '@/features/learning/onboarding/commonListAudioGeneration';
 import { useI18n } from '@/components/I18nProvider';
@@ -91,6 +97,15 @@ export function LearningLanguageOnboarding({
     onSelectList,
   });
 
+  // The "get the app" step, ahead of everything else on this screen. Null plan
+  // means there is nothing to offer this device (desktop, already installed, or
+  // one of the shipped apps), which is also how it stays out of the way in the
+  // cases where a store link would be nonsense.
+  const appInstallPlan = useAppInstallPlan();
+  const [appInstallAnswered, setAppInstallAnswered] = useState(
+    readAppInstallOnboardingAnswered,
+  );
+
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [wordChatOpen, setWordChatOpen] = useState(autoOpenWordChat);
@@ -170,6 +185,22 @@ export function LearningLanguageOnboarding({
     if (onExit) onExit();
     else setWordChatOpen(false);
   };
+
+  // Placed after every hook above, so the early return cannot change hook order.
+  // The language data this screen needs is already loading behind it.
+  if (!appInstallAnswered && appInstallPlan) {
+    return (
+      <div className="onboarding-screen">
+        <AppInstallOnboardingStep
+          plan={appInstallPlan}
+          onSkip={() => {
+            persistAppInstallOnboardingAnswered(true);
+            setAppInstallAnswered(true);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
