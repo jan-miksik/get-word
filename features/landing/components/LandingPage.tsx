@@ -158,10 +158,7 @@ function LandingPageContent({
             Firefox-Android, where the closing button is hidden but the egg
             still works. */}
         <p className="lp-finish-bonus">{t('landing.hero.bonus')}</p>
-        <SiteFooter
-          showLogin={!isFirefoxAndroid}
-          onLogoDoubleActivate={() => setScratchMode((on) => !on)}
-        />
+        <SiteFooter onLogoDoubleActivate={() => setScratchMode((on) => !on)} />
       </div>
       {isLoading ? (
         <div

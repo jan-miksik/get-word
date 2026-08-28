@@ -277,10 +277,8 @@ export function FinalCta({ showLogin = true }: { showLogin?: boolean }) {
 }
 
 export function SiteFooter({
-  showLogin = true,
   onLogoDoubleActivate,
 }: {
-  showLogin?: boolean;
   onLogoDoubleActivate?: () => void;
 }) {
   const { t } = useI18n();
@@ -294,10 +292,11 @@ export function SiteFooter({
         <AppLogo size={28} />
         <span className="lp-display text-sm font-semibold text-[var(--ink)]">Get&nbsp;Word</span>
       </div>
+      {/* No way into the app down here. The page leads with the store on a
+          phone and with the picker on a desktop; a bare "Get started" among the
+          legal links only offered a fourth, quieter answer to a question the
+          rest of the page has already asked properly. */}
       <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        {showLogin ? (
-          <Link href="/login" className="lp-foot-link">{t('landing.hero.getStarted')}</Link>
-        ) : null}
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="lp-foot-link">
           {t('landing.footer.github')}
         </a>
