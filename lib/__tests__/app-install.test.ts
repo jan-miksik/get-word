@@ -10,9 +10,17 @@ const MOBILE_WEB: AppInstallEnvironment = {
 };
 
 describe('resolveAppInstallPlan', () => {
-  it('offers nothing on a desktop, in the shipped apps, or once installed', () => {
+  it('offers nothing on a desktop or inside the shipped apps', () => {
     expect(resolveAppInstallPlan({ ...MOBILE_WEB, isMobile: false, isIOS: true })).toBeNull();
     expect(resolveAppInstallPlan({ ...MOBILE_WEB, runtime: 'native', isAndroid: true })).toBeNull();
+  });
+
+  // Whoever already added Get Word to their home screen keeps it, on both
+  // platforms. Dropping the iOS install flow changed what we *offer*; it must
+  // never reach back and pester someone whose install already works — least of
+  // all on iOS, where that install can no longer be recreated.
+  it('leaves an existing home-screen install alone', () => {
+    expect(resolveAppInstallPlan({ ...MOBILE_WEB, isInstalled: true, isIOS: true })).toBeNull();
     expect(resolveAppInstallPlan({ ...MOBILE_WEB, isInstalled: true, isAndroid: true })).toBeNull();
   });
 
