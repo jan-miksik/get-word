@@ -28,8 +28,6 @@ type Props = {
   proposals: ProposedItem[];
   isSelected: (item: ProposedItem) => boolean;
   onToggle: (item: ProposedItem) => void;
-  audioDisabledKeys?: string[];
-  onToggleAudioDisabled?: (key: string) => void;
   languageFrom?: string;
   onOpenLanguagePair?: () => void;
   onUpdateProposal: (item: ProposedItem, text: string) => void;
@@ -114,8 +112,6 @@ export function SelectStep({
   proposals,
   isSelected,
   onToggle,
-  audioDisabledKeys = [],
-  onToggleAudioDisabled = () => {},
   languageFrom,
   onOpenLanguagePair,
   onUpdateProposal,
@@ -462,26 +458,6 @@ export function SelectStep({
             <span className="block min-w-0 py-2.5 pl-3 pr-10 text-sm">
               {item.text}
             </span>
-            {mode === 'manual' ? (
-              <button
-                type="button"
-                aria-pressed={audioDisabledKeys.includes(`custom:${item.text}`)}
-                aria-label={t(
-                  audioDisabledKeys.includes(`custom:${item.text}`)
-                    ? 'wordChat.generateAudio'
-                    : 'wordChat.skipAudio',
-                )}
-                title={t(
-                  audioDisabledKeys.includes(`custom:${item.text}`)
-                    ? 'wordChat.generateAudio'
-                    : 'wordChat.skipAudio',
-                )}
-                onClick={() => onToggleAudioDisabled(`custom:${item.text}`)}
-                className="absolute right-9 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-sm transition-colors hover:bg-black/10"
-              >
-                {audioDisabledKeys.includes(`custom:${item.text}`) ? '🔇' : '🔊'}
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={() => onRemoveCustom(item.text)}

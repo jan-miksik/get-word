@@ -53,8 +53,6 @@ const NEW_SHARE = 0.3;
 const NEW_SHARE_RAMP = 0.4;
 const NEW_MIN = 1;
 const NEW_MAX = 20;
-/** The opening block is a warm-up, not the bulk of the day's repeats. */
-const WARM_UP_MAX = 7;
 const RAMP_AFTER_ABSENCE_DAYS = 7;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -155,29 +153,31 @@ export function planSession(input: SessionPlanInput): SessionPlan {
     : baseNew;
   const reviewBudget = frozenWordTargets ? reviewTarget : cap - selectedNew.length;
 
-  // Coming back after a week starts on new ground rather than on a wall of
-  // overdue repeats, so the warm-up is skipped and the whole review budget
-  // closes the day.
-  const warmUpSize = rampUp
-    ? 0
-    : Math.min(WARM_UP_MAX, Math.ceil(selectedReview.length / 2));
-  const warmUpIds = selectedReview.slice(0, warmUpSize).map((word) => word.id);
-  const closingReviewIds = selectedReview.slice(warmUpSize).map((word) => word.id);
+  const reviewIds = selectedReview.map((word) => word.id);
   const newIds = selectedNew.map((word) => word.id);
 
-  // Repeats ran out before the budget did: the day is closed with a second pass
-  // over today's new words instead of being left short of review entirely.
-  const fillWithRepeats = newIds.length > 0 &&
+  // A words day has nothing of its own to repeat, so it closes on a second pass
+  // over today's new words instead of being left without review entirely. A day
+  // that *does* have repeats already opens on them, and padding its tail with a
+  // third stretch is exactly what the two-stretch day drops; the goal is
+  // unaffected either way, since it counts distinct words and a same-day repeat
+  // adds none.
+  const fillWithRepeats = newIds.length > 0 && selectedReview.length === 0;
+  // A minutes day is cut by the clock rather than by card counts, so it keeps
+  // its three time stretches — and with them the wider fallback, because there
+  // the alternative is a closing stretch that runs out at sixty per cent of the
+  // budget with the clock still going.
+  const fillTimeDayWithRepeats = newIds.length > 0 &&
     (selectedReview.length === 0 || selectedReview.length < reviewBudget);
-  // A minutes day is cut by the clock rather than by card counts, so it gets
-  // the three time stretches instead of the words day's batched blocks.
   const blocks = isWordsGoal
-    ? planSessionBlocks({ warmUpIds, newIds, closingReviewIds, fillWithRepeats })
+    // Coming back after a week opens on new ground rather than on a wall of
+    // overdue repeats.
+    ? planSessionBlocks({ reviewIds, newIds, openOnNew: rampUp, fillWithRepeats })
     : planTimeSessionBlocks({
-        reviewIds: selectedReview.map((word) => word.id),
+        reviewIds,
         newIds,
         itemBudget: cap,
-        fillWithRepeats,
+        fillWithRepeats: fillTimeDayWithRepeats,
         openOnNew: rampUp,
       });
   // The server earns a day on *distinct* words answered (see `recomputeUserDayStat`),

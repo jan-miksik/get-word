@@ -33,6 +33,14 @@ function visibleWordIds(groups: ReturnType<typeof useLearningPageState>['cardDec
     .map((word) => word.id);
 }
 
+/** Words already met and due again — the only stretch games are scheduled in. */
+function dueReviewProgress(ids: readonly string[], now: number): Record<string, ProgressData> {
+  return Object.fromEntries(ids.map((id) => [
+    id,
+    { stageIndex: 1, knownCount: 1, unknownCount: 0, lastKnownAt: now - 120_000, nextDueAt: now - 60_000 },
+  ]));
+}
+
 function visibleItems(groups: ReturnType<typeof useLearningPageState>['streamGroupedWords']) {
   return groups
     .flat()
@@ -73,6 +81,52 @@ describe('useLearningPageState', () => {
       reinforcement: true,
     });
     expect(result.current.streamGroups[1].items).toEqual(words);
+  });
+
+  it('ends a new-only day after reinforcement even when the last answers are due again', () => {
+    const now = Date.now();
+    const words = Array.from({ length: 7 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+    const initialProgress = {} as Record<string, ProgressData>;
+    const afterFirstPass = Object.fromEntries(words.map((word) => [
+      word.id,
+      {
+        stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: now,
+        lastKnownAt: now, nextDueAt: now + 5 * 60_000,
+      },
+    ])) as Record<string, ProgressData>;
+    // A forgotten reinforcement answer is immediately due again. It belongs to
+    // the future SRS stream, not to either block of the day just completed.
+    const afterReinforcement = Object.fromEntries(words.map((word) => [
+      word.id,
+      {
+        stageIndex: 0, knownCount: 1, unknownCount: 1, introducedAt: now,
+        lastKnownAt: now, lastUnknownAt: now, nextDueAt: now - 1,
+      },
+    ])) as Record<string, ProgressData>;
+
+    const { result, rerender } = renderHook(
+      ({ progress }) => useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress,
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        studyGoal: { ...cappingGoal, wordsPerDay: 7, newWordsPerDay: 7 },
+        isSessionDataReady: true,
+        dayTargets: { resolvedNewTarget: 7, resolvedReviewTarget: 0, resolvedItemBudget: 7 },
+      }),
+      { initialProps: { progress: initialProgress } },
+    );
+
+    expect(result.current.streamGroups.map((group) => group.kind)).toEqual(['new', 'review']);
+    rerender({ progress: afterFirstPass });
+    expect(result.current.streamGroups.map((group) => group.kind)).toEqual(['review']);
+    rerender({ progress: afterReinforcement });
+    expect(result.current.streamGroups).toEqual([]);
   });
 
   it('counts every due repeat, not only the ones today\'s plan took', () => {
@@ -318,22 +372,14 @@ describe('useLearningPageState', () => {
   it('keeps an early pending minigame available as fresh-user cards are learned on the go', () => {
     const now = Date.now();
     const words = Array.from({ length: 6 }, (_, index) =>
-      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+      makeWord(`rev-${index}`, 'list-a', 'basics', 0, index)
     );
     const selectedCategories = new Set<string>();
+    const dueProgress = dueReviewProgress(words.map((word) => word.id), now);
     const learnedProgress: Record<string, ProgressData> = {
-      'new-0': {
-        stageIndex: 1,
-        knownCount: 1,
-        unknownCount: 0,
-        nextDueAt: now + 60_000,
-      },
-      'new-1': {
-        stageIndex: 1,
-        knownCount: 1,
-        unknownCount: 0,
-        nextDueAt: now + 60_000,
-      },
+      ...dueProgress,
+      'rev-0': { stageIndex: 2, knownCount: 2, unknownCount: 0, lastKnownAt: now, nextDueAt: now + 60_000 },
+      'rev-1': { stageIndex: 2, knownCount: 2, unknownCount: 0, lastKnownAt: now, nextDueAt: now + 60_000 },
     };
 
     const { result, rerender } = renderHook(
@@ -347,7 +393,7 @@ describe('useLearningPageState', () => {
           minigameFrequency: { min: 2, max: 2 },
           categoryOrder: [],
         }),
-      { initialProps: { progress: {} as Record<string, ProgressData> } }
+      { initialProps: { progress: dueProgress } }
     );
 
     const initialGame = result.current.streamGroupedWords
@@ -359,21 +405,22 @@ describe('useLearningPageState', () => {
 
     expect(visibleItems(result.current.streamGroupedWords).slice(0, 3)).toEqual([
       'game:1',
-      'new-2',
-      'new-3',
+      'rev-2',
+      'rev-3',
     ]);
   });
 
-  it('keeps minigames available through a larger new-word card session', () => {
+  it('keeps minigames available through a larger review card session', () => {
+    const now = Date.now();
     const words = Array.from({ length: 10 }, (_, index) =>
-      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+      makeWord(`rev-${index}`, 'list-a', 'basics', 0, index)
     );
 
     const { result } = renderHook(() =>
       useLearningPageState({
         filteredWords: words,
         selectedCategories: new Set<string>(),
-        progress: {},
+        progress: dueReviewProgress(words.map((word) => word.id), now),
         isHydrated: true,
         viewMode: 'card',
         minigameFrequency: { min: 2, max: 2 },
@@ -386,23 +433,26 @@ describe('useLearningPageState', () => {
       .filter((item): item is MiniGameConfig => '_isMinigame' in item)
       .map((item) => item.anchorOriginalIndex);
 
-    // Every two cards still gets an interlude. When matching is unavailable,
-    // Bubbles can use its four-word minimum instead of leaving a typing gap.
-    expect(gameAnchors).toEqual([1, 3, 5, 7, 9]);
+    // Every two cards gets an interlude while another word remains behind it.
+    // A derived game after the final live word could not survive that word's
+    // commit, so it is deliberately not offered as an unreachable last card.
+    expect(gameAnchors).toEqual([1, 3, 5, 7]);
+    expect(result.current.streamGroups[0].items.at(-1)).toMatchObject({ id: 'rev-9' });
   });
 
   it('schedules matching and bubble-review interludes between cards', () => {
     // Choice and typing are study cards. Matching remains practice-only while
     // the bubble game attributes its individual answers back to SR.
+    const now = Date.now();
     const words = Array.from({ length: 60 }, (_, index) =>
-      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+      makeWord(`rev-${index}`, 'list-a', 'basics', 0, index)
     );
 
     const { result } = renderHook(() =>
       useLearningPageState({
         filteredWords: words,
         selectedCategories: new Set<string>(),
-        progress: {},
+        progress: dueReviewProgress(words.map((word) => word.id), now),
         isHydrated: true,
         viewMode: 'stream',
         minigameFrequency: { min: 2, max: 2 },
@@ -421,8 +471,9 @@ describe('useLearningPageState', () => {
 
 
   it('adds tiltChoice to the bubble-review rotation while its frontier toggle is enabled', () => {
+    const now = Date.now();
     const words = Array.from({ length: 60 }, (_, index) =>
-      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+      makeWord(`rev-${index}`, 'list-a', 'basics', 0, index)
     );
 
     const { result, rerender } = renderHook(
@@ -430,7 +481,7 @@ describe('useLearningPageState', () => {
         useLearningPageState({
           filteredWords: words,
           selectedCategories: new Set<string>(),
-          progress: {},
+          progress: dueReviewProgress(words.map((word) => word.id), now),
           isHydrated: true,
           viewMode: 'stream',
           minigameFrequency: { min: 2, max: 2 },
@@ -452,5 +503,63 @@ describe('useLearningPageState', () => {
     expect(tiltAndBubbleGames.length).toBeGreaterThan(0);
     expect(tiltAndBubbleGames.every((game) => ['tiltChoice', 'bubbleChoice', 'similarWordsPrompt'].includes(game.gameType))).toBe(true);
     expect(tiltAndBubbleGames.some((game) => game.gameType === 'tiltChoice')).toBe(true);
+  });
+  it('schedules no minigame at all in a block of new words', () => {
+    // A bubble field grades every word it holds, so a round scheduled among new
+    // words introduced them without the learner ever meeting the card — and
+    // answered, off-screen, the repeats the day was planning to ask about.
+    // Matching has no stage-zero variant, which left bubbles as the *only*
+    // candidate there: the mixing was reliable rather than occasional.
+    const words = Array.from({ length: 30 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress: {},
+        isHydrated: true,
+        viewMode: 'stream',
+        minigameFrequency: { min: 2, max: 2 },
+        categoryOrder: [],
+      })
+    );
+
+    const newBlockGames = result.current.streamGroups
+      .filter((group) => group.kind === 'new')
+      .flatMap((group) => group.items)
+      .filter((item) => '_isMinigame' in item);
+    expect(newBlockGames).toEqual([]);
+  });
+
+  it('breaks the leftover repeats into stretches of ten', () => {
+    // Handing over the whole backlog as one block gave the rail a single
+    // segment that barely moved, and the session no seam to rest on.
+    const now = Date.now();
+    const words = Array.from({ length: 24 }, (_, index) =>
+      makeWord(`rev-${index}`, 'list-a', 'basics', 0, index)
+    );
+
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress: dueReviewProgress(words.map((word) => word.id), now),
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        continueAnyway: true,
+      })
+    );
+
+    expect(result.current.bonusBlockProgress.map((block) => block.total)).toEqual([10, 10, 4]);
+    expect(result.current.streamGroups.map((group) => group.key)).toEqual([
+      'bonus-review-0',
+      'bonus-review-1',
+      'bonus-review-2',
+    ]);
+    expect(result.current.streamGroups.map((group) => group.items.length)).toEqual([10, 10, 4]);
   });
 });

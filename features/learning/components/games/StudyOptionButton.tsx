@@ -35,6 +35,9 @@ export type StudyOptionSize = 'lg' | 'md' | 'sm';
 /** Which pair a settled matching button belongs to. */
 export type StudyOptionMatchColor = 1 | 2 | 3 | 4 | 5 | 6;
 
+/** Which edge a settled matching button carries its pair spine on. */
+export type StudyOptionMatchEdge = 'left' | 'right';
+
 const sizeClasses: Record<StudyOptionSize, string> = {
   lg: 'min-h-20 px-4 py-4 text-xl sm:min-h-24 sm:text-2xl',
   md: 'min-h-16 px-3 py-3 text-lg sm:text-xl',
@@ -46,12 +49,20 @@ const stateClasses: Record<StudyOptionState, string> = {
     'border-[#BBAE98] bg-[#FFF8E8] text-[#2A2218] shadow-[0_3px_0_#D8C9AF] ' +
     'hover:-translate-y-0.5 hover:border-[#1E6FA8] hover:shadow-[0_5px_0_#C7B89E] ' +
     'active:translate-y-[2px] active:shadow-none',
-  selected: 'border-[#1E6FA8] bg-[#E4EEF6] text-[#17608F] shadow-[0_3px_0_#B5CFE4]',
+  // A picked half stays paper and lifts instead of filling with cold blue: the
+  // board sits on warm sand, and a flat blue slab read as a foreign element.
+  selected:
+    '-translate-y-0.5 border-[#1E6FA8] bg-[#FFF8E8] text-[#17608F] ' +
+    'shadow-[0_5px_0_#B9CFE0] ring-2 ring-[#1E6FA8]/15',
   correct:
     'scale-[1.025] border-[#187A43] bg-[#E3F3E7] text-[#145B33] shadow-[0_4px_0_#A9D3B6] ' +
     'motion-safe:animate-[pulse_420ms_ease-out_1]',
-  // Settled pairs step back so the buttons still in play stay the loud ones.
-  matched: 'border-[#187A43]/60 text-[#2A2218] shadow-none',
+  // A settled pair carries its own colour; what is left in play stays plain
+  // cream, so the board reads as "collected vs still open" at a glance.
+  // Everything colourful (wash, border, spine) is inline, keyed off the pair's
+  // hue — the fixed green border used to fight whatever tint the pair drew.
+  // The class values are the fallback for a settled button with no colour.
+  matched: 'border-[#C9BBA3] bg-[#F6EEDE] text-[#2A2218] shadow-[0_2px_0_#DCCFB6]',
   wrong:
     'border-[#B91C1C] bg-[#FCE7E5] text-[#8F1515] shadow-[0_3px_0_#E4AAA6] ' +
     'motion-safe:animate-[game-shake_350ms_ease]',
@@ -62,6 +73,7 @@ export function StudyOptionButton({
   state,
   size = 'md',
   matchColor,
+  matchEdge = 'left',
   disabled = false,
   onClick,
   enterIndex,
@@ -75,6 +87,8 @@ export function StudyOptionButton({
   size?: StudyOptionSize;
   /** Tints a `matched` button so both halves of one pair share a colour. */
   matchColor?: StudyOptionMatchColor;
+  /** Put the spine on the edge facing the other column. */
+  matchEdge?: StudyOptionMatchEdge;
   disabled?: boolean;
   onClick?: () => void;
   /** Staggers the deal-in animation; omit to skip the entrance entirely. */
@@ -85,12 +99,18 @@ export function StudyOptionButton({
   children: ReactNode;
 } & Record<`data-${string}`, string | number | undefined>) {
   const animate = state === 'idle' && enterIndex !== undefined;
-  const matchTint =
-    state === 'matched' && matchColor
-      ? { background: `rgb(var(--match-${matchColor}) / 0.22)` }
-      : state === 'matched'
-        ? { background: '#F1EADB' }
-        : null;
+  const hue = state === 'matched' && matchColor ? `var(--match-${matchColor})` : null;
+  // The wash is layered over the card's cream rather than replacing the fill.
+  // Painting a translucent tint straight onto the button let the sand page
+  // show through, which turned every settled pair the same muddy grey.
+  const matchTint = hue
+    ? {
+        backgroundColor: '#FFF8E8',
+        backgroundImage: `linear-gradient(rgb(${hue} / 0.19), rgb(${hue} / 0.19))`,
+        borderColor: `rgb(${hue} / 0.45)`,
+        boxShadow: `0 2px 0 rgb(${hue} / 0.26)`,
+      }
+    : null;
 
   return (
     <button
@@ -125,6 +145,20 @@ export function StudyOptionButton({
       disabled={disabled}
       aria-label={ariaLabel}
     >
+      {hue ? (
+        // A spine in the pair's own colour, on the edge facing the other
+        // column, so the two halves point at each other across the gutter.
+        // Two halves of a pair sit far apart on the board and a pale wash
+        // alone is a weak tie — especially for anyone who cannot tell two of
+        // the six hues apart.
+        <span
+          aria-hidden="true"
+          className={`absolute inset-y-2 w-[5px] rounded-full ${
+            matchEdge === 'right' ? 'right-1.5' : 'left-1.5'
+          }`}
+          style={{ background: `rgb(${hue} / 0.85)` }}
+        />
+      ) : null}
       <span>{children}</span>
     </button>
   );

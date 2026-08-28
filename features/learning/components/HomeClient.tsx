@@ -13,6 +13,7 @@ import { resolveSessionFlow } from '@/features/learning/session/flow';
 import { countIntroducedOnDay } from '@/features/learning/session/dayProgress';
 import { useSessionBreather } from '@/features/learning/session/useSessionBreather';
 import { useTimePhase } from '@/features/learning/session/useTimePhase';
+import { useSessionCompletions } from '@/features/learning/hooks/useSessionCompletions';
 import { setActivitySurfaceOverride } from '@/lib/activity/runtime';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
 import { SessionPreflightCard } from '@/features/learning/components/SessionPreflightCard';
@@ -57,7 +58,6 @@ import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list
 import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
 import { resolveStreakData } from '@/features/learning/goals/streakWeek';
-import { useStudyCountdown } from '@/features/learning/goals/useStudyCountdown';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
 import type { StudyGoalVersion, StudyPacing } from '@/packages/domain/goals/goal';
 import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
@@ -65,6 +65,7 @@ import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
 import {
   applyOnboardingBack,
   hasConfiguredGoal,
+  holdOnboardingStepWhileLoading,
   onboardingBackTarget,
   resolveLearningOnboardingStep,
   type LearningOnboardingStep,
@@ -113,12 +114,12 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).get('wordChat') === '1',
   );
-  const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
-  // The deck writes the SRS answer only once its exit animation ends, which
-  // left the rails frozen for the length of that animation after every answer.
-  // An answered card joins this set on the tap and is counted for display until
-  // the real progress entry lands (see `computeBlockProgress`).
-  const [pendingAnswers, setPendingAnswers] = useState<Record<string, number>>({});
+  // Work this session has finished but the server has not caught up with yet.
+  const {
+    completedDeckWordCards,
+    pendingAnswers, completedGameIds, answeredWords,
+    recordAnswerGiven, recordDeckCardCompleted, recordGameFinished,
+  } = useSessionCompletions();
   // Set from the closing card: the day is already earned, and the learner chose
   // to keep going through the repeats it deliberately left out.
   const [continueAnyway, setContinueAnyway] = useState(false);
@@ -473,6 +474,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       (!isGoalSummaryLoading || bootTimedOut),
     sessionScopeKey: `pair:${normalizeLanguageCode(learningLanguageFrom ?? 'unknown')}:${normalizeLanguageCode(learningLanguageTo ?? 'unknown')}`,
     pendingAnswers,
+    completedGameIds,
     continueAnyway,
     timePhase: sessionTimePhase,
     dayTargets: goalDay ? {
@@ -491,7 +493,9 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     enabled: Boolean(appState.activeList),
     onRefresh: refreshFullSnapshot,
   });
-
+  // Stable so the deck's card renderers are not rebuilt on every render of this
+  // page; it reads the same `progress` those renderers already depend on.
+  const handleCardAnswered = useCallback((word: NormalizedWord) => recordAnswerGiven(word, progress), [progress, recordAnswerGiven]);
   const {
     renderCard,
     renderMiniGame,
@@ -528,6 +532,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     dismissedGames,
     setDismissedGames,
     setGameScore,
+    onGameFinished: recordGameFinished,
+    onCardAnswered: handleCardAnswered,
     onAddSimilarWords: () => navigateSurface('chat'),
     similarWordsContext,
   });
@@ -676,34 +682,30 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // own flow keeps driving the breather and the closing card either way.
   const bonusFlow = useMemo(() => resolveSessionFlow(bonusBlockProgress), [bonusBlockProgress]);
   const railFlow = continueAnyway && bonusFlow.dayTotal > 0 ? bonusFlow : sessionFlow;
+  const railBlocks = continueAnyway && bonusFlow.dayTotal > 0 ? bonusBlockProgress : sessionBlockProgress;
   // The closing card quotes the server's count of the day, so the rollup has to
   // be refreshed at every point that card can appear: when the plan is walked,
   // and again when a bonus round taken on top of it runs out. Without the
   // second read the card would report the day as it stood before the bonus.
-  const bonusClosed = continueAnyway && bonusFlow.dayTotal > 0 && bonusFlow.complete;
+  const bonusClosed = continueAnyway && bonusFlow.dayTotal > 0 && bonusFlow.settled;
   useEffect(() => {
-    if (!sessionFlow.complete && !bonusClosed) return;
+    // Settled, not complete: the day closes on the answer, but the rollup this
+    // reads is written from the answer that is still on its way to the server.
+    if (!sessionFlow.settled && !bonusClosed) return;
     void flushOutboxBeforeRead()
       .catch(() => undefined)
       .then(() => refreshGoalSummary());
-  }, [bonusClosed, refreshGoalSummary, sessionFlow.complete]);
-  const { breather, dismiss: dismissBreather } = useSessionBreather(sessionFlow, sessionBlockProgress);
-  // Only one of the two countdowns is ever live: the strip runs while work
-  // remains, this one only once the day is closed. They never both tick.
+  }, [bonusClosed, refreshGoalSummary, sessionFlow.settled]);
+  const { breather, dismiss: dismissBreather } = useSessionBreather(railFlow, railBlocks, answeredWords,
+    `${session.planIdentity ?? 'unplanned'}:${continueAnyway ? 'bonus' : 'day'}`);
   // One derivation for both surfaces, so the chip in the bar and the card that
   // closes the day can never disagree about the same week.
-  const dayClosedLocally = sessionFlow.complete && (session.dailyPlan?.shortfall ?? 0) === 0;
+  const dayClosedLocally = Boolean(goalDay?.met) || (sessionFlow.complete && (session.dailyPlan?.shortfall ?? 0) === 0);
   const streak = useMemo(
     () => goalSummary
       ? resolveStreakData(goalSummary, { optimisticTodayComplete: dayClosedLocally })
       : null,
     [dayClosedLocally, goalSummary],
-  );
-  const dayResult = useStudyCountdown(
-    goalDay,
-    (goalSummary?.goal.active as StudyGoalVersion | null | undefined) ?? null,
-    Boolean(goalSummary?.goal.active?.enabled) && sessionFlow.complete,
-    goalSummary?.timezone,
   );
   // What the day amounted to, counted by the server rather than by the plan:
   // the plan can only ever report its own cap back, and the learner may well
@@ -724,6 +726,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               goalDay.goalMode === 'words'
                 ? (goalDay.resolvedNewTarget ?? 0) + (goalDay.resolvedReviewTarget ?? 0)
                 : null,
+            met: goalDay.met,
           }
         : null,
     [goalDay, localIntroducedToday],
@@ -731,6 +734,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const sessionBreatherCard = breather ? (
     <SessionBreatherCard
       breather={breather}
+      role={role}
       onContinue={dismissBreather}
       showDayProgress={!sessionTimeGoal}
     />
@@ -787,7 +791,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     languageFrom: learningLanguageFrom ?? null,
     languageTo: learningLanguageTo ?? null,
   });
-  const resolvedOnboardingStep = resolveLearningOnboardingStep({
+  const resolvedGateStep = resolveLearningOnboardingStep({
     forceLanguage: forceOnboarding,
     hasNoSelectedWordList,
     onboardingCompleted: Boolean(onboardingCompletedAt),
@@ -798,6 +802,19 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     hasConfiguredGoal: hasConfiguredGoal(goalSummary?.goal),
     reminderOnboardingAnswered: goalSummary?.reminder.onboardingAnswered ?? false,
   });
+  // The last step actually put on screen, so a gap while the next one's answer
+  // is still being fetched can hold it instead of blinking the boot loader in.
+  // Written after the commit that showed it, which is what leaves it pointing
+  // at the *previous* step during the render that would otherwise load.
+  const lastRenderedOnboardingStepRef = useRef<LearningOnboardingStep | null>(null);
+  const resolvedOnboardingStep = holdOnboardingStepWhileLoading(
+    resolvedGateStep,
+    // eslint-disable-next-line react-hooks/refs -- this is render history, not render-driving state
+    lastRenderedOnboardingStepRef.current,
+  );
+  useEffect(() => {
+    lastRenderedOnboardingStepRef.current = resolvedOnboardingStep;
+  }, [resolvedOnboardingStep]);
   // Where Back has sent the learner, if anywhere. Every step reads its saved
   // answer, so going back shows what they chose rather than a blank card; the
   // override is dropped the moment a step is submitted, which is what lets the
@@ -1033,17 +1050,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               phrasesScrollElement={phrasesScrollElement}
               filteredWords={filteredWords}
               interstitialCard={interstitialCard}
-              onDeckWordCardCompleted={(word) => {
-                setCompletedDeckWordCards((count) => count + 1);
-                // Recorded as "where this word stood when it was tapped", not as
-                // a bare id: the entry then expires on its own as soon as the
-                // real answer lands, and a word tapped twice in one session
-                // (the closing block repeats the new one) records each tap.
-                setPendingAnswers((previous) => ({
-                  ...previous,
-                  [word.id]: (progress[word.id]?.knownCount ?? 0) + (progress[word.id]?.unknownCount ?? 0),
-                }));
-              }}
+              onDeckWordCardCompleted={(word) => recordDeckCardCompleted(word, progress)}
               deckSwipeActions={deckSwipeActions}
               isSwipeBlockedForWord={isTypingCard}
               streamGroups={streamGroups}
@@ -1071,7 +1078,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               dayFlow={sessionFlow}
               dayScore={dayScore}
               shortfall={session.dailyPlan?.shortfall ?? 0}
-              dayResult={dayResult}
               streak={streak}
               onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
             />

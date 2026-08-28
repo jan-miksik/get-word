@@ -368,3 +368,16 @@
     background-position: 50% 0;
   }
 }
+
+/* Word assembly — the next empty slot in the answer tray breathes, so an empty
+   tray reads as a place to put something rather than as a decorative outline.
+   Only the first one animates; a whole row of pulsing boxes is noise. */
+@keyframes assembly-slot-wait {
+  0%,
+  100% {
+    border-color: rgba(30, 111, 168, 0.25);
+  }
+  50% {
+    border-color: rgba(30, 111, 168, 0.65);
+  }
+}

@@ -25,10 +25,15 @@ export function OnboardingProgress({
   const total = ONBOARDING_PROGRESS_STEPS.length;
 
   return (
-    // Spacing around the rail belongs to `OnboardingScreen`, which places it in
-    // a row beside Back — a margin owned here would fight that row.
+    // Spacing around the rail belongs to `OnboardingScreen`, which gives it a
+    // row of its own — a margin owned here would fight that row.
     <div className={className}>
+      {/* No caption line: "Step 2 of 5" spelled out under the rail told the
+          learner nothing the filled segments do not, and it turned five short
+          screens into five screens with a header. The wording survives as the
+          rail's accessible value text. */}
       <StepDots
+        compact
         total={total}
         current={position}
         label={t('onboarding.progressLabel')}

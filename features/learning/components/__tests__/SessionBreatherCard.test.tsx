@@ -4,21 +4,39 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { SessionBreatherCard } from '../SessionBreatherCard';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
+import type { NormalizedWord } from '@/lib/words';
+
+const word = (id: string, cz: string, vi: string): NormalizedWord => ({
+  id,
+  category: ['word'],
+  cz,
+  en: cz,
+  vi,
+});
+
+const ANSWERED = [word('w1', 'pes', 'con chó'), word('w2', 'kočka', 'con mèo')];
 
 const between = () => {
   const blocks: SessionBlockProgress[] = [
     { key: 'review-0', kind: 'review', phase: 0, done: 9, total: 10, pending: 0, liveRemaining: 1, unavailable: 0 },
-    { key: 'new-0', kind: 'new', phase: 1, done: 3, total: 10, pending: 0, liveRemaining: 7, unavailable: 0 },
+    // The answer that crossed the seam is already the learner's, even while
+    // its SRS write is still queued.
+    { key: 'new-0', kind: 'new', phase: 1, done: 2, total: 10, pending: 1, liveRemaining: 8, unavailable: 0 },
     { key: 'review-1', kind: 'review', phase: 2, done: 0, total: 12, pending: 0, liveRemaining: 12, unavailable: 0 },
   ];
   const flow = resolveSessionFlow(blocks, 2);
-  return { finished: blocks[1], next: blocks[2], flow };
+  return { finished: blocks[1], next: blocks[2], flow, words: ANSWERED };
 };
 
 function renderBetween(props: Partial<React.ComponentProps<typeof SessionBreatherCard>> = {}) {
   return render(
     <I18nProvider language="en">
-      <SessionBreatherCard breather={between()} onContinue={() => {}} {...props} />
+      <SessionBreatherCard
+        breather={between()}
+        role="knownLanguage"
+        onContinue={() => {}}
+        {...props}
+      />
     </I18nProvider>,
   );
 }
@@ -29,6 +47,16 @@ describe('SessionBreatherCard at the seam between two stretches', () => {
 
     expect(screen.getByText('9 words and phrases reviewed')).toBeInTheDocument();
     expect(screen.getByText('3 new words')).toBeInTheDocument();
+  });
+
+  it('names the stretch that just ended, on the side the learner already knows', () => {
+    renderBetween();
+
+    expect(screen.getByText('pes')).toBeInTheDocument();
+    expect(screen.getByText('kočka')).toBeInTheDocument();
+    // The block starting now is a pass over these same words; printing their
+    // other side here would answer it in advance.
+    expect(screen.queryByText('con chó')).not.toBeInTheDocument();
   });
 
   it('drops the item bar on a minutes day, where the countdown already answers it', () => {

@@ -391,8 +391,6 @@ export function WordChatFlow({
           proposals={chat.proposals}
           isSelected={chat.isSelected}
           onToggle={chat.toggleSelected}
-          audioDisabledKeys={chat.audioDisabledKeys}
-          onToggleAudioDisabled={chat.toggleAudioDisabled}
           languageFrom={languageFrom}
           // The screen header already carries the pair on hosts that have one;
           // a second copy inside the card's heading row only repeated it.

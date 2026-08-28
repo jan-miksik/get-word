@@ -65,6 +65,8 @@ interface TypingStudyCardProps {
   onScore?: (points: number) => void;
   /** Fires on tap-to-continue; SR stage moves only when the card advances. */
   onOutcome: (outcome: TypingOutcome) => void;
+  /** Fires the moment the answer is checked, so progress counts from there. */
+  onAnswered?: () => void;
   onCustomStage?: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   fullscreen?: boolean;
   autoFocus?: boolean;
@@ -116,6 +118,7 @@ export function TypingStudyCard({
   playAudioAfterCheck = false,
   onScore,
   onOutcome,
+  onAnswered,
   onCustomStage,
   fullscreen = false,
   autoFocus = false,
@@ -409,9 +412,10 @@ export function TypingStudyCard({
     inputRef.current?.blur();
     setResult(nextResult);
     if (playAudioAfterCheck) void playAuto(promptAudioSrcs);
-    // Score lands the moment the answer is checked; only the SR stage waits
-    // for the continue tap.
+    // Score and session progress both land the moment the answer is checked;
+    // only the SR stage waits for the continue tap.
     if (nextResult.points > 0) onScore?.(nextResult.points);
+    onAnswered?.();
   };
 
   const submitCheck = () => {

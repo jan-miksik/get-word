@@ -66,6 +66,7 @@ const DEV_FLOW: SessionFlowState = {
   dayTotal: 33,
   dayPending: 0,
   complete: false,
+  settled: false,
 };
 
 function goalFrom(value: GoalPickerValue): ReviewLoadInput['goal'] {

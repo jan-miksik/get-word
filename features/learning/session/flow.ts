@@ -16,7 +16,19 @@ export interface SessionFlowState {
   dayTotal: number;
   /** Answered but not yet committed to progress; display-only, see `pending`. */
   dayPending: number;
+  /**
+   * The day is walked. True on the answer itself, not on the SRS write that
+   * follows it — a step the learner has taken is a step they have taken, and
+   * waiting for the deck's exit animation made the last card of a block (and of
+   * the day) appear to count only once the *next* card was already on screen.
+   */
   complete: boolean;
+  /**
+   * The same thing, counted from committed answers only. Anything that has to
+   * agree with the server — refreshing the day rollup, above all — waits for
+   * this instead, because a read fired on the tap races the write it is reading.
+   */
+  settled: boolean;
 }
 
 const EMPTY: SessionFlowState = {
@@ -30,6 +42,7 @@ const EMPTY: SessionFlowState = {
   dayTotal: 0,
   dayPending: 0,
   complete: false,
+  settled: false,
 };
 
 /**
@@ -54,7 +67,7 @@ export function resolveSessionFlow(
 ): SessionFlowState {
   if (blocks.length === 0) {
     return currentPhase !== undefined && currentPhase >= TIME_PHASE_COUNT
-      ? { ...EMPTY, complete: true }
+      ? { ...EMPTY, complete: true, settled: true }
       : EMPTY;
   }
 
@@ -70,9 +83,22 @@ export function resolveSessionFlow(
       dayTotal,
       dayPending,
       complete: true,
+      // The clock can close a minutes day with ordinary cards still left, so
+      // "all planned work is done" is not the settlement test here. What must
+      // finish before the server rollup is read is the answer already given on
+      // the card: once no answer is pending, every write the learner actually
+      // made is available for `flushOutboxBeforeRead` to drain.
+      settled: dayPending === 0,
     };
   }
-  const owesWork = (block: SessionBlockProgress) => block.done < block.total && block.liveRemaining > 0;
+  // An answer counts the moment it is given. `pending` is the answer the deck is
+  // still animating away; leaving it out here is what made a finished block —
+  // and a finished day — announce itself a card late.
+  const owesWork = (block: SessionBlockProgress) =>
+    block.done + block.pending < block.total && block.liveRemaining > 0;
+  const owesCommittedWork = (block: SessionBlockProgress) =>
+    block.done < block.total && block.liveRemaining > 0;
+  const settled = blocks.every((block) => !owesCommittedWork(block));
   const index = currentPhase === undefined
     ? blocks.findIndex(owesWork)
     // Falls forward, never back: a stretch whose material runs out early hands
@@ -80,13 +106,13 @@ export function resolveSessionFlow(
     : blocks.findIndex((block) => (block.phase ?? 0) >= currentPhase && owesWork(block));
 
   if (index === -1 && currentPhase === undefined) {
-    return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending, complete: true };
+    return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending, complete: true, settled };
   }
   if (index === -1) {
     // A minutes day can run out of material before it runs out of time. Keep the
     // clock alive and the session open; the empty-state actions let the learner
     // add material, while only the terminal time phase closes the goal.
-    return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending };
+    return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending, settled };
   }
   return {
     index,
@@ -99,5 +125,6 @@ export function resolveSessionFlow(
     dayTotal,
     dayPending,
     complete: false,
+    settled: false,
   };
 }

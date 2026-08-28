@@ -38,6 +38,7 @@ describe('session day progress', () => {
     );
     expect(progress).toEqual({
       key: 'review-0', kind: 'review', total: 3, done: 1, pending: 0, liveRemaining: 1, unavailable: 2,
+      gameTotal: 0, gameDone: 0, gameUnavailable: 0,
     });
   });
 
@@ -141,5 +142,22 @@ describe('session day progress', () => {
     expect(computeBlockProgress([block], input)[0]).toMatchObject({ done: 1, liveRemaining: 2, unavailable: 0 });
     // A single-pass block would have called both of them finished.
     expect(computeBlockProgress([{ ...block, pass: 1 }], input)[0]).toMatchObject({ done: 2, liveRemaining: 0 });
+  });
+  it('carries each block\'s minigame rounds alongside its words', () => {
+    const [progress] = computeBlockProgress(
+      [{ key: 'review-0', kind: 'review', ids: ['a', 'b'] }],
+      {
+        progress: {},
+        liveIds: new Set(['a', 'b']),
+        dayKey,
+        timezone: 'UTC',
+        blockGames: { 'review-0': { total: 3, done: 1, unavailable: 1 } },
+      },
+    );
+    // Rounds ride beside the words rather than inside them: the block rail
+    // counts every card, while the day's goal stays counted in words alone.
+    expect(progress).toMatchObject({
+      total: 2, done: 0, gameTotal: 3, gameDone: 1, gameUnavailable: 1,
+    });
   });
 });

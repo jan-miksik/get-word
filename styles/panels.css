@@ -1043,7 +1043,11 @@
   --ob-ink-soft: #6B5E48;
   --ob-accent: #1E6FA8;
   --ob-danger: #B91C1C;
-  background: var(--ob-surface);
+  /* The ground the loading screen paints its scratch field on, not the warm
+     surface the sheets are drawn in: onboarding shares that backdrop now, and
+     a different colour under the same motif made the hand-off from the loader
+     read as a flash. */
+  background: #fefff5;
   color: var(--ob-ink);
   /* The onboarding screen renders outside `.app`, and in standalone/PWA mode
      `html, body` are locked to `overflow: hidden` (see tokens.css). Give this

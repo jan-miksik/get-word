@@ -13,7 +13,12 @@ import type { ViewMode } from '../app-state/types';
 import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { useSessionPlan } from '@/features/learning/session/useSessionPlan';
 import { computeBlockProgress } from '@/features/learning/session/dayProgress';
-import type { SessionBlock } from '@/features/learning/session/blocks';
+import {
+  recordBlockGames,
+  summarizeBlockGames,
+  type BlockGameLedger,
+} from '@/features/learning/session/blockGames';
+import type { SessionBlock, SessionBlockKind } from '@/features/learning/session/blocks';
 import type { LearningStreamBlock } from '@/features/learning/types';
 
 interface UseLearningPageStateOptions {
@@ -47,6 +52,12 @@ interface UseLearningPageStateOptions {
    */
   pendingAnswers?: Record<string, number>;
   /**
+   * Minigame rounds the learner has worked through. A round is a card like any
+   * other, so it fills a slot on the block rail; it never reaches the day's
+   * goal, which is counted in words. See `blockGames`.
+   */
+  completedGameIds?: ReadonlySet<string>;
+  /**
    * The stretch a minutes day's clock has reached. Stretches already behind it
    * are dropped from the stream: their time is spent, and their words are
    * simply still due — leaving them at the front of the deck would make the
@@ -69,6 +80,17 @@ type SessionDay = { dayKey: string; timezone: string };
 const DEFAULT_EXTRA_NEW_WORDS = 5;
 
 /**
+ * How long one stretch of the bonus round is.
+ *
+ * The leftovers can be dozens of words, and handing them over as a single block
+ * gave the rail one segment that barely moved and the session no seam at all —
+ * a learner who had already earned the day was then asked to walk an unbroken
+ * wall of repeats with nothing to read progress from. Ten is short enough to
+ * see the end of, and it restores the breather between stretches.
+ */
+const BONUS_BLOCK_SIZE = 10;
+
+/**
  * The stretch the learner opted into once they had already earned the day.
  *
  * Some of these words were answered minutes ago — a stage-0 word falls due again
@@ -82,12 +104,17 @@ function freezeBonusRound(input: {
   progress: Record<string, ProgressData>;
 }): { blocks: SessionBlock[]; baseline: Record<string, number> } | null {
   const blocks: SessionBlock[] = [];
-  if (input.reviewWords.length > 0) {
-    blocks.push({ key: 'bonus-review', kind: 'review', ids: input.reviewWords.map((word) => word.id) });
-  }
-  if (input.newWords.length > 0) {
-    blocks.push({ key: 'bonus-new', kind: 'new', ids: input.newWords.map((word) => word.id) });
-  }
+  const push = (kind: SessionBlockKind, words: NormalizedWord[]) => {
+    for (let offset = 0; offset < words.length; offset += BONUS_BLOCK_SIZE) {
+      blocks.push({
+        key: `bonus-${kind}-${blocks.length}`,
+        kind,
+        ids: words.slice(offset, offset + BONUS_BLOCK_SIZE).map((word) => word.id),
+      });
+    }
+  };
+  push('review', input.reviewWords);
+  push('new', input.newWords);
   if (blocks.length === 0) return null;
   const baseline: Record<string, number> = {};
   for (const id of blocks.flatMap((block) => block.ids)) {
@@ -159,6 +186,7 @@ export function useLearningPageState({
   sessionScopeKey = 'pair:unknown',
   continueAnyway = false,
   pendingAnswers,
+  completedGameIds,
   timePhase,
   dayTargets = null,
 }: UseLearningPageStateOptions) {
@@ -234,7 +262,82 @@ export function useLearningPageState({
     for (const word of settlingWords) words.set(word.id, word);
     return words;
   }, [settlingWords]);
+  // A failed second-pass answer can become due again immediately. It is still
+  // due for the SRS, but it no longer belongs to the frozen block the learner
+  // has just completed. Without dropping settled blocks here, those words were
+  // projected back into both the earlier new block and the reinforcement block:
+  // the day flow was complete (and its rail gone), while the deck silently kept
+  // serving cards beyond it.
+  const settledPlanBlockKeys = useMemo(() => {
+    const blocks = computeBlockProgress(session.dailyPlan?.blocks ?? [], {
+      progress,
+      liveIds: new Set(liveById.keys()),
+      settlingIds: new Set(settlingById.keys()),
+      dayKey: sessionDayKey,
+      timezone: sessionTimezone,
+      answerBaseline: session.dailyPlan?.answerBaseline,
+    });
+    return new Set(
+      blocks
+        .filter((block) => block.total > 0 && block.done >= block.total)
+        .map((block) => block.key),
+    );
+  }, [liveById, progress, session.dailyPlan, sessionDayKey, sessionTimezone, settlingById]);
+  // The overflow round is frozen from the live leftovers at the moment the
+  // learner opts in. Its blocks must drive the deck as well as the rail; using
+  // the unbounded review/new projection here would collapse the ten-card
+  // stretches back into one long block and make both breathers and game ticks
+  // disagree with the cards on screen.
+  const bonusReviewWords = useMemo(
+    () => [...priorityWords.slice(0, priorityDueCount), ...dueWords],
+    [dueWords, priorityDueCount, priorityWords],
+  );
+  const extraNewLimit = Math.max(1, dayTargets?.resolvedNewTarget ?? DEFAULT_EXTRA_NEW_WORDS);
+  const bonusNewWords = useMemo(
+    () => [...priorityWords.slice(priorityDueCount), ...newWords].slice(0, extraNewLimit),
+    [extraNewLimit, newWords, priorityDueCount, priorityWords],
+  );
+  const [bonus, setBonus] = useState<{ blocks: SessionBlock[]; baseline: Record<string, number> } | null>(null);
+  const bonusSnapshot = continueAnyway
+    ? bonus ?? freezeBonusRound({ reviewWords: bonusReviewWords, newWords: bonusNewWords, progress })
+    : null;
+  useEffect(() => {
+    if (bonusSnapshot === bonus) return;
+    // The snapshot is written once when overflow begins and cleared when the
+    // learner returns to the capped day.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBonus(bonusSnapshot);
+  }, [bonus, bonusSnapshot]);
+  const settledBonusBlockKeys = useMemo(() => {
+    const blocks = computeBlockProgress(bonusSnapshot?.blocks ?? [], {
+      progress,
+      liveIds: new Set(liveById.keys()),
+      settlingIds: new Set(settlingById.keys()),
+      dayKey: sessionDayKey,
+      timezone: sessionTimezone,
+      answerBaseline: bonusSnapshot?.baseline,
+    });
+    return new Set(
+      blocks
+        .filter((block) => block.total > 0 && block.done >= block.total)
+        .map((block) => block.key),
+    );
+  }, [bonusSnapshot, liveById, progress, sessionDayKey, sessionTimezone, settlingById]);
   const streamBlocks = useMemo<LearningStreamBlock[]>(() => {
+    if (continueAnyway && bonusSnapshot) {
+      return bonusSnapshot.blocks
+        .map((block, blockIndex) => ({ block, blockIndex }))
+        .filter(({ block }) => !settledBonusBlockKeys.has(block.key))
+        .map(({ block, blockIndex }) => ({
+          key: block.key,
+          kind: block.kind,
+          blockIndex,
+          words: block.ids
+            .map((id) => liveById.get(id))
+            .filter((word): word is NormalizedWord => Boolean(word)),
+        }))
+        .filter((block) => block.words.length > 0);
+    }
     if (session.streamMode !== 'planned' || !session.dailyPlan) {
       return [
         { key: 'review-0', kind: 'review' as const, blockIndex: 0, words: [...priorityWords, ...dueWords] },
@@ -245,6 +348,7 @@ export function useLearningPageState({
       // The position in the day's own plan, kept through the filter: a stretch
       // dropped by the clock must not renumber the ones still to come.
       .map((block, blockIndex) => ({ block, blockIndex }))
+      .filter(({ block }) => !settledPlanBlockKeys.has(block.key))
       .filter(({ block }) => timePhase === undefined || (block.phase ?? 0) >= timePhase)
       .map(({ block, blockIndex }) => ({
         key: block.key,
@@ -256,7 +360,7 @@ export function useLearningPageState({
           .filter((word): word is NormalizedWord => Boolean(word)),
       }))
       .filter((block) => block.words.length > 0);
-  }, [dueWords, liveById, newWords, priorityWords, session.dailyPlan, session.streamMode, settlingById, timePhase]);
+  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, priorityWords, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timePhase]);
   const plannedPriorityWords = session.dailyPlan
     ? priorityWords.filter((word) => session.dailyPlan!.priorityIds.includes(word.id))
     : priorityWords;
@@ -273,24 +377,6 @@ export function useLearningPageState({
   // panel lists — which is why the closing card quotes this number instead of
   // reading an emptied plan as "nothing due".
   const dueNowCount = priorityDueCount + dueWords.length;
-  // The learner's own words lead the stream whether or not they have ever been
-  // studied, so the priority bucket holds both kinds. The two halves of a bonus
-  // round have to be told apart, and each half has to match the number the
-  // closing card puts on its button.
-  const bonusReviewWords = useMemo(
-    () => [...priorityWords.slice(0, priorityDueCount), ...dueWords],
-    [dueWords, priorityDueCount, priorityWords],
-  );
-  // Leftover repeats are work already owed, so all of them are offered. New
-  // words are not: a goal of five a day exists to pace exactly them, and
-  // handing over a whole freshly imported list the moment the day closes would
-  // undo it. What is offered is one more helping of the size the learner
-  // themselves chose — enough to reach words added an hour ago, not the pile.
-  const extraNewLimit = Math.max(1, dayTargets?.resolvedNewTarget ?? DEFAULT_EXTRA_NEW_WORDS);
-  const bonusNewWords = useMemo(
-    () => [...priorityWords.slice(priorityDueCount), ...newWords].slice(0, extraNewLimit),
-    [extraNewLimit, newWords, priorityDueCount, priorityWords],
-  );
   const newNowCount = bonusNewWords.length;
 
   const learnedPool = useMemo(
@@ -304,7 +390,9 @@ export function useLearningPageState({
 
   const { streamGroups } = useLearningStreamGroups({
     blocks: streamBlocks,
-    retainedBlockKeys: session.dailyPlan?.blocks.map((block) => block.key) ?? streamBlocks.map((block) => block.key),
+    retainedBlockKeys: bonusSnapshot?.blocks.map((block) => block.key) ??
+      session.dailyPlan?.blocks.map((block) => block.key) ??
+      streamBlocks.map((block) => block.key),
     settlingWords,
     showNotReady,
     learnedPool,
@@ -329,6 +417,41 @@ export function useLearningPageState({
     progressPlanRevision,
   });
 
+  // Rounds are re-derived from the words still standing, so the set a block
+  // offers shrinks while it is being answered. The ledger holds every round the
+  // block has ever shown, which is what lets the rail count cards without its
+  // own denominator falling away underneath it. It is scoped to the frozen
+  // plan: a new day, or a new language pair, starts a new ledger.
+  const [gameLedger, setGameLedger] = useState<{ identity: string | null; ledger: BlockGameLedger }>({
+    identity: null,
+    ledger: {},
+  });
+  useEffect(() => {
+    // The ledger records what the stream has already shown, which is knowledge
+    // no render can re-derive once the round is gone. It settles once per new
+    // round and returns the held object otherwise, so there is no cascade.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGameLedger((held) => {
+      const sameScope = held.identity === session.planIdentity;
+      const ledger = recordBlockGames(sameScope ? held.ledger : {}, streamGroups);
+      return sameScope && ledger === held.ledger ? held : { identity: session.planIdentity, ledger };
+    });
+  }, [session.planIdentity, streamGroups]);
+  const blockGames = useMemo(() => {
+    // History from the ledger, plus whatever is on screen this very render, so
+    // a round that has only just appeared gets its slot now rather than one
+    // render later.
+    const known = gameLedger.identity === session.planIdentity ? gameLedger.ledger : {};
+    // Only rounds actually played to the end are done. A skipped round leaves
+    // the stream and is reported unreachable instead, so its slot disappears
+    // rather than filling itself — walking away from an exercise is not doing it.
+    return summarizeBlockGames(
+      recordBlockGames(known, streamGroups),
+      streamGroups,
+      completedGameIds ?? new Set<string>(),
+    );
+  }, [completedGameIds, gameLedger, session.planIdentity, streamGroups]);
+
   // Keep the background audio repair aligned with the same ordering the learner
   // sees. Minigames are deliberately excluded: they are derived UI, not study
   // items, and must never cause extra TTS work.
@@ -336,37 +459,18 @@ export function useLearningPageState({
     () => [...streamBlocks.flatMap((block) => block.words), ...(showNotReady ? settlingWords : [])].slice(0, 5),
     [settlingWords, showNotReady, streamBlocks],
   );
-  // The bonus round is not part of the day's plan — it is the repeats the day
-  // deliberately left out. Its stretch is frozen the moment the learner opts in,
-  // because the live stream shrinks with every answer and a rail measured
-  // against it would never fill.
-  const [bonus, setBonus] = useState<{ blocks: SessionBlock[]; baseline: Record<string, number> } | null>(null);
-  useEffect(() => {
-    // Frozen once. Every later run — the learner is answering, so `progress`
-    // changes constantly — resolves to the snapshot already held and stops.
-    const next = !continueAnyway ? null : bonus ?? freezeBonusRound({
-      reviewWords: bonusReviewWords,
-      newWords: bonusNewWords,
-      progress,
-    });
-    if (next === bonus) return;
-    // The snapshot can only be taken at the moment the learner opts in, from the
-    // live stream, and it is written exactly once per bonus round.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBonus(next);
-  }, [bonus, bonusNewWords, bonusReviewWords, continueAnyway, progress]);
-
   const bonusBlockProgress = useMemo(
-    () => computeBlockProgress(bonus?.blocks ?? [], {
+    () => computeBlockProgress(bonusSnapshot?.blocks ?? [], {
       progress,
       liveIds: new Set(liveById.keys()),
       settlingIds: new Set(settlingById.keys()),
       dayKey: sessionDayKey,
       timezone: sessionTimezone,
       pendingAnswers,
-      answerBaseline: bonus?.baseline,
+      answerBaseline: bonusSnapshot?.baseline,
+      blockGames,
     }),
-    [bonus, liveById, pendingAnswers, progress, sessionDayKey, sessionTimezone, settlingById],
+    [blockGames, bonusSnapshot, liveById, pendingAnswers, progress, sessionDayKey, sessionTimezone, settlingById],
   );
 
   const sessionBlockProgress = useMemo(
@@ -378,8 +482,9 @@ export function useLearningPageState({
       timezone: sessionTimezone,
       pendingAnswers,
       answerBaseline: session.dailyPlan?.answerBaseline,
+      blockGames,
     }),
-    [liveById, pendingAnswers, progress, session.dailyPlan, sessionDayKey, sessionTimezone, settlingById],
+    [blockGames, liveById, pendingAnswers, progress, session.dailyPlan, sessionDayKey, sessionTimezone, settlingById],
   );
 
   const progressStats = useMemo(

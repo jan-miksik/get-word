@@ -45,7 +45,7 @@ export function SessionRecap({
 
   return (
     <ul
-      className={`m-0 mt-5 flex list-none flex-wrap items-center justify-center gap-2 p-0 text-sm font-bold text-[#4a4032] ${className}`.trim()}
+      className={`m-0 mt-4 flex list-none flex-wrap items-center justify-center gap-2 p-0 text-sm font-bold text-[#4a4032] ${className}`.trim()}
       style={style}
     >
       {reviewed > 0 ? (
@@ -62,9 +62,23 @@ export function SessionRecap({
   );
 }
 
-/** What a plan's own blocks say was answered, split the way the recap reads. */
+/**
+ * What a plan's own blocks say was answered, split the way the recap reads.
+ *
+ * A reinforcement block is a second pass over words introduced minutes ago.
+ * It is real practice and stays in the session's card progress, but it is not a
+ * daily review: the goal and the server both count distinct words that were due
+ * when the day started. Including reinforcement here made a first-day goal of
+ * seven new words finish as "seven new + seven reviewed", i.e. +7 over goal.
+ */
 export function countPlanDone(flow: SessionFlowState, kind: SessionBlockKind): number {
-  return flow.blocks.reduce((sum, block) => (block.kind === kind ? sum + block.done : sum), 0);
+  return flow.blocks.reduce(
+    (sum, block) =>
+      block.kind === kind && !block.reinforcement
+        ? sum + block.done + block.pending
+        : sum,
+    0,
+  );
 }
 
 /**

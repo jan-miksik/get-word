@@ -26,17 +26,32 @@ const block = (
 describe('toProgressSegments', () => {
   it('sizes segments by their item counts', () => {
     const segments = toProgressSegments(
-      [block('n1', 'new', 5), block('r1', 'review', 10), block('n2', 'new', 5)],
+      [block('r1', 'review', 10), block('n1', 'new', 5)],
       1,
     );
-    expect(segments.map((segment) => segment.total)).toEqual([5, 10, 5]);
-    expect(segments.map(segmentFlexGrow)).toEqual([5, 10, 5]);
-    // 1 : 2 : 1 — the review stretch is drawn twice as long as either new one.
+    expect(segments.map((segment) => segment.total)).toEqual([10, 5]);
+    // 2 : 1 — the review stretch is drawn twice as long as the new one.
     const smallest = Math.min(...segments.map(segmentFlexGrow));
-    expect(segments.map((segment) => segmentFlexGrow(segment) / smallest)).toEqual([1, 2, 1]);
+    expect(segments.map((segment) => segmentFlexGrow(segment) / smallest)).toEqual([2, 1]);
   });
 
-  it('draws several review blocks as one segment, at the place of the first', () => {
+  it('draws the bonus round\'s several stretches of each kind as two segments', () => {
+    const segments = toProgressSegments(
+      [
+        block('bonus-review-0', 'review', 10),
+        block('bonus-review-1', 'review', 4),
+        block('bonus-new-2', 'new', 10),
+        block('bonus-new-3', 'new', 3),
+      ],
+      0,
+    );
+    expect(segments.map((segment) => [segment.kind, segment.total])).toEqual([
+      ['review', 14],
+      ['new', 13],
+    ]);
+  });
+
+  it('draws several blocks of one kind as one segment, at the place of the first', () => {
     const segments = toProgressSegments(
       [block('r1', 'review', 6), block('n1', 'new', 5), block('r2', 'review', 4)],
       0,

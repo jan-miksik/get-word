@@ -43,6 +43,13 @@ export interface StudyExerciseCardProps {
   onCustomStage: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   onScore: (points: number) => void;
   onOutcome: (outcome: ExerciseOutcome) => void;
+  /**
+   * The answer is in — the option picked, the phrase checked — which is a card
+   * of progress made whatever the card still has to show before it advances.
+   * `onOutcome` stays the moment the review is *committed*, on the continue tap.
+   * The reveal card has no gap between the two and so never fires this.
+   */
+  onAnswered?: () => void;
   isMoved?: boolean;
   showEnglish: boolean;
   showCategoryBadges: boolean;
@@ -91,6 +98,7 @@ export function StudyExerciseCard({
   onCustomStage,
   onScore,
   onOutcome,
+  onAnswered,
   isMoved,
   showEnglish,
   showCategoryBadges,
@@ -119,6 +127,7 @@ export function StudyExerciseCard({
         checkButtonEnabled={typingCheckButtonEnabled}
         onScore={onScore}
         onOutcome={onOutcome}
+        onAnswered={onAnswered}
         onCustomStage={onCustomStage}
         memoryHook={memoryHook}
         suggestedHook={suggestedHook}
@@ -141,6 +150,7 @@ export function StudyExerciseCard({
         progress={progress}
         onScore={onScore}
         onOutcome={onOutcome}
+        onAnswered={onAnswered}
         onCustomStage={onCustomStage}
       />
     );
@@ -154,6 +164,7 @@ export function StudyExerciseCard({
         exercise={exercise}
         progress={progress}
         onOutcome={onOutcome}
+        onAnswered={onAnswered}
       />
     );
   }
@@ -194,12 +205,14 @@ function AssemblyExercise({
   exercise,
   progress,
   onOutcome,
+  onAnswered,
 }: {
   word: NormalizedWord;
   role: LearningRole;
   exercise: Extract<ResolvedExercise, { method: 'assembly' }>;
   progress: ProgressData;
   onOutcome: (outcome: ExerciseOutcome) => void;
+  onAnswered?: () => void;
 }) {
   return (
     <div className="flex h-full flex-col justify-center">
@@ -213,6 +226,7 @@ function AssemblyExercise({
         difficultyBand={exercise.effectiveBand}
         stageIndex={progress.stageIndex}
         onOutcome={onOutcome}
+        onAnswered={onAnswered}
       />
     </div>
   );
@@ -229,6 +243,7 @@ function ChoiceExercise({
   progress,
   onScore,
   onOutcome,
+  onAnswered,
   onCustomStage,
 }: {
   word: NormalizedWord;
@@ -237,6 +252,7 @@ function ChoiceExercise({
   progress: ProgressData;
   onScore: (points: number) => void;
   onOutcome: (outcome: ExerciseOutcome) => void;
+  onAnswered?: () => void;
   onCustomStage: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
 }) {
   const [answered, setAnswered] = useState<ExerciseOutcome | null>(null);
@@ -270,21 +286,36 @@ function ChoiceExercise({
         stageIndex={progress.stageIndex}
         frameless
         onResult={(delta) => onScore(Math.max(0, delta))}
-        onOutcome={(outcome) => setAnswered(outcome)}
+        onOutcome={(outcome) => {
+          setAnswered(outcome);
+          onAnswered?.();
+        }}
       />
-      {showFullyKnownOffer && (
-        <FullyKnownOffer
-          onRetire={() => onCustomStage(TOP_STAGE_INDEX, { noRepeat: true })}
-          className="mx-auto mt-4 !w-full !max-w-md"
-        />
-      )}
-      {answered && (
-        <ContinueButton
-          variant="solid"
-          className="mt-4 self-center max-w-[22rem]"
-          onClick={() => onOutcome(answered)}
-        />
-      )}
+      {/* Keep the post-answer controls in the layout from the first frame. The
+          whole exercise is vertically centred, so inserting Continue only
+          after a choice used to change the column height and visibly lift the
+          prompt and every answer at the exact moment the learner tapped. */}
+      <div
+        className={`mx-auto mt-4 flex w-full max-w-md flex-col gap-2 ${
+          isTopStage(progress.stageIndex ?? 0) && Boolean(progress.nextDueAt)
+            ? 'min-h-[6.5rem]'
+            : 'min-h-14'
+        }`}
+        data-choice-action-slot
+      >
+        {showFullyKnownOffer ? (
+          <FullyKnownOffer
+            onRetire={() => onCustomStage(TOP_STAGE_INDEX, { noRepeat: true })}
+          />
+        ) : null}
+        {answered ? (
+          <ContinueButton
+            variant="solid"
+            className="self-center max-w-[22rem]"
+            onClick={() => onOutcome(answered)}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

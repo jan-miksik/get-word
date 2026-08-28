@@ -29,6 +29,7 @@ const PROGRESS: ProgressData = { stageIndex: 3, knownCount: 2, unknownCount: 0 }
 function renderCard(exercise: ResolvedExercise, overrides?: { onOutcome?: () => void }) {
   const onOutcome = vi.fn();
   const onScore = vi.fn();
+  const onAnswered = vi.fn();
   render(
     <StudyExerciseCard
       word={WORD}
@@ -46,6 +47,7 @@ function renderCard(exercise: ResolvedExercise, overrides?: { onOutcome?: () => 
       onCustomStage={vi.fn()}
       onScore={onScore}
       onOutcome={overrides?.onOutcome ?? onOutcome}
+      onAnswered={onAnswered}
       showEnglish={false}
       showCategoryBadges={false}
       showPronunciation={false}
@@ -57,7 +59,7 @@ function renderCard(exercise: ResolvedExercise, overrides?: { onOutcome?: () => 
       typingCheckButtonEnabled={false}
     />,
   );
-  return { onOutcome, onScore };
+  return { onOutcome, onScore, onAnswered };
 }
 
 const choiceExercise = (
@@ -95,13 +97,36 @@ describe('StudyExerciseCard — choice', () => {
   });
 
   it('reports a right first answer as a completed review', () => {
-    const { onOutcome, onScore } = renderCard(choiceExercise('I'));
+    const { onOutcome, onScore, onAnswered } = renderCard(choiceExercise('I'));
     fireEvent.click(screen.getByText('con chó'));
     expect(onScore).toHaveBeenCalled();
+    // Progress belongs to the learner from the moment they answer, even though
+    // the card stays on screen to show them how it went.
+    expect(onAnswered).toHaveBeenCalledTimes(1);
     // The stage only moves once the learner has seen the result and moved on.
     expect(onOutcome).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onOutcome).toHaveBeenCalledWith('known');
+    expect(onAnswered).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts a wrong answer as answered too', () => {
+    const { onAnswered } = renderCard(choiceExercise('I'));
+    fireEvent.click(screen.getByText('con mèo'));
+    expect(onAnswered).toHaveBeenCalledTimes(1);
+  });
+
+  it('reserves the continue slot before an answer so the centred card does not jump', () => {
+    renderCard(choiceExercise('I'));
+    const slot = document.querySelector('[data-choice-action-slot]');
+
+    expect(slot).toHaveClass('min-h-14');
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('con chó'));
+
+    expect(document.querySelector('[data-choice-action-slot]')).toBe(slot);
+    expect(slot).toContainElement(screen.getByRole('button', { name: 'Continue' }));
   });
 
   it('reports a wrong answer so the word steps back', () => {
@@ -137,6 +162,15 @@ describe('StudyExerciseCard — reveal', () => {
 });
 
 describe('StudyExerciseCard — typing', () => {
+  it('counts the answer when it is checked, not on the continue tap', () => {
+    const { onOutcome, onAnswered } = renderCard({ method: 'typing', variant: '0:0' });
+    const input = document.querySelector('article input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'con chó' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onAnswered).toHaveBeenCalledTimes(1);
+    expect(onOutcome).not.toHaveBeenCalled();
+  });
+
   it('renders the typing card for a typing exercise', () => {
     renderCard({ method: 'typing', variant: '0:0' });
     expect(document.querySelector('article input')).toBeInTheDocument();
@@ -152,7 +186,7 @@ describe('StudyExerciseCard — typing', () => {
 
 describe('StudyExerciseCard — assembly', () => {
   it('moves SR only after the assembled phrase is checked', () => {
-    const { onOutcome } = renderCard({
+    const { onOutcome, onAnswered } = renderCard({
       method: 'assembly',
       variant: 'words:I',
       effectiveBand: 'I',
@@ -160,9 +194,15 @@ describe('StudyExerciseCard — assembly', () => {
       distractorParts: [],
     });
 
-    fireEvent.click(screen.getByText('con'));
-    fireEvent.click(screen.getByText('chó'));
+    // By role, not by text: every tile carries an invisible copy of each part
+    // to keep them all one width, so the text alone is not unique.
+    fireEvent.click(screen.getByRole('button', { name: 'con' }));
+    fireEvent.click(screen.getByRole('button', { name: 'chó' }));
     expect(onOutcome).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Check' }));
+    expect(onOutcome).not.toHaveBeenCalled();
+    // The check is the answer: progress counts there, not a tap later.
+    expect(onAnswered).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onOutcome).toHaveBeenCalledWith('known');
   });

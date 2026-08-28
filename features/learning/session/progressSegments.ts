@@ -4,11 +4,11 @@ import type { SessionBlockProgress } from './dayProgress';
 /**
  * One drawn segment of the day's progress rail.
  *
- * A segment is not a session block. The plan alternates review and new work —
- * repeats, new ground, repeats again — and drawing every block separately makes
- * the day look like more, smaller pieces than the learner experiences: two thin
- * blue slivers with a green one wedged between them read as three chores, not
- * as "today's repeats plus today's new words".
+ * A segment is not a session block. A plan can hold several blocks of the same
+ * kind — the bonus round is cut into stretches of ten — and drawing each of
+ * them separately makes the work look like more, smaller pieces than the
+ * learner experiences: six thin slivers read as six chores, not as "the repeats
+ * and then the new words".
  */
 export interface SessionProgressSegment {
   key: string;
@@ -25,34 +25,38 @@ export interface SessionProgressSegment {
 }
 
 /**
- * The day's blocks as the rail draws them: every review block folded into one
- * segment, sized by the items they hold together.
+ * The day's blocks as the rail draws them: one segment per kind of work.
  *
- * This is a view of the plan, not a change to it. The session still runs
- * review → new → review, `SessionBlock[]` keeps its order and its boundaries,
- * the planner and the SRS never see this function — only the pixels do.
+ * This is a view of the plan, not a change to it. `SessionBlock[]` keeps its
+ * order and its boundaries, the planner and the SRS never see this function —
+ * only the pixels do.
  *
- * New blocks stay as they are and keep their place; the merged review segment
- * takes the position of the first review block, which is where the day's
- * repeats begin. So `new(5), review(6), new(5), review(4)` is drawn as
- * `new(5), review(10), new(5)` — sized 1 : 2 : 1.
+ * A words day is two blocks already, so for the day itself this is close to
+ * identity. It still earns its place for the bonus round, which is cut into
+ * stretches of ten so the learner can see the end of one: the rail draws those
+ * as the two stretches they are — the repeats, then the new words — rather than
+ * as six anonymous slivers.
+ *
+ * A segment takes the position of the first block of its kind, which is where
+ * that stretch of the day begins.
  */
 export function toProgressSegments(
   blocks: readonly SessionBlockProgress[],
   activeIndex: number,
 ): SessionProgressSegment[] {
   const segments: SessionProgressSegment[] = [];
-  let reviewSegment: SessionProgressSegment | null = null;
+  const byKind = new Map<SessionBlockKind, SessionProgressSegment>();
 
   blocks.forEach((block, index) => {
     const active = index === activeIndex;
-    if (block.kind === 'review' && reviewSegment) {
-      reviewSegment.total += block.total;
-      reviewSegment.done += block.done;
-      reviewSegment.pending += block.pending;
-      reviewSegment.unavailable += block.unavailable;
-      reviewSegment.active = reviewSegment.active || active;
-      reviewSegment.blockKeys = [...reviewSegment.blockKeys, block.key];
+    const held = byKind.get(block.kind);
+    if (held) {
+      held.total += block.total;
+      held.done += block.done;
+      held.pending += block.pending;
+      held.unavailable += block.unavailable;
+      held.active = held.active || active;
+      held.blockKeys = [...held.blockKeys, block.key];
       return;
     }
 
@@ -67,7 +71,7 @@ export function toProgressSegments(
       blockKeys: [block.key],
     };
     segments.push(segment);
-    if (block.kind === 'review') reviewSegment = segment;
+    byKind.set(block.kind, segment);
   });
 
   return segments;

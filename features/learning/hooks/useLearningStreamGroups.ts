@@ -75,6 +75,20 @@ function hash32(value: string): number {
   return hash >>> 0;
 }
 
+/**
+ * A derived round cannot be the final live card in a block.
+ *
+ * Games are rebuilt from the words still standing. If a round sits after the
+ * final word, committing that word removes the source block before the deck can
+ * reach the round; the rail briefly promises a game and then drops its tick.
+ * Omitting only that trailing derived round keeps every offered game reachable.
+ */
+function dropTrailingGames(items: LearningStreamItem[]): LearningStreamItem[] {
+  let length = items.length;
+  while (length > 0 && '_isMinigame' in items[length - 1]) length -= 1;
+  return length === items.length ? items : items.slice(0, length);
+}
+
 export function useLearningStreamGroups({
   blocks,
   retainedBlockKeys,
@@ -139,10 +153,19 @@ export function useLearningStreamGroups({
     return liveBlocks.map((block) => {
       if (block.words.length === 0) return { ...block, items: [] };
       let items: LearningStreamItem[] = [...block.words];
-      // A reinforcement block is itself the short active-recall exercise. A
-      // review minigame would report ordinary SRS outcomes and could advance a
-      // word past the five-minute stage, so keep this block to study cards.
-      if (minigameFrequency !== 'off' && !block.reinforcement) {
+      // Games belong to review, and only to review.
+      //
+      // A block of new words used to get them too, and because matching has no
+      // variants at stage zero, the only game it could schedule was bubbles —
+      // reliably. A bubble field grades every word it holds, so one round could
+      // introduce nine words the learner had never seen and quietly answer the
+      // repeats the day was planning to ask about, which is what pulled the
+      // whole day's bookkeeping apart.
+      //
+      // A reinforcement block is itself the short active-recall exercise, and a
+      // review minigame there could advance a word past the five-minute stage.
+      const gamesAllowed = block.kind === 'review' && !block.reinforcement;
+      if (minigameFrequency !== 'off' && gamesAllowed) {
         const { min, max } = minigameFrequency;
         const cacheKey = cacheKeyFor(block);
         const seed = hash32(`${baseIdentity}|${block.key}|${block.kind}`);
@@ -192,6 +215,7 @@ export function useLearningStreamGroups({
           pruneAnchorsForCurrentSize(visibleAnchors, block.words.length, min),
         );
         items = enforceMinigameMinGap(items, min);
+        items = dropTrailingGames(items);
       }
       if (dismissedGames.size > 0) items = items.filter((item) => !('_isMinigame' in item) || !dismissedGames.has(item.id));
       return {

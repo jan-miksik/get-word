@@ -51,7 +51,10 @@ export function LanguageLevelOnboarding({
   onSubmit: (level: WordChatLanguageLevel) => void | Promise<void>;
 }) {
   const { t, language: uiLanguage } = useI18n();
-  const [level, setLevel] = useState<WordChatLanguageLevel>(initialLevel ?? 'A0');
+  // Nothing is chosen until the learner chooses it. Landing on this screen with
+  // A0 already filled in makes the lowest level the path of least resistance,
+  // and the answer decides how hard every generated word will be.
+  const [level, setLevel] = useState<WordChatLanguageLevel | null>(initialLevel);
   const questionLanguage = getLanguageQuestionForm(targetLanguage, uiLanguage);
   const targetLanguageName = targetLanguage
     ? getLocalizedLanguageName(targetLanguage, uiLanguage) ?? targetLanguage.toUpperCase()
@@ -76,9 +79,13 @@ export function LanguageLevelOnboarding({
           : t('wordChat.levelTitle')}
       </OnboardingTitle>
 
+      {/* The chat's own level question, which this screen took over: the
+          description is the answer and carries the weight, and the CEFR code
+          sits under it as a footnote for the people who read in those. */}
       <div role="radiogroup" aria-label={t('wordChat.levelSettingLabel')} className="grid gap-2 text-left">
-        {WORD_CHAT_LANGUAGE_LEVELS.map((option) => {
-          const { code, description } = splitWordChatLevelLabel(option, t(wordChatLevelLabelKey(option)));
+        {WORD_CHAT_LANGUAGE_LEVELS.map((option, index) => {
+          const label = t(wordChatLevelLabelKey(option));
+          const { code, description } = splitWordChatLevelLabel(option, label);
           const selected = level === option;
           return (
             <button
@@ -86,14 +93,28 @@ export function LanguageLevelOnboarding({
               type="button"
               role="radio"
               aria-checked={selected}
+              aria-label={label}
               onClick={() => setLevel(option)}
               className={[
-                'onboarding-option flex items-baseline gap-3 px-4 py-3 text-left',
+                'onboarding-option group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
                 selected ? 'onboarding-option-highlight' : '',
               ].join(' ')}
+              style={{ animationDelay: `${60 + index * 45}ms` }}
             >
-              <strong className="text-sm font-black tabular-nums">{code}</strong>
-              <span className="text-sm font-semibold">{description}</span>
+              <span className="min-w-0">
+                <span className="block text-base font-extrabold leading-snug sm:text-lg">
+                  {description}
+                </span>
+                <span className="mt-0.5 block text-[11px] font-bold uppercase tracking-wide onboarding-text-soft">
+                  {code}
+                </span>
+              </span>
+              <span
+                aria-hidden="true"
+                className="shrink-0 translate-x-0 text-lg transition-transform duration-200 group-hover:translate-x-1"
+              >
+                →
+              </span>
             </button>
           );
         })}
@@ -101,9 +122,11 @@ export function LanguageLevelOnboarding({
 
       <button
         type="button"
-        disabled={pending}
-        onClick={() => void onSubmit(level)}
-        className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-wait disabled:opacity-50"
+        disabled={pending || level === null}
+        onClick={() => {
+          if (level) void onSubmit(level);
+        }}
+        className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {t('onboarding.continue')}
       </button>

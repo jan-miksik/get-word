@@ -16,6 +16,29 @@ function block(partial: Partial<SessionBlockProgress> & { key: string }): Sessio
 }
 
 describe('resolveSessionFlow', () => {
+  it('steps to the next block on the answer, not on the SRS write behind it', () => {
+    const flow = resolveSessionFlow([
+      block({ key: 'review-0', total: 3, done: 2, pending: 1, liveRemaining: 1 }),
+      block({ key: 'new-0', kind: 'new', total: 4, liveRemaining: 4 }),
+    ]);
+    expect(flow.block?.key).toBe('new-0');
+  });
+
+  it('closes the day on the last answer while reporting it unsettled', () => {
+    const flow = resolveSessionFlow([
+      block({ key: 'review-0', total: 3, done: 2, pending: 1, liveRemaining: 1 }),
+    ]);
+    expect(flow.complete).toBe(true);
+    // The server rollup is written from an answer still on its way, so anything
+    // that has to agree with it waits for `settled` instead.
+    expect(flow.settled).toBe(false);
+  });
+
+  it('settles once every answer is committed', () => {
+    const flow = resolveSessionFlow([block({ key: 'review-0', total: 3, done: 3, liveRemaining: 0 })]);
+    expect(flow).toMatchObject({ complete: true, settled: true });
+  });
+
   it('reports nothing for an empty plan', () => {
     expect(resolveSessionFlow([])).toMatchObject({ index: -1, complete: false, dayTotal: 0 });
   });
@@ -106,5 +129,18 @@ describe('resolveSessionFlow on a minutes day', () => {
 
     expect(flow.block).toBeNull();
     expect(flow.complete).toBe(true);
+  });
+
+  it('waits for an already-given answer to settle after the clock ends', () => {
+    const blocks = day();
+    blocks[2] = block({
+      key: 'review-1', phase: 2, total: 8, done: 3, pending: 1, liveRemaining: 5,
+    });
+
+    expect(resolveSessionFlow(blocks, 3)).toMatchObject({ complete: true, settled: false });
+    blocks[2] = block({
+      key: 'review-1', phase: 2, total: 8, done: 4, pending: 0, liveRemaining: 4,
+    });
+    expect(resolveSessionFlow(blocks, 3)).toMatchObject({ complete: true, settled: true });
   });
 });

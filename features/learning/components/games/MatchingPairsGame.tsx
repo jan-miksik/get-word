@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
+import { Fragment, useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import {
   flipSide,
@@ -190,50 +190,50 @@ export function MatchingPairsGame({
         <div className="game-badge">🔗 {t('game.match')}</div>
       )}
 
+      {/* One grid rather than two stacked columns: a wrapped phrase used to make
+          its own column taller than the other, so the two halves of a row drifted
+          out of line and the board looked broken. Grid rows size together. */}
       <div className="mx-auto mt-4 grid w-full max-w-3xl grid-cols-2 gap-3 sm:mt-8 sm:gap-4">
-        <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
-          {words.map((w, index) => {
-            const state = getLeftState(w.id);
-            return (
+        {words.map((word, index) => {
+          const right = rightOrder[index];
+          const leftState = getLeftState(word.id);
+          const rightState = right ? getRightState(right.id) : 'idle';
+          return (
+            <Fragment key={word.id}>
               <StudyOptionButton
-                key={w.id}
-                state={state}
+                state={leftState}
                 size="sm"
-                matchColor={state === 'matched' ? matchColors.get(w.id) : undefined}
+                matchColor={leftState === 'matched' ? matchColors.get(word.id) : undefined}
+                matchEdge="right"
                 enterIndex={index}
-                onClick={() => handleLeft(w.id)}
-                disabled={matched.has(w.id) || !!wrongPair}
+                onClick={() => handleLeft(word.id)}
+                disabled={matched.has(word.id) || !!wrongPair}
                 ariaLabel={
                   effectivePromptMode === 'audio'
-                    ? t('game.playPrompt', { number: promptNumberById.get(w.id) ?? '' }).trim()
+                    ? t('game.playPrompt', { number: promptNumberById.get(word.id) ?? '' }).trim()
                     : undefined
                 }
               >
                 {effectivePromptMode === 'audio'
                   ? `🔊`
-                  : getWordTextBySide(w, textModePromptSide)}
+                  : getWordTextBySide(word, textModePromptSide)}
               </StudyOptionButton>
-            );
-          })}
-        </div>
-        <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
-          {rightOrder.map((w, index) => {
-            const state = getRightState(w.id);
-            return (
-              <StudyOptionButton
-                key={w.id}
-                state={state}
-                size="sm"
-                matchColor={state === 'matched' ? matchColors.get(w.id) : undefined}
-                enterIndex={index}
-                onClick={() => handleRight(w.id)}
-                disabled={matched.has(w.id) || !!wrongPair}
-              >
-                {getWordTextBySide(w, textModeAnswerSide)}
-              </StudyOptionButton>
-            );
-          })}
-        </div>
+              {right ? (
+                <StudyOptionButton
+                  state={rightState}
+                  size="sm"
+                  matchColor={rightState === 'matched' ? matchColors.get(right.id) : undefined}
+                  matchEdge="left"
+                  enterIndex={index}
+                  onClick={() => handleRight(right.id)}
+                  disabled={matched.has(right.id) || !!wrongPair}
+                >
+                  {getWordTextBySide(right, textModeAnswerSide)}
+                </StudyOptionButton>
+              ) : null}
+            </Fragment>
+          );
+        })}
       </div>
 
       {/* The success mark above already says the round is over; a second

@@ -20,8 +20,10 @@ function games(groups: ReturnType<typeof useLearningStreamGroups>['streamGroups'
 }
 
 const baseArgs = {
-  blocks: [{ key: 'new-0', kind: 'new' as const, blockIndex: 0, words }],
-  retainedBlockKeys: ['new-0'],
+  // Review, deliberately: games belong to the repeat stretches, so a block of
+  // new words is the one place none of them are scheduled.
+  blocks: [{ key: 'review-0', kind: 'review' as const, blockIndex: 0, words }],
+  retainedBlockKeys: ['review-0'],
   settlingWords: [] as NormalizedWord[],
   showNotReady: false,
   learnedPool: [] as NormalizedWord[],

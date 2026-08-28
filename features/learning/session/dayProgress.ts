@@ -9,13 +9,25 @@ export interface SessionBlockProgress {
   done: number;
   /**
    * Answered in this tab but not yet written to `progress` — the deck defers
-   * the SRS write until its exit animation ends. Counted for display only, so
-   * the rails move on the tap while block advancement still waits for the
-   * committed answer.
+   * the SRS write until its exit animation ends. The rails and block flow move
+   * on the answer; `SessionFlowState.settled` separately says when every write
+   * behind that visible progress has landed.
    */
   pending: number;
   liveRemaining: number;
   unavailable: number;
+  /**
+   * Minigame rounds planned inside this block, and how many of them the learner
+   * has finished. Games are cards the learner has to walk past, so the block
+   * rail counts them — but they are deliberately kept out of `total`/`done`,
+   * which stay the *words* the day's goal is written in.
+   */
+  gameTotal?: number;
+  gameDone?: number;
+  /** Rounds that were planned and are no longer reachable; see `unavailable`. */
+  gameUnavailable?: number;
+  /** A same-day second pass: paced as review, excluded from daily review totals. */
+  reinforcement?: boolean;
   /** The time stretch this block belongs to; only a minutes plan has one. */
   phase?: number;
 }
@@ -42,6 +54,20 @@ export interface BlockProgressInput {
    * both need, since their words may well carry an earlier answer from today.
    */
   answerBaseline?: Record<string, number>;
+  /**
+   * The minigame rounds each block holds, keyed by block key. A round is a card
+   * the learner meets, so the block rail has a slot for it; the day's goal is
+   * still counted in words alone, which is why this never touches `total`.
+   */
+  blockGames?: Record<string, BlockGameProgress>;
+}
+
+export interface BlockGameProgress {
+  /** Rounds ever planned for this block, including ones already played. */
+  total: number;
+  done: number;
+  /** Planned, unplayed, and no longer in the stream — nothing left to walk. */
+  unavailable: number;
 }
 
 export function answeredOnDay(entry: ProgressData | undefined, dayKey: string, timezone?: string): boolean {
@@ -109,6 +135,7 @@ export function computeBlockProgress(
       : 0;
     const liveRemaining = block.ids.filter(isLive).length;
     const unavailable = block.ids.filter((id) => !isLive(id) && !isDone(id)).length;
+    const games = input.blockGames?.[block.key];
     return {
       key: block.key,
       kind: block.kind,
@@ -117,6 +144,10 @@ export function computeBlockProgress(
       pending,
       liveRemaining,
       unavailable,
+      gameTotal: games?.total ?? 0,
+      gameDone: games?.done ?? 0,
+      gameUnavailable: games?.unavailable ?? 0,
+      ...(block.reinforcement ? { reinforcement: true } : {}),
       ...(block.phase === undefined ? {} : { phase: block.phase }),
     };
   });

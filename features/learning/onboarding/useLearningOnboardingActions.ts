@@ -25,6 +25,11 @@ import {
 } from './listRecommendations';
 import { apiFetch } from '@/features/shared/http/api-runtime';
 
+// How long the language step may stay in its pressed state waiting to be
+// replaced by the next one. Long enough to cover the next step's own read,
+// short enough that a flow which never advances is still retryable.
+const LANGUAGE_HANDOFF_RELEASE_MS = 6_000;
+
 // Rough size of a typical recommended common list, used only for the provisional
 // progress estimate shown before the real item count is known.
 const PROVISIONAL_COMMON_LIST_ITEM_COUNT = 200;
@@ -78,9 +83,17 @@ export function useLearningOnboardingActions({
     setError(null);
     try {
       await savePreferences();
+      // Deliberately left working. Saving the pair is not the end of the wait:
+      // the next step reads an answer of its own before it can be shown, and
+      // returning Continue to its idle state in that gap looks like the press
+      // was dropped. Being replaced by that step is what clears it — so if the
+      // flow has not moved on by the time the wait stops being plausible, hand
+      // the button back rather than leaving a dead one.
+      window.setTimeout(() => setWorkingId((current) => (
+        current === 'language-pair' ? null : current
+      )), LANGUAGE_HANDOFF_RELEASE_MS);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save learning languages');
-    } finally {
       setWorkingId(null);
     }
   }

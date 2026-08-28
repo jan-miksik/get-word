@@ -300,6 +300,16 @@ export function ChatStep({
     (last, message, index) => (message.role === 'assistant' ? index : last),
     -1,
   );
+  // The working indicator stands in for the reply until the reply starts
+  // writing itself. Leaving it up once the bubble has text put "thinking..."
+  // underneath an answer that was visibly being typed, which read as the
+  // typing animation having lost track of where the turn was.
+  const replyStartedWriting = Boolean(
+    lastAssistantIndex >= 0 &&
+      messages[lastAssistantIndex]?.incomplete &&
+      messages[lastAssistantIndex]?.content,
+  );
+  const showWorkingIndicator = Boolean(busy) && !replyStartedWriting;
   // A chat reads from the bottom up. Before the first exchange there is only the
   // opener and a chip or two, and left at the top of a tall scroller they sat a
   // screen away from the field they are asking the learner to type in — and on a
@@ -708,7 +718,7 @@ export function ChatStep({
                 </div>
               );
             })}
-            {busy ? (
+            {showWorkingIndicator ? (
               <div className="flex items-center gap-2 text-xs onboarding-text-soft">
                 <TypingDots
                   label={busy === 'propose' ? t('wordChat.suggesting') : t('wordChat.thinking')}

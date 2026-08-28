@@ -8,48 +8,58 @@ function sizes(blocks: ReturnType<typeof planSessionBlocks>) {
 }
 
 describe('planSessionBlocks', () => {
-  it('shapes an ordinary day as warm-up, new, closing review', () => {
-    expect(sizes(planSessionBlocks({ warmUpIds: ids('w', 3), newIds: ids('n', 4), closingReviewIds: ids('r', 6) })))
-      .toEqual(['R3', 'N4', 'R6']);
+  it('opens on repeats for a learner who already has words', () => {
+    expect(sizes(planSessionBlocks({ reviewIds: ids('r', 9), newIds: ids('n', 4) })))
+      .toEqual(['R9', 'N4']);
   });
 
-  it('splits a large batch of new words and keeps review between the passes', () => {
-    expect(sizes(planSessionBlocks({ warmUpIds: ids('w', 7), newIds: ids('n', 20), closingReviewIds: ids('r', 13) })))
-      .toEqual(['R7', 'N7', 'R5', 'N7', 'R4', 'N6', 'R4']);
+  it('keeps a large day to the same two stretches', () => {
+    expect(sizes(planSessionBlocks({ reviewIds: ids('r', 20), newIds: ids('n', 20) })))
+      .toEqual(['R20', 'N20']);
   });
 
-  it('closes a day with no repeats of its own on a second pass over today\'s new words', () => {
-    const blocks = planSessionBlocks({ warmUpIds: [], newIds: ids('n', 6), closingReviewIds: [], fillWithRepeats: true });
+  it('opens on new words for a first day, and closes on a second pass over them', () => {
+    const blocks = planSessionBlocks({ reviewIds: [], newIds: ids('n', 6), fillWithRepeats: true });
     expect(sizes(blocks)).toEqual(['N6', 'R6x2']);
     expect(blocks[1].ids).toEqual(blocks[0].ids);
     expect(blocks[1].reinforcement).toBe(true);
   });
 
-  it('leaves a first day without repeats alone when repeats are not wanted', () => {
-    expect(sizes(planSessionBlocks({ warmUpIds: [], newIds: ids('n', 6), closingReviewIds: [] }))).toEqual(['N6']);
+  it('opens on new ground after a long absence, repeats behind it', () => {
+    expect(sizes(planSessionBlocks({ reviewIds: ids('r', 9), newIds: ids('n', 4), openOnNew: true })))
+      .toEqual(['N4', 'R9']);
   });
 
-  it('preserves every bucket in order and ends a mixed day on review', () => {
-    for (let warmUp = 0; warmUp <= 7; warmUp += 1) {
+  it('leaves a first day without repeats alone when repeats are not wanted', () => {
+    expect(sizes(planSessionBlocks({ reviewIds: [], newIds: ids('n', 6) }))).toEqual(['N6']);
+  });
+
+  it('is never more than two stretches, and preserves every bucket in order', () => {
+    for (const review of [0, 1, 5, 13, 20]) {
       for (let newCount = 0; newCount <= 12; newCount += 1) {
-        for (const closing of [0, 1, 5, 13]) {
-          const input = { warmUpIds: ids('w', warmUp), newIds: ids('n', newCount), closingReviewIds: ids('r', closing) };
+        for (const openOnNew of [false, true]) {
+          const input = { reviewIds: ids('r', review), newIds: ids('n', newCount), openOnNew };
           const blocks = planSessionBlocks(input);
+          expect(blocks.length).toBeLessThanOrEqual(2);
           expect(blocks.every((block) => block.ids.length > 0)).toBe(true);
-          expect(blocks.filter((block) => block.kind === 'new').flatMap((block) => block.ids)).toEqual(input.newIds);
+          expect(blocks.filter((block) => block.kind === 'new').flatMap((block) => block.ids))
+            .toEqual(input.newIds);
           expect(blocks.filter((block) => block.kind === 'review').flatMap((block) => block.ids))
-            .toEqual([...input.warmUpIds, ...input.closingReviewIds]);
-          if (closing > 0 && newCount > 0) expect(blocks.at(-1)?.kind).toBe('review');
+            .toEqual(input.reviewIds);
+          // Repeats lead unless there are none, or the caller asked otherwise.
+          if (review > 0 && newCount > 0) {
+            expect(blocks[0].kind).toBe(openOnNew ? 'new' : 'review');
+          }
         }
       }
     }
   });
 
   it('handles degenerate buckets', () => {
-    expect(planSessionBlocks({ warmUpIds: [], newIds: [], closingReviewIds: [] })).toEqual([]);
-    expect(planSessionBlocks({ warmUpIds: [], newIds: ['n0'], closingReviewIds: [] }))
+    expect(planSessionBlocks({ reviewIds: [], newIds: [] })).toEqual([]);
+    expect(planSessionBlocks({ reviewIds: [], newIds: ['n0'] }))
       .toEqual([{ key: 'new-0', kind: 'new', ids: ['n0'] }]);
-    expect(planSessionBlocks({ warmUpIds: ['r0'], newIds: [], closingReviewIds: [] }))
+    expect(planSessionBlocks({ reviewIds: ['r0'], newIds: [] }))
       .toEqual([{ key: 'review-0', kind: 'review', ids: ['r0'] }]);
   });
 });

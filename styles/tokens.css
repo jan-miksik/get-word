@@ -16,13 +16,17 @@
   --danger: #fb7185;
   --fresh: #fbbf24;
   --done: #22c55e;
-  /* Match-pairs colors (RGB triplets for easy alpha) */
-  --match-1: 56 189 248;   /* sky */
-  --match-2: 167 139 250;  /* violet */
-  --match-3: 251 191 36;   /* amber */
-  --match-4: 244 114 182;  /* pink */
-  --match-5: 52 211 153;   /* emerald */
-  --match-6: 251 146 60;   /* orange */
+  /* Match-pairs colors (RGB triplets for easy alpha).
+     The study surface is warm paper, so these are mid-dark inks that stay
+     recognisable both as a solid spine and as a pale wash over the card's
+     cream — the old neon 400-level tints washed out into grey mud. Order is
+     the order pairs settle in, so the first four are the widest apart. */
+  --match-1: 32 116 176;   /* sea blue */
+  --match-2: 194 100 60;   /* terracotta */
+  --match-3: 124 90 166;   /* plum */
+  --match-4: 63 143 77;    /* green */
+  --match-5: 191 78 122;   /* rose */
+  --match-6: 150 124 40;   /* ochre */
   /* Session rail. The study surface is the warm sand sheet in every theme
      (`.app-background`, `SpeckledBackground`), so these are fixed warm values
      rather than theme-swapped ones, and they reuse the same scale the Upcoming

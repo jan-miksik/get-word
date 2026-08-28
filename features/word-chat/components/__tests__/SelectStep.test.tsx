@@ -522,8 +522,7 @@ describe('SelectStep', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows a direct audio skip control for manually added items', () => {
-    const onToggleAudioDisabled = vi.fn();
+  it('does not offer skipping audio for manually added items', () => {
     render(
       <I18nProvider language="en">
         <SelectStep
@@ -533,8 +532,6 @@ describe('SelectStep', () => {
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
-          onToggleAudioDisabled={onToggleAudioDisabled}
-          audioDisabledKeys={[]}
           onUpdateProposal={vi.fn()}
           onSelectAll={vi.fn()}
           onClearSelection={vi.fn()}
@@ -554,9 +551,8 @@ describe('SelectStep', () => {
       </I18nProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Skip audio generation' }));
-
-    expect(onToggleAudioDisabled).toHaveBeenCalledExactlyOnceWith('custom:coffee');
+    expect(screen.queryByRole('button', { name: 'Skip audio generation' })).not.toBeInTheDocument();
+    expect(screen.getByText('coffee')).toBeInTheDocument();
   });
 
   it('shows words picked off a photo in the same basket, translation and all', () => {

@@ -135,14 +135,25 @@ export function SessionRail({ flow }: { flow: SessionFlowState }) {
   // still serve. Items the block planned but cannot deliver used to sit in the
   // denominator, which left the rail short of the top on the very answer that
   // finished the block.
-  const blockTotal = block ? reachableTotal(block) : 0;
+  //
+  // Every card in the stretch gets a slot, minigames included: a round is
+  // something the learner has to work through, and a rail that stood still
+  // through a matching card read as a session that had stopped counting. The
+  // day's goal is untouched by this — that is counted in words, over on the day
+  // rail and on the ring that closes the day.
+  const blockGames = block ? Math.max(0, (block.gameTotal ?? 0) - (block.gameUnavailable ?? 0)) : 0;
+  const blockTotal = block ? reachableTotal(block) + blockGames : 0;
   const color = block ? blockColor(block.kind) : 'var(--rail-review)';
   const label = block?.kind === 'new' ? t('learning.sessionPlanNew') : t('learning.sessionPlanReview');
 
   return (
     <>
       {block && blockTotal > 0 ? (
-        <BlockRail done={block.done + block.pending} total={blockTotal} color={color} />
+        <BlockRail
+          done={Math.min(block.done + block.pending + (block.gameDone ?? 0), blockTotal)}
+          total={blockTotal}
+          color={color}
+        />
       ) : null}
       <DayRail blocks={flow.blocks} activeIndex={flow.index} />
       {/* Keyed on the block so a new block remounts the label and replays its

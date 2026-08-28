@@ -300,7 +300,14 @@ export function AddWordsScreen({
           </div>
 
           {showTabs ? (
-            <div role="tablist" aria-label={t('addWords.title')} className="flex flex-wrap gap-2">
+            // A tab strip, not three buttons: the ways in are one choice among
+            // siblings, so they share a baseline and the active one is marked by
+            // an underline rather than by being filled in like an action.
+            <div
+              role="tablist"
+              aria-label={t('addWords.title')}
+              className="-mx-1 flex items-stretch gap-1 overflow-x-auto border-b-2 border-[color:color-mix(in_srgb,var(--ob-ink,#2A2218)_16%,transparent)] px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               {tabs.map((tab) => {
                 const selected = tab.id === activeTab;
                 return (
@@ -311,10 +318,19 @@ export function AddWordsScreen({
                     aria-selected={selected}
                     onClick={() => selectTab(tab.id)}
                     className={[
-                      'inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold',
+                      // The 2px pull-down parks each tab's own bottom border on
+                      // the strip's line, so the selected one reads as sitting
+                      // on the surface below instead of floating above it.
+                      'relative -mb-[2px] inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2',
+                      'whitespace-nowrap rounded-t-lg border-b-[3px] bg-transparent px-3 py-2',
+                      'text-xs font-extrabold transition-[color,border-color,background] duration-150',
                       selected
-                        ? 'onboarding-option onboarding-option-highlight'
-                        : 'onboarding-option-secondary',
+                        ? 'border-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-accent,#1E6FA8)]'
+                        : [
+                            'border-transparent text-[color:color-mix(in_srgb,var(--ob-ink,#2A2218)_68%,transparent)]',
+                            'hover:bg-[color:color-mix(in_srgb,var(--ob-ink,#2A2218)_6%,transparent)]',
+                            'hover:text-[color:var(--ob-ink,#2A2218)]',
+                          ].join(' '),
                     ].join(' ')}
                   >
                     {tab.icon}

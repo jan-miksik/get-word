@@ -65,7 +65,9 @@ describe('SessionDoneCard on an emptied deck', () => {
 
     expect(screen.queryByText(/nothing due right now/i)).not.toBeInTheDocument();
     expect(screen.getByText(/done for today/i)).toBeInTheDocument();
-    expect(screen.getByText(/36 words are ready for a repeat right now/i)).toBeInTheDocument();
+    // The leftovers are named once, on the button that offers them, and the
+    // settling words are not named at all while there is real work waiting.
+    expect(screen.queryByText(/settling in/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /repeat 36 more/i }));
 
@@ -92,15 +94,11 @@ describe('SessionDoneCard closing the day', () => {
     expect(container.querySelector('section')).toHaveClass('max-w-none', 'rounded-[1.75rem]');
   });
 
-  it('reports the day in both units, and what it cost', () => {
-    renderCard({
-      dayFlow: closedDay(),
-      dayResult: { activeMs: 512_000, itemsDone: 12, secondsPerItem: 11.6 },
-    });
+  it('reports the day in both units', () => {
+    renderCard({ dayFlow: closedDay() });
 
     expect(screen.getByText('9 words and phrases reviewed')).toBeInTheDocument();
     expect(screen.getByText('3 new words')).toBeInTheDocument();
-    expect(screen.getByText(/12s per word/i)).toBeInTheDocument();
   });
 
   it('leads with the waiting repeats when the plan left some behind', () => {
@@ -108,8 +106,10 @@ describe('SessionDoneCard closing the day', () => {
     renderCard({ dayFlow: closedDay(), dueNowCount: 1, onStudyExtra, onOpenWordChat: vi.fn() });
 
     expect(screen.getByText(/done for today/i)).toBeInTheDocument();
-    expect(screen.getByText('1 word is ready for a repeat right now, on top of today\'s goal.')).toBeInTheDocument();
+    // Only the button says what is waiting: the sentence that used to repeat it
+    // sat directly above the same words and the same number.
     expect(screen.queryByText(/waiting tomorrow/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/on top of today/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /repeat 1 more/i }));
 
@@ -138,6 +138,45 @@ describe('SessionDoneCard closing the day', () => {
     expect(screen.queryByText(/over goal/i)).not.toBeInTheDocument();
   });
 
+  it('does not count a same-day reinforcement pass as review above the goal', () => {
+    const flow = resolveSessionFlow([
+      {
+        key: 'new-0', kind: 'new', done: 7, total: 7, pending: 0,
+        liveRemaining: 0, unavailable: 0,
+      },
+      {
+        key: 'review-1', kind: 'review', done: 7, total: 7, pending: 0,
+        liveRemaining: 0, unavailable: 0, reinforcement: true,
+      },
+    ]);
+
+    renderCard({
+      dayFlow: flow,
+      dayScore: { introduced: 7, reviewed: 0, target: 7, met: true },
+    });
+
+    expect(screen.getByText('7 new words')).toBeInTheDocument();
+    expect(screen.queryByText(/reviewed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/over goal/i)).not.toBeInTheDocument();
+  });
+
+  it('includes the final queued answer immediately when the day closes', () => {
+    const flow = resolveSessionFlow([
+      {
+        key: 'new-0', kind: 'new', done: 13, total: 14, pending: 1,
+        liveRemaining: 1, unavailable: 0,
+      },
+    ]);
+
+    renderCard({
+      dayFlow: flow,
+      dayScore: { introduced: 13, reviewed: 0, target: 14, met: false },
+    });
+
+    expect(screen.getByText('14 new words')).toBeInTheDocument();
+    expect(screen.queryByText(/over goal/i)).not.toBeInTheDocument();
+  });
+
   it('keeps the plan\'s own count when the server rollup lags behind it', () => {
     renderCard({ dayFlow: closedDay(), dayScore: { introduced: 0, reviewed: 0, target: null } });
 
@@ -145,12 +184,27 @@ describe('SessionDoneCard closing the day', () => {
     expect(screen.getByText('3 new words')).toBeInTheDocument();
   });
 
+  it('never turns an already earned day into out-of-words because this visit ran short', () => {
+    renderCard({
+      dayFlow: shortDay(),
+      shortfall: 12,
+      dayScore: { introduced: 13, reviewed: 20, target: 20, met: true },
+    });
+
+    expect(screen.getByText(/done for today/i)).toBeInTheDocument();
+    expect(screen.queryByText(/out of words/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/daily goal is 12 short/i)).not.toBeInTheDocument();
+    expect(screen.getByText('20 words and phrases reviewed')).toBeInTheDocument();
+    expect(screen.getByText('13 new words')).toBeInTheDocument();
+    expect(screen.getByText('+13 over goal')).toBeInTheDocument();
+  });
+
   it('offers the new words the day never reached instead of pointing at tomorrow', () => {
     const onStudyExtra = vi.fn();
     renderCard({ dayFlow: closedDay(), newNowCount: 15, onStudyExtra });
 
     expect(screen.queryByText(/waiting tomorrow/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/15 new words are ready, past today's goal/i)).toBeInTheDocument();
+    expect(screen.queryByText(/past today's goal/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /learn 15 more/i }));
 
@@ -161,7 +215,9 @@ describe('SessionDoneCard closing the day', () => {
     const onStudyExtra = vi.fn();
     renderCard({ dayFlow: closedDay(), dueNowCount: 4, newNowCount: 15, onStudyExtra });
 
-    expect(screen.getByText(/4 are ready for a repeat and 15 are new/i)).toBeInTheDocument();
+    // One offer, and it is the button: the hint under it is the only place the
+    // split between repeats and new words is spelled out.
+    expect(screen.getByText('4 to repeat · 15 new')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /keep going.*19 more/i }));
 

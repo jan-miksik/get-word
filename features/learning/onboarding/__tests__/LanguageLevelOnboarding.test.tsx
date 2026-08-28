@@ -19,12 +19,24 @@ function renderStep(initialLevel: 'A0' | 'B1' | null = null, onBack?: () => void
 }
 
 describe('LanguageLevelOnboarding', () => {
-  it('offers the whole scale and starts at the bottom of it', () => {
+  it('offers the whole scale with nothing chosen for the learner', () => {
     renderStep();
 
-    expect(screen.getAllByRole('radio')).toHaveLength(6);
-    expect(screen.getByRole('radio', { name: /understand almost nothing/i }))
-      .toHaveAttribute('aria-checked', 'true');
+    const options = screen.getAllByRole('radio');
+    expect(options).toHaveLength(6);
+    for (const option of options) {
+      expect(option).toHaveAttribute('aria-checked', 'false');
+    }
+  });
+
+  it('will not move on until a level has actually been picked', () => {
+    renderStep();
+
+    expect(screen.getByRole('button', { name: /continue/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('radio', { name: /understand almost nothing/i }));
+
+    expect(screen.getByRole('button', { name: /continue/i })).toBeEnabled();
   });
 
   it('names the language being learnt, in the interface language', () => {

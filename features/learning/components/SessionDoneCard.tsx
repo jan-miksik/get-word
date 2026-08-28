@@ -4,7 +4,6 @@ import { useI18n } from '@/components/I18nProvider';
 import type { I18nKey } from '@/lib/i18n/messages';
 import { pluralForm } from '@/lib/i18n/plural';
 import type { SessionFlowState } from '@/features/learning/session/flow';
-import { formatDuration } from '@/features/learning/goals/useStudyCountdown';
 import { SessionCardShell } from './SessionCardShell';
 import { SessionRecap, countPlanDone } from './SessionRecap';
 import { StreakSummary } from './goals/StreakDays';
@@ -52,16 +51,6 @@ const SETTLING = {
   few: 'learning.sessionDoneSettling.few',
   many: 'learning.sessionDoneSettling.many',
 } satisfies Record<string, I18nKey>;
-const EXTRA_DUE = {
-  one: 'learning.sessionDoneExtraDue.one',
-  few: 'learning.sessionDoneExtraDue.few',
-  many: 'learning.sessionDoneExtraDue.many',
-} satisfies Record<string, I18nKey>;
-const NEW_LEFT = {
-  one: 'learning.sessionDoneNewLeft.one',
-  few: 'learning.sessionDoneNewLeft.few',
-  many: 'learning.sessionDoneNewLeft.many',
-} satisfies Record<string, I18nKey>;
 const PRACTICE_HINT = {
   one: 'learning.sessionDayPracticeHint.one',
   few: 'learning.sessionDayPracticeHint.few',
@@ -72,6 +61,18 @@ const RADIUS = 44;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const SURPLUS_RADIUS = 55;
 const SURPLUS_CIRCUMFERENCE = 2 * Math.PI * SURPLUS_RADIUS;
+
+/**
+ * How much of its drawn size the seal is actually shown at.
+ *
+ * The ring, the tick and the burst are all drawn against a 128px box, which is
+ * the only size their pixel offsets agree on. Shrinking it by scaling the whole
+ * group keeps that agreement — one number moves the ring, the stamp, the flash
+ * and every bit of the burst together — and costs the card 32px of height it
+ * could not spare on a laptop, where the closing card runs out of height first.
+ */
+const SEAL_DRAWN = 128;
+const SEAL_SHOWN = 96;
 
 /** Where the burst lands, in pixels from the middle of the seal. */
 const SEAL_BITS = [
@@ -107,7 +108,19 @@ function DaySeal({
   const offset = CIRCUMFERENCE * (1 - Math.min(1, Math.max(0, percent)));
   const surplusOffset = SURPLUS_CIRCUMFERENCE * (1 - Math.min(1, surplusPercent));
   return (
-    <div className="relative mx-auto h-32 w-32" aria-hidden>
+    <div
+      className="relative mx-auto"
+      style={{ height: SEAL_SHOWN, width: SEAL_SHOWN }}
+      aria-hidden
+    >
+      <div
+        className="relative origin-top-left"
+        style={{
+          height: SEAL_DRAWN,
+          width: SEAL_DRAWN,
+          scale: `${SEAL_SHOWN / SEAL_DRAWN}`,
+        }}
+      >
       {closed ? (
         <>
           <span className="session-seal-glow absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full" />
@@ -183,6 +196,7 @@ function DaySeal({
       {closed ? null : (
         <span className="absolute inset-0 flex items-center justify-center text-3xl">🌱</span>
       )}
+      </div>
     </div>
   );
 }
@@ -195,7 +209,6 @@ export function SessionDoneCard({
   dayFlow = null,
   dayScore = null,
   shortfall = 0,
-  dayResult = null,
   streak = null,
   onStudyExtra,
   onPractice,
@@ -221,7 +234,13 @@ export function SessionDoneCard({
    * after the goal was met. The plan alone would report the goal back at the
    * learner however much they actually did.
    */
-  dayScore?: { introduced: number; reviewed: number; target: number | null } | null;
+  dayScore?: {
+    introduced: number;
+    reviewed: number;
+    target: number | null;
+    /** Durable whole-day verdict; it outranks this particular plan's shortage. */
+    met?: boolean;
+  } | null;
   /**
    * How far the day's plan fell short of the goal for want of words. A day that
    * ran out of words is not a day earned, so it is not celebrated as one — it
@@ -234,12 +253,6 @@ export function SessionDoneCard({
    * series printed under "you're short" would read as a consolation prize.
    */
   streak?: StreakChipData | null;
-  /**
-   * What the finished day actually cost. The session strip spends the day
-   * estimating this; here it is settled, which is the only moment the learner
-   * can check the estimate against the real thing.
-   */
-  dayResult?: { activeMs: number; itemsDone: number; secondsPerItem: number } | null;
   /** Lifts the day's cap so the leftovers join the stream. */
   onStudyExtra?: () => void;
   /**
@@ -260,8 +273,15 @@ export function SessionDoneCard({
   const newLeft = canCarryOn ? newNowCount : 0;
   const waiting = dueLeft + newLeft;
   const planned = dayFlow && dayFlow.dayTotal > 0 ? dayFlow : null;
-  const ranOut = Boolean(planned?.complete) && shortfall > 0;
-  const dayClosed = Boolean(planned?.complete) && !ranOut;
+  // `shortfall` belongs only to the plan frozen for this visit. A learner can
+  // already have earned the day in an earlier session (or on another device)
+  // and then exhaust a small remainder here; that remainder must never turn a
+  // durable `met` day back into "out of words". The local no-shortfall rule is
+  // retained so the final answer can close the card before its server rollup
+  // arrives.
+  const dayMet = dayScore?.met === true;
+  const ranOut = Boolean(planned?.complete) && shortfall > 0 && !dayMet;
+  const dayClosed = Boolean(planned?.complete) && (dayMet || !ranOut);
   // A headline the caller supplied is about something other than the day —
   // filters, mostly — so it never gets the day's send-off.
   const celebrate = !title && planned !== null && (dayClosed || ranOut);
@@ -273,19 +293,18 @@ export function SessionDoneCard({
       : dayClosed || waiting > 0
         ? t('learning.sessionDayDoneTitle')
         : t('learning.sessionDoneTitle'));
+  // What the plan left over is already named on the button that offers it —
+  // count and all — so a sentence about it here only said the same thing twice,
+  // directly above itself. Nothing is left to say, so nothing is said.
   const body = ranOut
     ? t('learning.sessionDayShortBody', { count: shortfall })
-    : dueLeft > 0 && newLeft > 0
-      ? t('learning.sessionDoneBothLeft', { due: dueLeft, fresh: newLeft })
-      : dueLeft > 0
-        ? t(pluralForm(EXTRA_DUE, language, dueLeft), { count: dueLeft })
-        : newLeft > 0
-          ? t(pluralForm(NEW_LEFT, language, newLeft), { count: newLeft })
-          : dayClosed
-            ? t('learning.sessionDayDoneBody')
-            : settlingCount > 0
-              ? t(pluralForm(SETTLING, language, settlingCount), { count: settlingCount })
-              : t('learning.sessionDoneBody');
+    : waiting > 0
+      ? null
+      : dayClosed
+        ? t('learning.sessionDayDoneBody')
+        : settlingCount > 0
+          ? t(pluralForm(SETTLING, language, settlingCount), { count: settlingCount })
+          : t('learning.sessionDoneBody');
 
   // Whatever the plan left over is one offer, not two lists: the round behind
   // this button holds the leftover repeats and the untouched new words alike,
@@ -364,7 +383,7 @@ export function SessionDoneCard({
     return (
       <div className="study-ink-scope flex h-full flex-col items-center justify-center gap-4 px-6 py-12 text-center">
         <p className="m-0 max-w-md text-lg font-semibold text-text">{headline}</p>
-        <p className="m-0 max-w-md text-sm text-text-soft">{body}</p>
+        {body ? <p className="m-0 max-w-md text-sm text-text-soft">{body}</p> : null}
         {actions}
       </div>
     );
@@ -381,7 +400,11 @@ export function SessionDoneCard({
   // A day that ran out is measured against the goal it missed, not against the
   // plan it did finish — the plan had already been cut down to the words that
   // existed, so it would read as a full ring.
-  const reached = planned?.dayDone ?? 0;
+  // The final answer belongs to the learner as soon as it is given. The local
+  // flow can therefore close while its write is still queued; include that
+  // answer so neither the recap nor an incomplete-day ring flashes one item
+  // short before the optimistic progress update lands.
+  const reached = (planned?.dayDone ?? 0) + (planned?.dayPending ?? 0);
   const goalSize = reached + shortfall;
   const percent = dayClosed || goalSize === 0 ? 1 : reached / goalSize;
 
@@ -403,17 +426,19 @@ export function SessionDoneCard({
       ) : null}
 
       <h2
-        className="session-close-in m-0 mt-3 text-2xl font-black leading-tight tracking-[-0.025em] text-[#1f1a12] sm:text-[1.8rem]"
+        className="session-close-in m-0 mt-2 text-2xl font-black leading-tight tracking-[-0.025em] text-[#1f1a12] sm:text-[1.8rem]"
         style={{ animationDelay: '260ms' }}
       >
         {headline}
       </h2>
-      <p
-        className="session-close-in mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-[#4a4032] sm:text-base"
-        style={{ animationDelay: '340ms' }}
-      >
-        {body}
-      </p>
+      {body ? (
+        <p
+          className="session-close-in mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-[#4a4032] sm:text-base"
+          style={{ animationDelay: '340ms' }}
+        >
+          {body}
+        </p>
+      ) : null}
 
       <SessionRecap
         reviewed={reviewed}
@@ -421,20 +446,6 @@ export function SessionDoneCard({
         className="session-close-in"
         style={{ animationDelay: '420ms' }}
       />
-
-      {/* One numeric layer, not two: the recap above already counts the words,
-          so what is left to add is what they cost. */}
-      {dayResult && dayResult.itemsDone > 0 ? (
-        <p
-          className="session-close-in m-0 mt-3 text-xs font-bold tabular-nums text-[#4a4032] opacity-70"
-          style={{ animationDelay: '500ms' }}
-        >
-          {t('learning.sessionDayTime', {
-            time: formatDuration(dayResult.activeMs),
-            seconds: Math.round(dayResult.secondsPerItem),
-          })}
-        </p>
-      ) : null}
 
       {/* Not gated on the counts being above zero. The rollup that decides
           `met` is computed server-side and refreshed after the day closes, so
@@ -447,7 +458,7 @@ export function SessionDoneCard({
         </div>
       ) : null}
 
-      <div className="session-close-in mt-7" style={{ animationDelay: '580ms' }}>
+      <div className="session-close-in mt-5" style={{ animationDelay: '580ms' }}>
         {actions}
       </div>
     </SessionCardShell>

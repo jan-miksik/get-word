@@ -3,6 +3,12 @@
 import type { ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
+import {
+  ScratchField,
+  ScratchFieldBase,
+  ScratchFieldRevealTint,
+  useLettersLayer,
+} from '@/components/ScratchField';
 import { SupportButton } from '@/components/SupportButton';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { OnboardingProgress, type OnboardingProgressStep } from './OnboardingProgress';
@@ -67,23 +73,29 @@ export function OnboardingScreen({
       // back its outer padding there is the cheapest 64px on the screen.
       className={[
         'onboarding-screen flex flex-col items-center py-6 sm:py-10 [@media(max-height:820px)]:py-3',
-        gutter === 'tight' ? 'px-1 sm:px-4' : 'px-4',
+        // A phone has no width to spare: the sheet is the screen there, so the
+        // frame keeps only enough gutter to show its border.
+        gutter === 'tight' ? 'px-1 sm:px-4' : 'px-2 sm:px-4',
       ].join(' ')}
     >
-      <RisingLettersBackground variant="ambient" className="z-0" />
+      <OnboardingBackdrop />
       <SupportButton />
       {overlay}
       <section
-        className={`onboarding-page-card relative z-10 m-auto w-full p-5 motion-safe:animate-[onboarding-step-enter_240ms_cubic-bezier(0.22,1,0.36,1)_both] sm:p-7 ${WIDTH_CLASS[width]}`}
+        className={`onboarding-page-card relative z-10 m-auto w-full p-4 motion-safe:animate-[onboarding-step-enter_240ms_cubic-bezier(0.22,1,0.36,1)_both] sm:p-7 ${WIDTH_CLASS[width]}`}
       >
+        {/* The rail gets a row of its own. Sharing one with Back cost it about
+            a fifth of the card's width, which on a phone left the five segments
+            too short to read as a position at all. */}
         {showHeader ? (
-          <div className="mb-5 flex items-center gap-2 sm:gap-3">
+          <div className="mb-4 flex flex-col gap-2">
+            {step ? <OnboardingProgress step={step} /> : null}
             {onBack ? (
               <button
                 type="button"
                 onClick={onBack}
                 aria-label={t('onboarding.back')}
-                className="onboarding-back -ml-2 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 px-2 text-sm font-extrabold sm:justify-start sm:px-3"
+                className="onboarding-back -ml-1 inline-flex min-h-11 w-fit items-center justify-center gap-1.5 px-2 text-sm font-extrabold sm:px-3"
               >
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                   <path
@@ -94,15 +106,43 @@ export function OnboardingScreen({
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="hidden sm:inline">{t('onboarding.back')}</span>
+                <span>{t('onboarding.back')}</span>
               </button>
             ) : null}
-            {step ? <OnboardingProgress step={step} className="min-w-0 flex-1" /> : null}
           </div>
         ) : null}
         <div className={contentClassName}>{children}</div>
       </section>
     </div>
+  );
+}
+
+/**
+ * The same ground the app loads on: the scratch field, its motifs, and the
+ * rising letters, in the loader's own stacking order.
+ *
+ * Onboarding used to draw only the ambient letters, so the first thing a new
+ * learner saw after the loading screen was the loading screen's texture being
+ * taken away from them. Sharing the backdrop makes the handover invisible, and
+ * it hands the setup screens the field's one piece of play: a pointer — mouse
+ * or finger — rubs the cover off wherever it travels, and the cover creeps back
+ * once the page has been cleared.
+ */
+function OnboardingBackdrop() {
+  // The scratch field owns pointer movement here, so the letters must not also
+  // chase the cursor — the two gestures fought each other on the loader.
+  const layer = useLettersLayer();
+  return (
+    <>
+      <ScratchFieldRevealTint className="z-0" />
+      <ScratchFieldBase className="z-0" />
+      <RisingLettersBackground
+        variant="loader"
+        snapToMouse={false}
+        className={layer === 'cover' ? 'z-[3]' : 'z-[1]'}
+      />
+      <ScratchField className="z-[2]" />
+    </>
   );
 }
 

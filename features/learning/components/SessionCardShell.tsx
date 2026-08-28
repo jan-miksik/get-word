@@ -32,23 +32,41 @@ export function SessionCardShell({
 }) {
   return (
     <div
+      // `min-h-full` and `my-auto` on the card rather than `h-full` with
+      // `items-center`: a centred flex item taller than its line overflows
+      // equally at both ends, and the top half of that overflow is unreachable
+      // — every ancestor's scrollable region only ever grows downward. So a
+      // long card (a closed day with a series, a week and two offers on a short
+      // phone) had its heading cut off with no way to scroll to it. Auto
+      // margins centre the same way while there is room and collapse to zero
+      // when there is not, which lets the card push the scroll container open.
       className={
         celebratory
           // Leave only a hairline phone gutter: card mode starts with 12px and
           // stream mode with 16px, so pulling eight back reaches 4–8px from the
           // viewport while still reading as a card rather than a page colour.
-          ? '-mx-2 flex h-full min-h-64 items-center justify-center px-0 py-3 sm:mx-0 sm:px-6 sm:py-8'
-          : 'flex h-full min-h-64 items-center justify-center px-2 py-8 sm:px-4'
+          // The desktop gutter is deliberately smaller than the phone one is
+          // relative to its screen: a laptop viewport is short and wide, so on
+          // a desktop this card runs out of *height* long before it runs out of
+          // width, and every row of padding here is a row of the card that
+          // ends up below the fold.
+          ? '-mx-2 flex min-h-full justify-center px-0 py-3 sm:mx-0 sm:px-6 sm:py-4'
+          : 'flex min-h-full justify-center px-2 py-8 sm:px-4'
       }
     >
       <section
         className={[
-          'relative w-full overflow-hidden border border-white/60',
+          'relative my-auto w-full overflow-hidden border border-white/60',
           'bg-[linear-gradient(145deg,#fffaf0_0%,#f7f0df_60%,#edf6f8_100%)]',
-          'px-5 py-8 text-center text-[#1f1a12] shadow-[0_22px_60px_rgba(42,34,24,0.12)] sm:px-10 sm:py-12',
+          'px-5 text-center text-[#1f1a12] shadow-[0_22px_60px_rgba(42,34,24,0.12)] sm:px-10',
           celebratory
-            ? 'mx-auto max-w-none rounded-[1.75rem] sm:max-w-7xl sm:rounded-[2rem]'
-            : 'max-w-lg rounded-[2rem]',
+            // Tighter than the seam card, and tighter still on a desktop. The
+            // closing card is the tallest thing the study surface ever draws —
+            // seal, headline, recap, both streaks, the week and up to two
+            // offers — and it is the only one whose padding can push its own
+            // buttons out of sight.
+            ? 'mx-auto max-w-none rounded-[1.75rem] py-7 sm:max-w-7xl sm:rounded-[2rem] sm:py-8'
+            : 'max-w-lg rounded-[2rem] py-8 sm:py-12',
         ].join(' ')}
       >
         {celebratory ? (

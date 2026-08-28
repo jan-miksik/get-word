@@ -89,6 +89,19 @@ const SKINS: Record<ContinueButtonVariant, VariantSkin> = {
   },
 };
 
+/**
+ * The button geometry and skin on their own, for the rare sibling action that
+ * shares this slot without being a continue — the assembly card's "check",
+ * which sits in exactly the same place and is replaced by the real continue the
+ * moment it is pressed. Anything that *does* advance the session should render
+ * `ContinueButton` instead of borrowing these classes.
+ */
+export function studyActionClasses(
+  variant: ContinueButtonVariant = CONTINUE_BUTTON_DEFAULT_VARIANT,
+): string {
+  return `${SHAPE} ${(SKINS[variant] ?? SKINS[CONTINUE_BUTTON_DEFAULT_VARIANT]).base}`;
+}
+
 export function ContinueButton({
   variant = CONTINUE_BUTTON_DEFAULT_VARIANT,
   onClick,

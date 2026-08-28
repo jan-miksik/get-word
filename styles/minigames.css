@@ -933,11 +933,11 @@
   }
 }
 
-/* Session breather: the handover between two blocks. The track draws itself
-   from the block just finished towards the one that starts now, and the node it
-   arrives at settles with a single beat. The point of the pause is that a
-   boundary is *felt*, so the handover is shown happening rather than presented
-   already done. */
+/* Session breather: the day's plan drawn as a track. Only the segment entering
+   the block that starts now draws itself, and that node settles with a single
+   beat — the rest of the day is already there to be read. The point of the
+   pause is that a boundary is *felt*, so the step is shown happening rather
+   than presented already done. */
 .session-handover-track {
   transform-origin: left center;
   animation: session-handover-draw 520ms ease-out both;
@@ -958,9 +958,22 @@
   100% { transform: scale(1); }
 }
 
+/* The stretch that just ended, landing word by word. The stagger is what makes
+   it read as "these went past", which a block of chips appearing at once does
+   not. */
+.session-breather-word {
+  animation: session-breather-word-in 320ms ease-out both;
+}
+
+@keyframes session-breather-word-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .session-handover-track,
-  .session-handover-next {
+  .session-handover-next,
+  .session-breather-word {
     animation: none;
   }
 }

@@ -15,6 +15,11 @@ import {
   confusableLetters,
   lettersAreConfusable,
 } from '@/features/learning/minigames/letter-families';
+import {
+  inventLookalikeForms,
+  scriptAlphabet,
+  surfaceKey,
+} from '@/features/learning/minigames/invented-forms';
 import { stageConfigAt } from './config';
 import {
   MIN_IN_BAND_OPTIONS,
@@ -38,6 +43,9 @@ import {
   type StageConfig,
   type TypingVariant,
 } from './types';
+
+/** Bent forms to build per answer part, which is more than any round needs. */
+const LOOKALIKES_PER_PART = 4;
 
 /** The gentlest exercise there is, and therefore the universal fallback. */
 const FALLBACK_EXERCISE: ResolvedExercise = { method: 'reveal', variant: 'foreign' };
@@ -178,6 +186,64 @@ function takeRandom(parts: string[], count: number, random: () => number): strin
   return output;
 }
 
+/**
+ * Decoy tiles built out of the answer itself, rather than borrowed from the list.
+ *
+ * The list is a poor source of near-misses. A three-word phrase needs three
+ * tiles that could plausibly belong to it, and no real vocabulary list reliably
+ * contains words that close to an arbitrary answer — so a round asking for hard
+ * decoys used to degrade to whatever the list happened to hold, which is how a
+ * "similar" round ended up offering unrelated words and punctuation.
+ *
+ * Bending the answer's own parts by one diacritic gives a guaranteed near-miss
+ * for every answer there is: the same trick the hardest choice rounds use (see
+ * `inventLookalikeForms`), applied one part at a time.
+ */
+function generateConfusableParts({
+  target,
+  pool,
+  role,
+  unit,
+  correct,
+  random,
+}: {
+  target: NormalizedWord;
+  pool: NormalizedWord[];
+  role: LearningRole;
+  unit: 'letters' | 'words';
+  correct: string[];
+  random: () => number;
+}): string[] {
+  // Only letters the learner's own list actually uses. Without this the letter
+  // families hand a Czech round its decoys in Vietnamese tone marks, which read
+  // as a rendering fault rather than as a letter worth telling apart — and now
+  // that every extra tile is drawn from here, they would be the whole board.
+  const alphabet = scriptAlphabet(pool.map((word) => learningAnswerForRole(word, role)));
+
+  if (unit === 'letters') {
+    const generated = confusableLetters(correct);
+    const inScript = generated.filter((letter) => alphabet.has(letter));
+    // Ordered, not filtered: a list too small to have shown a given accent yet
+    // still needs enough decoys to build a round at all.
+    return [...inScript, ...generated.filter((letter) => !alphabet.has(letter))];
+  }
+
+  const taken = new Set<string>();
+  for (const word of [target, ...pool]) {
+    const answer = learningAnswerForRole(word, role);
+    taken.add(surfaceKey(answer));
+    for (const part of answerParts(answer, 'words')) taken.add(surfaceKey(part));
+  }
+
+  return correct.flatMap((part) => inventLookalikeForms({
+    term: part,
+    alphabet,
+    isTaken: (candidate) => taken.has(surfaceKey(candidate)),
+    limit: LOOKALIKES_PER_PART,
+    random,
+  }));
+}
+
 function resolveAssemblyParts({
   target,
   pool,
@@ -202,12 +268,16 @@ function resolveAssemblyParts({
     .filter((word) => word.id !== target.id)
     .flatMap((word) => answerParts(learningAnswerForRole(word, role), unit))
     .filter((part) => !correctKeys.has(part.toLocaleLowerCase()));
-  const generatedSimilar = unit === 'letters' ? confusableLetters(correct) : [];
+  const generatedSimilar = generateConfusableParts({ target, pool, role, unit, correct, random });
   const candidates = uniqueParts(
     [...generatedSimilar, ...poolParts, ...fallbackExtraParts(correct.join(''), unit)],
     correctKeys,
   );
-  const needed = Math.min(6, Math.max(3, Math.ceil(correct.length * 0.3)));
+  // Band III offers more to sift through as well as harder decoys; below it the
+  // count stays at the floor, because at band II every extra tile is already a
+  // near-miss and a longer row is a reading test rather than a harder one.
+  const base = Math.min(6, Math.max(3, Math.ceil(correct.length * 0.3)));
+  const needed = band === 'III' ? Math.min(8, base + 2) : base;
   const isSimilarEnough = (candidate: string, attempt: SimilarityBand): boolean =>
     correct.some((part) =>
       unit === 'letters'
@@ -215,26 +285,16 @@ function resolveAssemblyParts({
         : bandAtLeast(similarityBandForTerms(candidate, part), attempt),
     );
 
+  // Above band I every extra tile has to be a near-miss. A round that mixed one
+  // confusable letter into two unrelated ones was solvable without reading it:
+  // the odd one out *was* the answer's letter, and the rest could be ignored on
+  // sight. What makes an assembly round hard is that nothing on the board can
+  // be dismissed without looking at it properly.
   const resolveAt = (attempt: SimilarityBand): string[] | null => {
     if (attempt === 'I') return takeRandom(candidates, needed, random);
-    const ratio = attempt === 'III' ? 0.8 : 0.2;
-    const similarNeeded = Math.ceil(needed * ratio);
     const similar = candidates.filter((candidate) => isSimilarEnough(candidate, attempt));
-    if (similar.length < similarNeeded) return null;
-    const chosenSimilar = takeRandom(similar, similarNeeded, random);
-    const chosenSet = new Set(chosenSimilar.map((part) => part.toLocaleLowerCase()));
-    const remaining = candidates.filter((part) => !chosenSet.has(part.toLocaleLowerCase()));
-    const dissimilar = remaining.filter((candidate) => !isSimilarEnough(candidate, attempt));
-    const filler = takeRandom(dissimilar, needed - chosenSimilar.length, random);
-    if (filler.length < needed - chosenSimilar.length) {
-      const fillerSet = new Set(filler.map((part) => part.toLocaleLowerCase()));
-      filler.push(...takeRandom(
-        remaining.filter((part) => !fillerSet.has(part.toLocaleLowerCase())),
-        needed - chosenSimilar.length - filler.length,
-        random,
-      ));
-    }
-    return [...chosenSimilar, ...filler];
+    if (similar.length < needed) return null;
+    return takeRandom(similar, needed, random);
   };
 
   const attempts: SimilarityBand[] = band === 'III' ? ['III', 'II', 'I'] : ['II', 'I'];

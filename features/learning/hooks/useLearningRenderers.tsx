@@ -64,6 +64,18 @@ interface UseLearningRenderersOptions {
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
+  /**
+   * A minigame round played to the end. Every card counts on the block rail,
+   * this one included; a round left half-played reports nothing.
+   */
+  onGameFinished?: (config: MiniGameConfig) => void;
+  /**
+   * The learner has marked their answer on a study card. Cards that end in a
+   * check hold the verdict on screen until the continue tap, and the deck then
+   * defers the SRS write to its exit animation — so without this the rails only
+   * moved a tap and an animation after the work was actually done.
+   */
+  onCardAnswered?: (word: NormalizedWord) => void;
   onAddSimilarWords: () => void;
   similarWordsContext?: {
     languageFrom: string;
@@ -103,6 +115,8 @@ export function useLearningRenderers({
   dismissedGames,
   setDismissedGames,
   setGameScore,
+  onGameFinished,
+  onCardAnswered,
   onAddSimilarWords,
   similarWordsContext,
 }: UseLearningRenderersOptions) {
@@ -171,6 +185,7 @@ export function useLearningRenderers({
             outcome,
             reinforcement,
           )}
+          onAnswered={() => onCardAnswered?.(word)}
           isMoved={lastMovedId === word.id}
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
@@ -184,7 +199,7 @@ export function useLearningRenderers({
         />
       </div>
     );
-  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, sessionBlocks]);
+  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered, sessionBlocks]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig, isActive = false) => {
     if (dismissedGames.has(config.id)) return null;
@@ -200,6 +215,7 @@ export function useLearningRenderers({
               const stageIndex = progress[wordId]?.stageIndex ?? 0;
               applyExerciseOutcome(wordId, stageIndex, outcome);
             }}
+            onFinished={onGameFinished}
             onAddSimilarWords={onAddSimilarWords}
             similarWordsContext={similarWordsContext}
             isActive={isActive}
@@ -207,7 +223,7 @@ export function useLearningRenderers({
         </div>
       </div>
     );
-  }, [dismissedGames, role, setDismissedGames, setGameScore, progress, applyExerciseOutcome, onAddSimilarWords, similarWordsContext]);
+  }, [dismissedGames, role, setDismissedGames, setGameScore, progress, applyExerciseOutcome, onGameFinished, onAddSimilarWords, similarWordsContext]);
 
   const renderCardForDeck = useCallback(
     (
@@ -276,6 +292,7 @@ export function useLearningRenderers({
                 { skipAnimation },
               );
             }}
+            onAnswered={() => onCardAnswered?.(word)}
             showEnglish={showEnglish}
             showCategoryBadges={showCategoryBadges}
             showPronunciation={showPronunciation}
@@ -293,7 +310,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, sessionBlocks]
+    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered, sessionBlocks]
   );
 
   const renderMiniGameForDeck = useCallback(
@@ -313,13 +330,14 @@ export function useLearningRenderers({
             const stageIndex = progress[wordId]?.stageIndex ?? 0;
             applyExerciseOutcome(wordId, stageIndex, outcome);
           }}
+          onFinished={onGameFinished}
           onAddSimilarWords={onAddSimilarWords}
           similarWordsContext={similarWordsContext}
           isActive
         />
       </div>
     ),
-    [role, setDismissedGames, setGameScore, progress, applyExerciseOutcome, onAddSimilarWords, similarWordsContext]
+    [role, setDismissedGames, setGameScore, progress, applyExerciseOutcome, onGameFinished, onAddSimilarWords, similarWordsContext]
   );
 
   // Typing raises the mobile keyboard, and a vertical drag with the keyboard up

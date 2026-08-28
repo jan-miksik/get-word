@@ -206,7 +206,7 @@ export function StreakDays({
 export function StreakSummary({ streak }: { streak: StreakChipData }) {
   const { t } = useI18n();
   return (
-    <div className="mt-6 flex flex-col items-center gap-3">
+    <div className="mt-5 flex flex-col items-center gap-2.5">
       <div className="flex items-baseline justify-center gap-5">
         {streak.dailyStreak === 0 && streak.weeklyStreak === 0 ? (
           <p className="m-0 text-base font-black tabular-nums text-[#4a4032] sm:text-lg">

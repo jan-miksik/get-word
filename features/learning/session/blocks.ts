@@ -30,40 +30,20 @@ export interface SessionBlock {
 }
 
 export interface SessionBlockPlanInput {
-  /** Repeats that open the day. Empty on a first day, or after a long absence. */
-  warmUpIds: readonly string[];
+  /** Every repeat the day selected, in the order it should be met. */
+  reviewIds: readonly string[];
   newIds: readonly string[];
-  /** Repeats that close the day and carry it to the goal. */
-  closingReviewIds: readonly string[];
   /**
-   * Fill a closing block with same-day repeats of the new words just seen when
-   * real repeats run out. Without this a beginner's day is new words only.
+   * Open on new ground rather than on repeats. Set for a return after a long
+   * absence, where the backlog is the worst possible welcome; a day with no
+   * repeats at all opens on new words whether this is set or not.
+   */
+  openOnNew?: boolean;
+  /**
+   * Close a day that has no repeats of its own on a second pass over the new
+   * words just seen. Without this a beginner's day is new words only.
    */
   fillWithRepeats?: boolean;
-}
-
-/** Heuristic for cadence, not a maximum size of an individual block. */
-const TARGET_NEW_PER_BATCH = 8;
-const MAX_NEW_BATCHES = 3;
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-/** Splits a positive total deterministically, allocating remainders from the front. */
-function splitEvenly(total: number, parts: number): number[] {
-  const base = Math.floor(total / parts);
-  const remainder = total % parts;
-  return Array.from({ length: parts }, (_, index) => base + (index < remainder ? 1 : 0));
-}
-
-function slice(ids: readonly string[], sizes: readonly number[]): string[][] {
-  let offset = 0;
-  return sizes.map((size) => {
-    const part = ids.slice(offset, offset + size);
-    offset += size;
-    return part;
-  });
 }
 
 function push(
@@ -82,53 +62,46 @@ function push(
 }
 
 /**
- * Shapes an already-selected day into blocks without reordering anything.
+ * Shapes an already-selected day into its two stretches.
  *
- * The day reads `review → new → review`: warm up on words already known, meet
- * the new ones while attention is freshest, then close on repeats — so the last
- * thing the day does is consolidate rather than pile on. A large batch of new
- * words is split across up to three passes with review in between, because
- * twenty unknown words in one unbroken run is the hardest possible way to meet
- * them.
+ * The day is one stretch of repeats and one of new words, and which comes first
+ * is the whole of the decision. Someone who already has words opens on repeats:
+ * the material is familiar, and it is the maintenance the day owes before it
+ * grows. Someone with nothing to repeat — a first day, or a day where nothing
+ * came due — opens on new words, because that is the only work there is, and
+ * closes on a second pass over what they just met.
+ *
+ * Two stretches, never more. The rail beside the deck is read out of the corner
+ * of an eye, and a day chopped into five alternating pieces gave it five fresh
+ * starts: the bar fell back to empty four times over a session the learner
+ * experienced as one continuous run of work.
  *
  * Whatever repeats are left over after the day's plan is deliberately NOT here:
- * it is a bonus offered once the day is closed, not a fourth block the learner
+ * it is a bonus offered once the day is closed, not a third stretch the learner
  * has to finish to be done.
  */
 export function planSessionBlocks(input: SessionBlockPlanInput): SessionBlock[] {
-  const warmUpIds = [...input.warmUpIds];
+  const reviewIds = [...input.reviewIds];
   const newIds = [...input.newIds];
-  const closingReviewIds = [...input.closingReviewIds];
-  if (warmUpIds.length === 0 && newIds.length === 0 && closingReviewIds.length === 0) return [];
+  if (reviewIds.length === 0 && newIds.length === 0) return [];
 
   const blocks: SessionBlock[] = [];
-  push(blocks, 'review', warmUpIds);
+  const pushNew = () => push(blocks, 'new', newIds);
+  const pushReview = () => {
+    if (reviewIds.length > 0) return push(blocks, 'review', reviewIds);
+    // Nothing of its own to repeat: the day still ends on consolidation, with
+    // the words it introduced coming back for a second pass.
+    if (input.fillWithRepeats) push(blocks, 'review', newIds, { pass: 2, reinforcement: true });
+  };
 
-  if (newIds.length === 0) {
-    push(blocks, 'review', closingReviewIds);
-    return blocks;
+  // A day with no repeats has no repeats to open on, whatever the caller asked.
+  if (reviewIds.length === 0 || input.openOnNew === true) {
+    pushNew();
+    pushReview();
+  } else {
+    pushReview();
+    pushNew();
   }
-
-  // Every new batch must have something to close on, or the day would end on
-  // unknown words. Without same-day repeats to fall back on, the number of
-  // batches is capped by how many real repeats there are to space them with.
-  const desiredBatches = clamp(Math.round(newIds.length / TARGET_NEW_PER_BATCH), 1, MAX_NEW_BATCHES);
-  const batchCount = input.fillWithRepeats
-    ? desiredBatches
-    : Math.min(desiredBatches, Math.max(1, closingReviewIds.length));
-  const newBatches = slice(newIds, splitEvenly(newIds.length, batchCount));
-  const reviewParts = slice(closingReviewIds, splitEvenly(closingReviewIds.length, batchCount));
-
-  newBatches.forEach((batch, index) => {
-    push(blocks, 'new', batch);
-    const review = reviewParts[index] ?? [];
-    if (review.length > 0) push(blocks, 'review', review);
-    // A day with no repeats of its own still closes on review: the words from
-    // the batch just seen come back for a second pass.
-    else if (input.fillWithRepeats) {
-      push(blocks, 'review', batch, { pass: 2, reinforcement: true });
-    }
-  });
   return blocks;
 }
 

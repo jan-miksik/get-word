@@ -28,7 +28,7 @@ describe('planSession', () => {
     expect(plan.blocks).toEqual([]);
   });
 
-  it('shapes an ordinary words day as warm-up, new words, closing review', () => {
+  it('shapes an ordinary words day as repeats then new words', () => {
     const roomy = { ...goal, mode: 'words' as const, wordsPerDay: 40, newWordsPerDay: 10 };
     const plan = planSession({
       goal: roomy, priorityWords: [],
@@ -39,12 +39,12 @@ describe('planSession', () => {
       ),
       dayTargets: { resolvedNewTarget: 10, resolvedReviewTarget: 22, resolvedItemBudget: 32 },
     });
-    expect(plan.blocks.map((block) => block.kind)).toEqual(['review', 'new', 'review']);
-    // New words are capped by their share of the day, the warm-up by its own
-    // ceiling, and the leftover repeats are offered rather than planned.
+    expect(plan.blocks.map((block) => block.kind)).toEqual(['review', 'new']);
+    // New words are capped by their share of the day, and the leftover repeats
+    // are offered rather than planned.
     expect(plan.newIds).toHaveLength(10);
-    expect(plan.blocks[0].ids).toHaveLength(7);
-    expect(plan.blocks.at(-1)?.ids).toHaveLength(15);
+    expect(plan.blocks[0].ids).toHaveLength(22);
+    expect(plan.blocks[1].ids).toHaveLength(10);
     expect(plan.deferredDueCount).toBe(18);
     expect(plan.shortfall).toBe(0);
   });

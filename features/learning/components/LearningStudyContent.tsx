@@ -110,11 +110,14 @@ interface LearningStudyContentProps {
    */
   dayFlow?: SessionFlowState | null;
   /** The whole day as the server counted it, bonus round included. */
-  dayScore?: { introduced: number; reviewed: number; target: number | null } | null;
+  dayScore?: {
+    introduced: number;
+    reviewed: number;
+    target: number | null;
+    met?: boolean;
+  } | null;
   /** How far the day's plan fell short of the goal for want of words. */
   shortfall?: number;
-  /** The finished day's settled cost, once the day is closed. */
-  dayResult?: { activeMs: number; itemsDone: number; secondsPerItem: number } | null;
   /** The study series, for the closing card and the header chip alike. */
   streak?: StreakChipData | null;
   onToggleShowNotReady: () => void;
@@ -166,7 +169,6 @@ export function LearningStudyContent({
   dayFlow = null,
   dayScore = null,
   shortfall = 0,
-  dayResult = null,
   streak = null,
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
@@ -223,7 +225,6 @@ export function LearningStudyContent({
       dayFlow={dayFlow}
       dayScore={dayScore}
       shortfall={shortfall}
-      dayResult={dayResult}
       streak={streak}
       onStudyExtra={onStudyExtra}
       onPractice={onPractice}

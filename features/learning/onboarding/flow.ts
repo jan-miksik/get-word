@@ -77,6 +77,31 @@ export function resolveLearningOnboardingStep({
 }
 
 /**
+ * The step to render once a still-resolving gate is taken into account.
+ *
+ * Every step is decided from stored answers, and some of those answers are
+ * fetched — so submitting one step leaves a gap before the next one can be
+ * named. Filling that gap with the boot loader made finishing a step blink the
+ * whole app away and back for as long as one request took. Holding the screen
+ * the learner is already looking at is the honest thing to show: they have
+ * answered, nothing has moved yet.
+ *
+ * Only mid-flow gaps are held. With no step behind it — the first paint of a
+ * session — `loading` still means the loader, because there is nothing else to
+ * show yet.
+ */
+export function holdOnboardingStepWhileLoading(
+  step: LearningOnboardingStep,
+  lastRenderedStep: LearningOnboardingStep | null,
+): LearningOnboardingStep {
+  if (step !== 'loading') return step;
+  if (!lastRenderedStep || lastRenderedStep === 'loading' || lastRenderedStep === 'app') {
+    return step;
+  }
+  return lastRenderedStep;
+}
+
+/**
  * The order Back walks, which is the order the steps are met in. `loading` and
  * `app` are not positions in the flow, so they are absent.
  */

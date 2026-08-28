@@ -9,6 +9,7 @@ import {
   type ReminderOnboardingValue,
 } from '@/features/learning/onboarding/StudyReminderOnboarding';
 import { LanguageLevelOnboarding } from '@/features/learning/onboarding/LanguageLevelOnboarding';
+import type { WordChatLanguageLevel } from '@/features/word-chat/public.client';
 import {
   OnboardingBody,
   OnboardingScreen,
@@ -98,14 +99,15 @@ export function OnboardingDevPreview({
 }) {
   const [scenario, setScenario] = useState<Scenario>(initialScenario);
   const [step, setStep] = useState<PreviewStep>(initialStep ?? scenarioStart[initialScenario]);
-  const [level, setLevel] = useState('A0');
+  // Nothing chosen, the way a new account meets the step.
+  const [level, setLevel] = useState<string | null>(null);
   const [goal, setGoal] = useState<GoalPickerValue | null>(null);
   const [reminder, setReminder] = useState<ReminderOnboardingValue | null>(null);
 
   const reset = (next: Scenario) => {
     setScenario(next);
     setStep(scenarioStart[next]);
-    setLevel('A0');
+    setLevel(null);
     setGoal(null);
     setReminder(null);
   };
@@ -147,7 +149,7 @@ export function OnboardingDevPreview({
     content = (
       <LanguageLevelOnboarding
         targetLanguage="es"
-        initialLevel="A0"
+        initialLevel={level as WordChatLanguageLevel | null}
         onBack={onBack}
         onSubmit={(next) => {
           setLevel(next);

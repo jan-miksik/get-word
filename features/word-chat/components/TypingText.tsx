@@ -86,6 +86,12 @@ function AnimatedTypingText({
 const STREAM_CATCH_UP_MS = 300;
 /** Floor for the reveal rate, so the last few characters still look typed. */
 const STREAM_MIN_CHARS_PER_SECOND = 55;
+/**
+ * Longest gap a single frame may be paced from. A backgrounded tab or a stalled
+ * main thread hands the loop a gap of seconds, and charging the reveal for all
+ * of it would dump the rest of the reply in one frame.
+ */
+const STREAM_MAX_FRAME_MS = 100;
 
 /**
  * Renders streamed text at a steady pace instead of at the pace it arrives.
@@ -96,6 +102,14 @@ const STREAM_MIN_CHARS_PER_SECOND = 55;
  * what makes the answer stutter and then jump. So arrival only moves the
  * target, and a frame loop walks the visible text toward it, draining whatever
  * is outstanding over a fixed window.
+ *
+ * The loop deliberately outlives the arrivals. It used to be restarted by every
+ * delta, and since a restarted loop has no previous frame to measure against,
+ * its first frame could only afford one character — with deltas landing every
+ * 32ms that capped the whole reveal at about a character per flush, so the text
+ * crawled while the reply streamed and then lurched to the end when it stopped.
+ * Arrivals now only move `targetRef`; the loop keeps its own timebase and stops
+ * only once it has caught up.
  */
 export function StreamedText({
   text,
@@ -114,49 +128,81 @@ export function StreamedText({
   const canAnimate = animate && typeof requestAnimationFrame === 'function';
   const [shown, setShown] = useState(() => (canAnimate ? '' : text));
   const shownRef = useRef(shown);
+  // Where the reveal is walking to. The loop reads this rather than a captured
+  // prop, which is what lets it survive streamed deltas.
+  const targetRef = useRef(text);
+  // Whether this bubble types at all is decided by its first render, the same
+  // way its initial state is: a reply marked complete mid-reveal must still
+  // finish drawing rather than snap.
+  const animateRef = useRef(canAnimate);
   const onRevealRef = useRef(onReveal);
+  const loopRef = useRef<{ frame: number; lastAt: number }>({ frame: 0, lastAt: 0 });
 
   useEffect(() => {
     onRevealRef.current = onReveal;
   }, [onReveal]);
 
-  // One effect owns the whole frame loop, so its cleanup cancels exactly what it
-  // started. React Strict Mode runs this mount, clean up, mount again in
-  // development; anything kept in a ref across that would leave the second pass
-  // believing a cancelled loop was still running, and the text would never
-  // appear at all.
   useEffect(() => {
+    targetRef.current = text;
+  }, [text]);
+
+  // The loop's lifetime is the component's, not any one delta's. Strict Mode
+  // mounts, cleans up and mounts again in development; this cleanup is what
+  // cancels the first pass's frame and lets the second start a live one.
+  useEffect(() => {
+    const loop = loopRef.current;
+    return () => {
+      if (loop.frame) cancelAnimationFrame(loop.frame);
+      loop.frame = 0;
+      loop.lastAt = 0;
+    };
+  }, []);
+
+  useEffect(() => {
+    const loop = loopRef.current;
     // The finished reply is normally the streamed text plus whatever was still
     // outstanding. When it is not — a parser fallback rewrote it — no amount of
     // revealing gets there, so show the corrected text and stop.
     if (!text.startsWith(shownRef.current)) {
+      if (loop.frame) cancelAnimationFrame(loop.frame);
+      loop.frame = 0;
+      loop.lastAt = 0;
       shownRef.current = text;
       setShown(text);
       return;
     }
-    if (shownRef.current === text) return;
+    if (!animateRef.current) {
+      shownRef.current = text;
+      setShown(text);
+      return;
+    }
+    if (shownRef.current === text || loop.frame) return;
 
-    let frame = 0;
-    let lastFrameAt = 0;
     const step = (now: number) => {
-      const elapsed = lastFrameAt ? now - lastFrameAt : 0;
-      lastFrameAt = now;
-      const remaining = text.length - shownRef.current.length;
-      if (remaining <= 0) return;
+      const elapsed = loop.lastAt ? Math.min(now - loop.lastAt, STREAM_MAX_FRAME_MS) : 0;
+      loop.lastAt = now;
+      const target = targetRef.current;
+      const remaining = target.length - shownRef.current.length;
+      if (remaining <= 0 || !target.startsWith(shownRef.current)) {
+        // Caught up. Idling here would burn a frame callback for as long as the
+        // bubble stays in the transcript, so the loop stands down and the
+        // effect above restarts it when more text arrives.
+        loop.frame = 0;
+        loop.lastAt = 0;
+        return;
+      }
       const charsPerSecond = Math.max(
         STREAM_MIN_CHARS_PER_SECOND,
         (remaining / STREAM_CATCH_UP_MS) * 1000,
       );
       const chars = Math.max(1, Math.round((charsPerSecond * elapsed) / 1000));
-      const next = text.slice(0, shownRef.current.length + chars);
+      const next = target.slice(0, shownRef.current.length + chars);
       shownRef.current = next;
       setShown(next);
       onRevealRef.current?.();
-      frame = requestAnimationFrame(step);
+      loop.frame = requestAnimationFrame(step);
     };
-    frame = requestAnimationFrame(step);
-
-    return () => cancelAnimationFrame(frame);
+    loop.frame = requestAnimationFrame(step);
   }, [text]);
 
   return <>{shown}</>;

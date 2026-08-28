@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   checkAudioUrlAvailable,
   getCachedAudioUrlAvailability,
@@ -58,6 +58,13 @@ interface Props {
   onDismiss: () => void;
   onResult?: (delta: number) => void;
   onReviewOutcome?: (wordId: string, outcome: 'known' | 'unknown') => void;
+  /**
+   * The round was played to the end — every pair matched, the field cleared,
+   * the question answered. Deliberately not the same thing as `onDismiss`,
+   * which the skip button also fires: a round the learner walked away from has
+   * not been worked through, and must not fill the slot the rail gave it.
+   */
+  onFinished?: (config: MiniGameConfig) => void;
   /** Fallback when there is no personal list to save generated words into. */
   onAddSimilarWords?: () => void;
   /** Everything the inline similar-words generator needs to run in place. */
@@ -173,8 +180,17 @@ function pickCachedVerifiedAudioSideForMatching(
   return null;
 }
 
-export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcome, onAddSimilarWords, similarWordsContext, isActive = true }: Props) {
+export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcome, onFinished, onAddSimilarWords, similarWordsContext, isActive = true }: Props) {
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
+  // Reported once, from the render that first sees the round settled. Both the
+  // matching board and the bubble field can reach the end through several
+  // paths, so the guard lives here rather than in each game.
+  const reportedFinishRef = useRef(false);
+  useEffect(() => {
+    if (!finished || reportedFinishRef.current) return;
+    reportedFinishRef.current = true;
+    onFinished?.(config);
+  }, [config, finished, onFinished]);
   const { soundEnabled, toggleSound } = useCardSound();
   const level = config.level ?? 1;
   const standardLevel: 1 | 2 = level === 3 ? 2 : level;

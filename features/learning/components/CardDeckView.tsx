@@ -432,9 +432,9 @@ export function CardDeckView({
 
   if (isDone) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full justify-center overflow-y-auto">
         {emptyState ?? (
-          <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
+          <p className="m-auto text-2xl font-semibold text-[#2A2218] opacity-70">
             {t('learning.sessionDoneTitle')}
           </p>
         )}
@@ -444,9 +444,9 @@ export function CardDeckView({
 
   if (!entry || !item) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full justify-center overflow-y-auto">
         {emptyState ?? (
-          <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
+          <p className="m-auto text-2xl font-semibold text-[#2A2218] opacity-70">
             {t('learning.sessionDoneTitle')}
           </p>
         )}

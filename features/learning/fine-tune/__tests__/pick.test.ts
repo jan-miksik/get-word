@@ -3,6 +3,7 @@ import type { NormalizedWord } from '@/lib/words';
 import { DEFAULT_FINE_TUNE_CONFIG, normalizeFineTuneConfig } from '../config';
 import { pickExerciseForWord, pickMatchRound } from '../pick';
 import type { ChoiceVariant, FineTuneConfig, StageConfig } from '../types';
+import { bandAtLeast, similarityBandForTerms } from '@/features/learning/minigames/similarity';
 
 const word = (id: string, cz: string, vi: string): NormalizedWord => ({
   id, cz, vi, en: '', category: ['word'],
@@ -312,9 +313,20 @@ describe('pickExerciseForWord — assembly', () => {
     if (exercise.method !== 'assembly') return;
     expect(exercise.answerParts).toEqual(['xin', 'chào', 'bạn']);
     expect(exercise.distractorParts.length).toBeGreaterThan(0);
+    // Every tile has to be worth reading. The list holds nothing close enough
+    // to the phrase's own words, so most of these are bent forms of the answer
+    // itself — and none of them is the punctuation the old fallback served.
+    expect(exercise.effectiveBand).toBe('II');
+    for (const part of exercise.distractorParts) {
+      expect(
+        exercise.answerParts.some(
+          (answer) => bandAtLeast(similarityBandForTerms(part, answer), 'II'),
+        ),
+      ).toBe(true);
+    }
   });
 
-  it('uses about 20% confusable extra letters on II and 80% on III', () => {
+  it('makes every extra letter confusable above band I, and offers more of them on III', () => {
     const pool = [word('target', 'demo', 'raco'), ...distinctPool(8)];
     const baseLetter = (value: string) => value
       .toLocaleLowerCase()
@@ -342,8 +354,8 @@ describe('pickExerciseForWord — assembly', () => {
       };
     };
 
-    expect(confusableCount('letters:II')).toEqual({ similar: 1, total: 3, band: 'II' });
-    expect(confusableCount('letters:III')).toEqual({ similar: 3, total: 3, band: 'III' });
+    expect(confusableCount('letters:II')).toEqual({ similar: 3, total: 3, band: 'II' });
+    expect(confusableCount('letters:III')).toEqual({ similar: 5, total: 5, band: 'III' });
   });
 });
 

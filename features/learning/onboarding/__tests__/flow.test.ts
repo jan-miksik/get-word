@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyOnboardingBack,
   hasConfiguredGoal,
+  holdOnboardingStepWhileLoading,
   onboardingBackTarget,
   resolveLearningOnboardingStep,
 } from '../flow';
@@ -159,5 +160,26 @@ describe('applyOnboardingBack', () => {
 
   it('does not pull a finished learner back into setup', () => {
     expect(applyOnboardingBack('app', 'goal')).toBe('app');
+  });
+});
+
+describe('holdOnboardingStepWhileLoading', () => {
+  it('leaves a resolved step alone', () => {
+    expect(holdOnboardingStepWhileLoading('level', 'language')).toBe('level');
+    expect(holdOnboardingStepWhileLoading('app', 'reminder')).toBe('app');
+  });
+
+  // The gap between submitting one step and being able to name the next one is
+  // a wait, not a boot: blinking the loading screen into it made every step
+  // hand-off flash the whole app away and back.
+  it('holds the step the learner is looking at while the next one resolves', () => {
+    expect(holdOnboardingStepWhileLoading('loading', 'language')).toBe('language');
+    expect(holdOnboardingStepWhileLoading('loading', 'goal')).toBe('goal');
+  });
+
+  it('still loads when there is no step behind it', () => {
+    expect(holdOnboardingStepWhileLoading('loading', null)).toBe('loading');
+    expect(holdOnboardingStepWhileLoading('loading', 'loading')).toBe('loading');
+    expect(holdOnboardingStepWhileLoading('loading', 'app')).toBe('loading');
   });
 });

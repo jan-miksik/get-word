@@ -28,7 +28,12 @@ export function StepDots({
   caption: string;
   /** Optional extra line under the rail, e.g. the current step's own name. */
   captionText?: string;
-  /** Drops the caption line where vertical space is scarce (phone keyboard up). */
+  /**
+   * Drops the caption line, leaving the rail to speak for itself. Used where
+   * vertical space is scarce (phone keyboard up) and by first-run onboarding,
+   * whose five one-question screens do not need a header each. The caption is
+   * still the rail's accessible value text either way.
+   */
   compact?: boolean;
 }) {
   const position = Math.min(Math.max(current, 1), total);

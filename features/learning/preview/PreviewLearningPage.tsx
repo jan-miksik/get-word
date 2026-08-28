@@ -21,6 +21,7 @@ import { QuickPracticeRun } from '@/features/learning/quick-practice/QuickPracti
 import { useQuickPractice } from '@/features/learning/quick-practice/useQuickPractice';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
+import type { StreakChipData } from '@/features/learning/goals/streakWeek';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   STAGES,
@@ -30,6 +31,29 @@ import {
   type NormalizedWord,
 } from '@/lib/words';
 import { calculateProgressStats } from '@/lib/progress-stats';
+
+/**
+ * The tallest the closing card ever gets: a closed day with both streaks, the
+ * week, an over-goal chip and two offers. Height problems only show up in this
+ * state, so the preview keeps one around rather than making them reproducible
+ * by luck.
+ */
+const PREVIEW_STREAK: StreakChipData = {
+  days: [
+    { dayKey: '2026-08-24', weekday: 1, status: 'exceeded', preferred: true, isToday: false, isFuture: false },
+    { dayKey: '2026-08-25', weekday: 2, status: 'met', preferred: true, isToday: false, isFuture: false },
+    { dayKey: '2026-08-26', weekday: 3, status: 'partial', preferred: false, isToday: false, isFuture: false },
+    { dayKey: '2026-08-27', weekday: 4, status: 'met', preferred: true, isToday: true, isFuture: false },
+    { dayKey: '2026-08-28', weekday: 5, status: 'none', preferred: true, isToday: false, isFuture: true },
+    { dayKey: '2026-08-29', weekday: 6, status: 'none', preferred: false, isToday: false, isFuture: true },
+    { dayKey: '2026-08-30', weekday: 7, status: 'none', preferred: false, isToday: false, isFuture: true },
+  ],
+  weeks: [],
+  dailyStreak: 4,
+  weeklyStreak: 3,
+  keptThisWeek: 3,
+  weekTarget: 4,
+};
 
 const PREVIEW_LISTS = [
   { id: 'preview-basics', name: 'Základní slova', languageFrom: 'cs', languageTo: 'vi' },
@@ -198,12 +222,21 @@ function PreviewStudy({
   // visually. `session-done` mirrors a completed goal with optional reviews,
   // and `session-short` the day that ran out of words before reaching it.
   const previewSurface = useSearchParams().get('preview');
+  // Which seam the breather preview sits at. The card is only ever seen with
+  // the blocks behind it finished, so the step walks the seams rather than the
+  // answers: continuing moves to the next one and the day track redraws.
   const [breatherStep, setBreatherStep] = useState(0);
-  const previewBlocks = useMemo<SessionBlockProgress[]>(() => ([
-    { key: 'review-0', kind: 'review', total: 6, done: Math.min(6, breatherStep * 3), pending: 0, liveRemaining: Math.max(0, 6 - breatherStep * 3), unavailable: 0 },
-    { key: 'new-0', kind: 'new', total: 4, done: 0, pending: 0, liveRemaining: 4, unavailable: 0 },
-    { key: 'review-1', kind: 'review', total: 12, done: 0, pending: 0, liveRemaining: 12, unavailable: 0 },
-  ]), [breatherStep]);
+  const previewBlocks = useMemo<SessionBlockProgress[]>(
+    () =>
+      ([
+        { key: 'review-0', kind: 'review', total: 6, done: 0, pending: 0, liveRemaining: 6, unavailable: 0 },
+        { key: 'new-0', kind: 'new', total: 4, done: 0, pending: 0, liveRemaining: 4, unavailable: 0 },
+        { key: 'review-1', kind: 'review', total: 12, done: 0, pending: 0, liveRemaining: 12, unavailable: 0 },
+      ] satisfies SessionBlockProgress[]).map((block, index) =>
+        index <= breatherStep ? { ...block, done: block.total, liveRemaining: 0 } : block,
+      ),
+    [breatherStep],
+  );
   const previewFlow = useMemo(() => resolveSessionFlow(previewBlocks), [previewBlocks]);
   const quickPractice = useQuickPractice({ words: PREVIEW_WORDS });
 
@@ -370,7 +403,7 @@ function PreviewStudy({
           <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             <SessionRail flow={previewFlow} />
             {previewSurface === 'session-short' ? (
-              <div className="relative h-full">
+              <div className="flex h-full justify-center overflow-y-auto">
                 <SessionDoneCard
                   settlingCount={0}
                   dayFlow={resolveSessionFlow([
@@ -381,7 +414,7 @@ function PreviewStudy({
                 />
               </div>
             ) : previewSurface === 'session-done' ? (
-              <div className="relative h-full">
+              <div className="flex h-full justify-center overflow-y-auto">
                 <SessionDoneCard
                   settlingCount={7}
                   dueNowCount={39}
@@ -390,14 +423,18 @@ function PreviewStudy({
                     { ...previewBlocks[0], done: 6, liveRemaining: 0 },
                     { ...previewBlocks[1], done: 4, liveRemaining: 0 },
                   ])}
-                  dayScore={{ introduced: 14, reviewed: 6, target: 15 }}
-                  dayResult={{ activeMs: 8 * 60_000 + 32_000, itemsDone: 20, secondsPerItem: 12 }}
+                  // Regression harness: this visit exhausted a smaller frozen
+                  // remainder, but the whole day was already earned and went
+                  // 13 cards over its 20-card resolved target.
+                  dayScore={{ introduced: 13, reviewed: 20, target: 20, met: true }}
+                  shortfall={12}
+                  streak={PREVIEW_STREAK}
                   onStudyExtra={() => undefined}
                   onOpenWordChat={() => undefined}
                 />
               </div>
             ) : previewSurface === 'session-clear' ? (
-              <div className="relative h-full">
+              <div className="flex h-full justify-center overflow-y-auto">
                 {quickPractice.rounds ? (
                   <QuickPracticeRun
                     rounds={quickPractice.rounds}
@@ -412,7 +449,6 @@ function PreviewStudy({
                       { ...previewBlocks[1], done: 4, liveRemaining: 0 },
                     ])}
                     dayScore={{ introduced: 14, reviewed: 6, target: 15 }}
-                    dayResult={{ activeMs: 8 * 60_000 + 32_000, itemsDone: 20, secondsPerItem: 12 }}
                     onPractice={quickPractice.available ? quickPractice.start : undefined}
                     practiceSize={quickPractice.size}
                     onOpenWordChat={() => undefined}
@@ -423,11 +459,13 @@ function PreviewStudy({
               <div className="relative h-full">
                 <SessionBreatherCard
                   breather={{
-                    finished: previewBlocks[0],
-                    next: previewBlocks[1],
+                    finished: previewBlocks[breatherStep],
+                    next: previewBlocks[breatherStep + 1],
                     flow: previewFlow,
+                    words: PREVIEW_WORDS.slice(0, previewBlocks[breatherStep].total),
                   }}
-                  onContinue={() => setBreatherStep((step) => (step + 1) % 3)}
+                  role={role}
+                  onContinue={() => setBreatherStep((step) => (step + 1) % 2)}
                 />
               </div>
             ) : previewSurface === 'bubbles' ? (
