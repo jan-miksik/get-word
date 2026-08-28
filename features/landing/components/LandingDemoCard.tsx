@@ -414,6 +414,7 @@ export function LandingDemoCard({
               label={t('landing.demo.continue')}
               className="lp-demo-continue"
               onBeforeLogin={() => onContinueToApp?.()}
+              compactAction="scrollToStores"
             />
             <button type="button" className="lp-demo-replay" onClick={resetDemo}>
               {t('landing.demo.replay')}

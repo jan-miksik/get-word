@@ -163,6 +163,44 @@ describe('StoreFirstStartLink', () => {
     expect(container.querySelector('.lp-compact-only')).toBeNull();
   });
 
+  // The demo card's own link. It comes right after playing, so it points back
+  // at the store block on the page instead of throwing the visitor out to a
+  // listing — the scroll itself needs a DOM, so what is pinned here is that the
+  // compact variant stays on the page rather than carrying a store URL.
+  it('keeps the demo link on the page, pointing back at the store block', () => {
+    stubEnvironment({ ua: ANDROID_UA });
+    const { container } = render(
+      <StoreFirstStartLink
+        label="Continue to the app"
+        className="lp-demo-continue"
+        onBeforeLogin={vi.fn()}
+        compactAction="scrollToStores"
+      />,
+    );
+
+    const compact = container.querySelector('.lp-compact-only a');
+    expect(compact).toHaveAttribute('href', '/login');
+    expect(compact?.getAttribute('href')).not.toContain('play.google.com');
+    expect(container.querySelector('.lp-desktop-only a')).toHaveAttribute('href', '/login');
+  });
+
+  // Nothing to scroll back to once the app is installed: the store block is
+  // gone from the page, so the link has to stay a plain way in.
+  it('gives the demo link nothing to scroll to once the app is installed', () => {
+    stubEnvironment({ ua: ANDROID_UA, standalone: true });
+    const { container } = render(
+      <StoreFirstStartLink
+        label="Continue to the app"
+        className="lp-demo-continue"
+        onBeforeLogin={vi.fn()}
+        compactAction="scrollToStores"
+      />,
+    );
+
+    expect(container.querySelectorAll('a')).toHaveLength(1);
+    expect(container.querySelector('.lp-compact-only')).toBeNull();
+  });
+
   // Someone who already has the app does not need to be sent to install it.
   it('leaves an installed phone with the browser link alone', () => {
     stubEnvironment({ ua: ANDROID_UA, standalone: true });

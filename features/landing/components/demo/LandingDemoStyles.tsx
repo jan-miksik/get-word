@@ -104,6 +104,13 @@ export function LandingDemoStyles() {
   position:relative;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:1.1rem; min-height:0;
+  /* Standing room for the continue bar, which is positioned against the border
+     box and so lands on whatever the flow put at the bottom — on a phone that
+     was the "all matched" line, half-hidden behind it. Reserved from the start
+     rather than added on completion: the bar and the line appear in the same
+     instant, and paying for the space only then would shove the grid upwards
+     exactly as the learner looks at it. */
+  padding-bottom:3.5rem;
 }
 .lp-demo-match-badge{
   display:inline-flex; align-items:center; gap:.4rem;

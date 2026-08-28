@@ -7,7 +7,12 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
 import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
-import { CompactStoreCta, PlayStoreLink, StoreFirstStartLink } from './LandingAppStores';
+import {
+  CompactStoreCta,
+  PlayStoreLink,
+  STORE_CTA_ANCHOR_ID,
+  StoreFirstStartLink,
+} from './LandingAppStores';
 import { IconArrow } from './LandingIcons';
 import {
   Choice,
@@ -373,7 +378,7 @@ function Hero({
               />
             </div>
           ) : null}
-          <div className="lp-compact-only lp-hero-compact-cta">
+          <div id={STORE_CTA_ANCHOR_ID} className="lp-compact-only lp-hero-compact-cta">
             <CompactStoreCta
               showLogin={showLogin}
               onBeforeLogin={onBeforeLogin}

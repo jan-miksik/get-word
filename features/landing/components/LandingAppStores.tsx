@@ -128,6 +128,38 @@ export function PlayStoreLink() {
 }
 
 /**
+ * Anchor on the compact store block in the hero, so a link further down the
+ * page can bring the visitor back to it.
+ */
+export const STORE_CTA_ANCHOR_ID = 'lp-store-cta';
+
+function scrollToStoreCta(event: React.MouseEvent<HTMLAnchorElement>) {
+  const target = document.getElementById(STORE_CTA_ANCHOR_ID);
+  // Nothing to scroll to — a layout without the compact block, or no JS at all.
+  // Leaving the click alone lets the href carry the visitor to /login instead
+  // of swallowing the tap and doing nothing.
+  if (!target) return;
+  event.preventDefault();
+
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  if (reduced) {
+    target.scrollIntoView({ block: 'center' });
+    return;
+  }
+
+  const startedAt = window.scrollY;
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // A smooth request is a request, not a promise: some engines drop it, and
+  // every engine drops it while the tab is not being painted. A smooth scroll
+  // that took the request is already moving well inside this window, so a
+  // position that has not budged means it was ignored — and a tap that does
+  // nothing at all is the one outcome worth guarding against here.
+  window.setTimeout(() => {
+    if (window.scrollY === startedAt) target.scrollIntoView({ block: 'center' });
+  }, 250);
+}
+
+/**
  * A "start here" link that follows the same store-first rule as the rest of the
  * page once the window stops being a desktop.
  *
@@ -136,6 +168,13 @@ export function PlayStoreLink() {
  * every other call to action leads with. Desktop visitors, platforms we ship no
  * store build for, and anyone who already has the app keep the browser path
  * exactly as it was.
+ *
+ * The two get different compact treatment. The header button opens the listing,
+ * because someone tapping it at the top of the page has decided already. The
+ * demo card's link scrolls back to the store block instead: that tap comes
+ * straight after playing, and answering it by throwing the visitor out of the
+ * page into a store app is a bigger jump than showing them the choice they
+ * scrolled past on the way down.
  *
  * Two elements rather than one link with a switched href: the breakpoint lives
  * in CSS, so deciding it in JS here would mean a media query that has to agree
@@ -148,12 +187,14 @@ export function StoreFirstStartLink({
   label,
   className,
   onBeforeLogin,
+  compactAction = 'openStore',
 }: {
   label: string;
   className: string;
   onBeforeLogin: () => void;
+  compactAction?: 'openStore' | 'scrollToStores';
 }) {
-  const { primary } = useStoreChoice();
+  const { primary, rest } = useStoreChoice();
 
   const browserLink = (
     <Link href="/login" className={className} onClick={onBeforeLogin}>
@@ -161,23 +202,40 @@ export function StoreFirstStartLink({
     </Link>
   );
 
-  if (!primary) return browserLink;
+  // Scrolling needs any store block at all; opening a listing needs this
+  // device's own one. Neither survives an install: someone already running the
+  // app is not being sent to fetch it again.
+  const canScroll = Boolean(primary) || rest.length > 0;
+  if (compactAction === 'scrollToStores' ? !canScroll : !primary) return browserLink;
 
   return (
     <>
       <span className="lp-desktop-only">{browserLink}</span>
       <span className="lp-compact-only">
-        <a
-          href={primary.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={className}
-          // Still worth saving the pair they picked: it is waiting for them
-          // when the installed app asks, or if they come back to this page.
-          onClick={onBeforeLogin}
-        >
-          {label}
-        </a>
+        {compactAction === 'scrollToStores' ? (
+          <a
+            href="/login"
+            className={className}
+            onClick={(event) => {
+              onBeforeLogin();
+              scrollToStoreCta(event);
+            }}
+          >
+            {label}
+          </a>
+        ) : (
+          <a
+            href={primary?.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={className}
+            // Still worth saving the pair they picked: it is waiting for them
+            // when the installed app asks, or if they come back to this page.
+            onClick={onBeforeLogin}
+          >
+            {label}
+          </a>
+        )}
       </span>
     </>
   );
