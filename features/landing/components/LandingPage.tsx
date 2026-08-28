@@ -7,6 +7,12 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
 import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
+import {
+  CompactStoreCta,
+  PlayStoreLink,
+  STORE_CTA_ANCHOR_ID,
+  StoreFirstStartLink,
+} from './LandingAppStores';
 import { IconArrow } from './LandingIcons';
 import {
   Choice,
@@ -70,7 +76,7 @@ function LandingPageContent({
   // Firefox on Android can't run the app reliably (PWA install, canvas/scratch,
   // and the OTP tab-restore flow all break). Rather than ship broken sign-in, we
   // show an unsupported notice and hide every login CTA for those visitors,
-  // steering them to a Chromium browser (and later the Play Store). Detection is
+  // steering them to a Chromium browser or the Play Store build. Detection is
   // client-only, so the server snapshot is false — no hydration drift, the CTAs
   // render on the server and are removed after mount only on Firefox-Android.
   const isFirefoxAndroid = useIsFirefoxAndroid();
@@ -152,15 +158,12 @@ function LandingPageContent({
         <Growth />
         <Pairs />
         <OpenSource />
-        {isFirefoxAndroid ? null : <FinalCta />}
+        <FinalCta showLogin={!isFirefoxAndroid} />
         {/* Last line before the footer rule. Outside FinalCta so it survives on
             Firefox-Android, where the closing button is hidden but the egg
             still works. */}
         <p className="lp-finish-bonus">{t('landing.hero.bonus')}</p>
-        <SiteFooter
-          showLogin={!isFirefoxAndroid}
-          onLogoDoubleActivate={() => setScratchMode((on) => !on)}
-        />
+        <SiteFooter onLogoDoubleActivate={() => setScratchMode((on) => !on)} />
       </div>
       {isLoading ? (
         <div
@@ -208,8 +211,8 @@ function LanguageSwitcher({
 /**
  * Firefox on Android can't run the app reliably — PWA install, canvas/scratch,
  * and the OTP tab-restore sign-in flow all break — so instead of shipping broken
- * login we mark it unsupported and steer visitors to a Chromium browser (and,
- * later, the Play Store). Scoped to Android on purpose: iOS Firefox (FxiOS) is a
+ * login we mark it unsupported and steer visitors to a Chromium browser or the
+ * Play Store build. Scoped to Android on purpose: iOS Firefox (FxiOS) is a
  * WebKit wrapper, not Gecko, and behaves like Safari. Detection is client-only,
  * so the server snapshot is false (SSR/first paint renders as a supported
  * browser, no hydration drift) and the true value takes over after mount.
@@ -243,6 +246,12 @@ function FirefoxUnsupportedNotice() {
         <p className="m-0 mt-1 text-[var(--ink-2)]">
           {t('landing.firefoxUnsupportedBody')}
         </p>
+        {/* The other way in, and for this audience the only one that does not
+            require switching browsers first: the Play build is a TWA around the
+            same app, but it runs on Chrome's engine rather than Gecko. */}
+        <div className="mt-3">
+          <PlayStoreLink />
+        </div>
       </div>
     </div>
   );
@@ -290,9 +299,11 @@ function SiteHeader({
           onLangChange={onLangChange}
         />
         {showLogin ? (
-          <Link href="/login" className="lp-btn-ghost" onClick={onBeforeLogin}>
-            {t('landing.hero.getStarted')}
-          </Link>
+          <StoreFirstStartLink
+            label={t('landing.hero.getStarted')}
+            className="lp-btn-ghost"
+            onBeforeLogin={onBeforeLogin}
+          />
         ) : null}
       </nav>
     </header>
@@ -348,17 +359,34 @@ function Hero({
 
         {/* On unsupported browsers (Firefox-Android) the demo and the language
             pickers are both hidden, so the hero collapses to just the pitch. */}
-        {showLogin ? (
-          <div className="lp-hero-controls">
-            <HeroLanguagePicker
-              languageFrom={languageFrom}
-              languageTo={languageTo}
-              effectiveLanguageFrom={effectiveLanguageFrom}
-              onPairChange={onPairChange}
+        {/* The language pair is a desktop object. On a phone the first thing
+            asked of a visitor is not "which two languages" but "get the app" —
+            and two comboboxes with a dropdown each are the worst possible
+            version of that question on a small screen. The pair is asked again
+            in onboarding either way, so nothing is lost by not asking here.
+            Split in CSS rather than JS: both blocks are in the HTML, so there
+            is no hydration drift and no flash of the wrong call to action. */}
+        <div className="lp-hero-controls">
+          {showLogin ? (
+            <div className="lp-desktop-only">
+              <HeroLanguagePicker
+                languageFrom={languageFrom}
+                languageTo={languageTo}
+                effectiveLanguageFrom={effectiveLanguageFrom}
+                onPairChange={onPairChange}
+                onBeforeLogin={onBeforeLogin}
+              />
+            </div>
+          ) : null}
+          <div id={STORE_CTA_ANCHOR_ID} className="lp-compact-only lp-hero-compact-cta">
+            <CompactStoreCta
+              showLogin={showLogin}
               onBeforeLogin={onBeforeLogin}
+              loginLabel={t('landing.hero.getStarted')}
+              loginClassName="lp-btn-primary lp-btn-hero group"
             />
           </div>
-        ) : null}
+        </div>
 
         {/* The first screen is a full viewport tall, so something has to say
             that it is not the whole page. Decorative on purpose: it carries no

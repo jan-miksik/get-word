@@ -78,3 +78,27 @@ export function IconGithub({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * Both store marks are drawn filled rather than in the stroked house style of
+ * the icons above: they stand for someone else's brand, and a hand-restyled
+ * Apple or Play mark reads as a knock-off. They are close traces of the
+ * official glyphs at the one size the landing page uses them.
+ */
+export function IconApple({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M16.36 12.62c-.02-2.2 1.79-3.26 1.87-3.31-1.02-1.49-2.6-1.7-3.17-1.72-1.35-.14-2.63.79-3.31.79-.68 0-1.73-.77-2.85-.75-1.47.02-2.82.85-3.58 2.16-1.52 2.65-.39 6.57 1.1 8.72.73 1.05 1.6 2.23 2.74 2.19 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.83-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.32-3.47ZM14.2 6.1c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.3-.56.65-1.05 1.68-.92 2.67.97.08 1.96-.49 2.57-1.21Z" />
+    </svg>
+  );
+}
+
+export function IconGooglePlay({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      {/* One closed sail rather than the four coloured segments of the colour
+          mark: in a single ink the segment seams read as scratches. */}
+      <path d="M4.1 1.86 19.6 11.5a.6.6 0 0 1 0 1L4.1 22.14a1.1 1.1 0 0 1-.8-1.06V2.92a1.1 1.1 0 0 1 .8-1.06Z" />
+    </svg>
+  );
+}

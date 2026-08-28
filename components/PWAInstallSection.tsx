@@ -1,107 +1,127 @@
 'use client';
 
-import { useMemo } from 'react';
 import {
   clearCapturedBeforeInstallPrompt,
-  getInstallPlatform,
   openPWAInstallHelp,
 } from '@/lib/pwa-install';
 import { useI18n } from '@/components/I18nProvider';
 import {
+  useAppInstallPlan,
   useCapturedInstallPrompt,
   useStandaloneStatus,
 } from '@/hooks/usePWAInstallState';
 
+const actionClass =
+  'px-3 py-2 text-xs font-semibold rounded-xl border border-accent/40 bg-accent/10 text-accent cursor-pointer hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60';
+
+function Row({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-sm text-text">{title}</div>
+        <div className="text-xs text-text-soft/70">{description}</div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/**
+ * The Settings → App row. What it offers is `lib/app-install`'s decision, so it
+ * cannot drift from the top-menu entry or the intro card: a store link where
+ * the device has a store, the browser's own install prompt where it does not.
+ */
 export function PWAInstallSection() {
   const { t } = useI18n();
   const deferredPrompt = useCapturedInstallPrompt();
   const installed = useStandaloneStatus();
-
-  const { isIOS, isIOSSafari } = useMemo(() => getInstallPlatform(), []);
+  const plan = useAppInstallPlan();
 
   if (installed) {
     return (
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm text-text">{t('pwa.installed')}</div>
-          <div className="text-xs text-text-soft/70">{t('pwa.installedDescription')}</div>
-        </div>
-        <span className="text-xs font-semibold text-done">✓</span>
-      </div>
+      <Row
+        title={t('pwa.installed')}
+        description={t('pwa.installedDescription')}
+        action={<span className="text-xs font-semibold text-done">✓</span>}
+      />
     );
   }
 
-  if (deferredPrompt) {
+  // iOS: the store is the whole offer, so link straight to it.
+  if (plan?.store && !plan.offerHomeScreen) {
     return (
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm text-text">{t('pwa.installApp')}</div>
-          <div className="text-xs text-text-soft/70">{t('pwa.installDescription')}</div>
-        </div>
-        <button
-          type="button"
-          className="px-3 py-2 text-xs font-semibold rounded-xl border border-accent/40 bg-accent/10 text-accent cursor-pointer hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-          onClick={async () => {
-            try {
-              await deferredPrompt.prompt();
-              await deferredPrompt.userChoice;
-            } finally {
-              clearCapturedBeforeInstallPrompt();
-            }
-          }}
-        >
-          {t('pwa.install')}
-        </button>
-      </div>
+      <Row
+        title={t('pwa.getApp')}
+        description={t('pwa.getAppDescription')}
+        action={
+          <a
+            href={plan.store.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={actionClass}
+          >
+            {t('pwa.install')}
+          </a>
+        }
+      />
     );
   }
 
-  if (isIOSSafari) {
+  // Android: two ways in, so hand off to the card that can describe both rather
+  // than picking one here.
+  if (plan?.store) {
     return (
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm text-text">{t('pwa.addToHomeScreenIos')}</div>
-          <div className="text-xs text-text-soft/70">
-            {t('pwa.safariRequires')}
-          </div>
-        </div>
-        <button
-          type="button"
-          className="px-3 py-2 text-xs font-semibold rounded-xl border border-accent/40 bg-accent/10 text-accent cursor-pointer hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-          onClick={openPWAInstallHelp}
-        >
-          {t('pwa.install')}
-        </button>
-      </div>
+      <Row
+        title={t('pwa.getApp')}
+        description={t('pwa.getAppDescription')}
+        action={
+          <button type="button" className={actionClass} onClick={openPWAInstallHelp}>
+            {t('pwa.install')}
+          </button>
+        }
+      />
     );
   }
 
-  if (isIOS) {
+  // No store for this device: the browser's own prompt is the only offer, and
+  // it can be fired from right here.
+  if (plan?.offerHomeScreen && deferredPrompt) {
     return (
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm text-text">{t('pwa.installOnIos')}</div>
-          <div className="text-xs text-text-soft/70">
-            {t('pwa.iosDescription')}
-          </div>
-        </div>
-        <button
-          type="button"
-          className="px-3 py-2 text-xs font-semibold rounded-xl border border-accent/40 bg-accent/10 text-accent cursor-pointer hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-          onClick={openPWAInstallHelp}
-        >
-          {t('pwa.install')}
-        </button>
-      </div>
+      <Row
+        title={t('pwa.installApp')}
+        description={t('pwa.installDescription')}
+        action={
+          <button
+            type="button"
+            className={actionClass}
+            onClick={async () => {
+              try {
+                await deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+              } finally {
+                clearCapturedBeforeInstallPrompt();
+              }
+            }}
+          >
+            {t('pwa.install')}
+          </button>
+        }
+      />
     );
   }
 
   return (
     <div className="flex flex-col gap-1">
       <div className="text-sm text-text">{t('pwa.installApp')}</div>
-      <div className="text-xs text-text-soft/70">
-        {t('pwa.browserMenuInstall')}
-      </div>
+      <div className="text-xs text-text-soft/70">{t('pwa.browserMenuInstall')}</div>
     </div>
   );
 }

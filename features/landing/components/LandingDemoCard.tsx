@@ -20,6 +20,7 @@ import {
 } from '@/lib/landing-demo-words';
 import type { I18nKey } from '@/lib/i18n/messages';
 import { apiFetch } from '@/features/shared/http/api-runtime';
+import { StoreFirstStartLink } from './LandingAppStores';
 
 /**
  * Interactive demo study card for the public landing page. Self-contained
@@ -409,9 +410,12 @@ export function LandingDemoCard({
           <div className="lp-demo-done" aria-live="polite">
             <span className="lp-demo-done-mark" aria-hidden="true">✓</span>
             <h3 className="lp-display lp-demo-done-title">{t('landing.demo.doneTitle')}</h3>
-            <a href="/login" className="lp-demo-continue" onClick={onContinueToApp}>
-              {t('landing.demo.continue')}
-            </a>
+            <StoreFirstStartLink
+              label={t('landing.demo.continue')}
+              className="lp-demo-continue"
+              onBeforeLogin={() => onContinueToApp?.()}
+              compactAction="scrollToStores"
+            />
             <button type="button" className="lp-demo-replay" onClick={resetDemo}>
               {t('landing.demo.replay')}
             </button>

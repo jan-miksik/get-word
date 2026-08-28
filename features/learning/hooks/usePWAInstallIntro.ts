@@ -12,6 +12,7 @@ import {
   isSmallScreen,
   type SimulatedPlatform,
 } from '@/lib/pwa-install';
+import { useAppInstallPlan } from '@/hooks/usePWAInstallState';
 import { usePlatformCapabilities } from '@/packages/product/shared/platform/capabilities';
 
 type PWAInstallIntroOptions = {
@@ -34,7 +35,6 @@ function readPreviewPWAInstallIntro(): { enabled: boolean; simulated: SimulatedP
   const raw = (params.get('previewPWAInstallIntro') ?? '').toLowerCase();
   let simulated: SimulatedPlatform = null;
   if (raw === 'ios') simulated = 'ios';
-  else if (raw === 'ios-non-safari') simulated = 'ios-non-safari';
   else if (raw === 'android') simulated = 'android';
   return { enabled: true, simulated };
 }
@@ -54,6 +54,10 @@ export function usePWAInstallIntro({
   completedDeckWordCards,
 }: PWAInstallIntroOptions) {
   const capabilities = usePlatformCapabilities();
+  // Null when there is nothing this device can be offered. Without it a tablet
+  // wide enough to miss the mobile breakpoint still passed the device check
+  // below and got a card whose only content was a browser-menu hint.
+  const installPlan = useAppInstallPlan();
   const [previewPWAInstallIntro] = useState(readPreviewPWAInstallIntro);
   const [environment, setEnvironment] = useState<PWAInstallEnvironment>(readPWAInstallEnvironment);
   const [previewPWADismissed, setPreviewPWADismissed] = useState(false);
@@ -87,6 +91,7 @@ export function usePWAInstallIntro({
     capabilities.canInstallPwa &&
     (isPreviewPWAActive ||
       (viewMode === 'card' &&
+        installPlan !== null &&
         environment.isOnMobileDevice &&
         !shouldShowMemoryHooksIntro &&
         !environment.promptAnswered &&

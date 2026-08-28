@@ -7,6 +7,7 @@ const VIEW_MODE_STORAGE_KEY = 'get-word-view-mode';
 const CATEGORY_FILTERS_STORAGE_KEY = 'get-word-category-filters-by-list';
 const PWA_INSTALL_PROMPT_ANSWERED_KEY = 'get-word-pwa-install-prompt-answered';
 const FEATURE_TOUR_ANSWERED_KEY = 'get-word-feature-tour-answered';
+const APP_INSTALL_ONBOARDING_KEY = 'get-word-app-install-onboarding-answered';
 
 export function readStoredActiveListId(): string | null {
   if (typeof window === 'undefined') return null;
@@ -87,5 +88,26 @@ export function persistFeatureTourAnswered(answered: boolean): void {
     localStorage.setItem(FEATURE_TOUR_ANSWERED_KEY, '1');
   } else {
     localStorage.removeItem(FEATURE_TOUR_ANSWERED_KEY);
+  }
+}
+
+/**
+ * True once the onboarding's "get the app" step has been acted on or skipped.
+ *
+ * Separate from the install prompt the deck shows later: skipping the store at
+ * the very first screen — before having seen a single word — says nothing about
+ * whether the offer is worth repeating once someone is actually using the app.
+ */
+export function readAppInstallOnboardingAnswered(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(APP_INSTALL_ONBOARDING_KEY) === '1';
+}
+
+export function persistAppInstallOnboardingAnswered(answered: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (answered) {
+    localStorage.setItem(APP_INSTALL_ONBOARDING_KEY, '1');
+  } else {
+    localStorage.removeItem(APP_INSTALL_ONBOARDING_KEY);
   }
 }

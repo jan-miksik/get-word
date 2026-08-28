@@ -2,40 +2,36 @@ import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
 type PWAInstallBenefit = { title: string; description: string };
 
+/**
+ * Copy for the "get the app" card.
+ *
+ * It used to carry a second, much longer set of strings for iOS — a Safari
+ * warning, five numbered Share-menu steps, a video caption. All of that went
+ * when the App Store build landed: on iOS we now send people to the store
+ * rather than teaching them to build a home-screen shortcut by hand.
+ *
+ * What remains has to work for a store button and for add-to-home-screen alike,
+ * so the benefits are phrased about *the app*, not about the home screen.
+ */
 export type PWAInstallIntroCopy = {
-  iosTitle: string;
-  iosSubtitle: string;
-  androidTitle: string;
-  androidSubtitle: string;
-  benefitChips: PWAInstallBenefit[];
+  title: string;
+  subtitle: string;
   benefitList: PWAInstallBenefit[];
-  safariBannerLabel: string;
-  safariBannerHeadline: string;
-  safariBannerBodyBefore: string;
-  safariBannerMenuLabel: string;
-  safariBannerBodyAfter: string;
-  iosStepsLabel: string;
-  iosStepsBadge: string;
-  iosSteps: { text: string; bold: string; alt?: string }[];
-  videoLabel: string;
-  androidCtaLabel: string;
-  androidCtaHint: string;
-  androidCtaHintBold: string;
+  playCtaLabel: string;
+  appStoreCtaLabel: string;
+  /** Heads the home-screen option when a store button already sits above it. */
+  homeScreenAlternativeLabel: string;
+  homeScreenCtaLabel: string;
+  homeScreenCtaHint: string;
+  homeScreenCtaHintBold: string;
   desktopHint: string;
   skipInstallLabel: string;
 };
 
 const copyByLanguage: Record<string, PWAInstallIntroCopy> = {
   en: {
-    iosTitle: 'Why add Get Word to home screen',
-    iosSubtitle: '',
-    androidTitle: 'Why add Get Word to home screen',
-    androidSubtitle: '',
-    benefitChips: [
-      { title: 'Better offline', description: '' },
-      { title: 'Easier access', description: '' },
-      { title: 'No browser bar', description: '' },
-    ],
+    title: 'Get Word on your phone',
+    subtitle: '',
     benefitList: [
       {
         title: 'Better offline support',
@@ -50,37 +46,18 @@ const copyByLanguage: Record<string, PWAInstallIntroCopy> = {
         description: 'Opens like a standalone app.',
       },
     ],
-    safariBannerLabel: 'YOU NEED SAFARI',
-    safariBannerHeadline: 'Only Safari can fully install this on iPhone / iPad.',
-    safariBannerBodyBefore: 'Open this page in Safari and follow the steps below. You can reopen these instructions any time via the menu ',
-    safariBannerMenuLabel: 'Add to home screen',
-    safariBannerBodyAfter: '.',
-    iosStepsLabel: 'STEPS',
-    iosStepsBadge: 'iOS · Safari',
-    iosSteps: [
-      { text: 'Tap the ', bold: '… dots', alt: '' },
-      { text: 'Tap the ', bold: 'Share', alt: 'Share' },
-      { text: 'Scroll down or tap ', bold: 'Show more', alt: 'View more' },
-      { text: 'Choose ', bold: 'Add to Home Screen', alt: '' },
-      { text: 'Tap ', bold: 'Add', alt: 'Add' },
-    ],
-    videoLabel: 'Video guide',
-    androidCtaLabel: 'Add to home screen',
-    androidCtaHint: 'After tapping, confirm ',
-    androidCtaHintBold: 'Install',
+    playCtaLabel: 'Get it on Google Play',
+    appStoreCtaLabel: 'Download on the App Store',
+    homeScreenAlternativeLabel: 'Or, without the store',
+    homeScreenCtaLabel: 'Add to home screen',
+    homeScreenCtaHint: 'After tapping, confirm ',
+    homeScreenCtaHintBold: 'Install',
     desktopHint: 'Open your browser menu and choose "Install app" or "Add to Home screen".',
-    skipInstallLabel: 'Continue without adding to home screen',
+    skipInstallLabel: 'Continue in the browser',
   },
   cs: {
-    iosTitle: 'Proč přidat Get Word na plochu',
-    iosSubtitle: '',
-    androidTitle: 'Proč přidat Get Word na plochu',
-    androidSubtitle: '',
-    benefitChips: [
-      { title: 'Lepší offline', description: '' },
-      { title: 'Snadnější přístup', description: '' },
-      { title: 'Bez lišty', description: '' },
-    ],
+    title: 'Get Word v mobilu',
+    subtitle: '',
     benefitList: [
       {
         title: 'Lepší offline podpora',
@@ -95,37 +72,18 @@ const copyByLanguage: Record<string, PWAInstallIntroCopy> = {
         description: 'Otevírá se jako samostatná aplikace.',
       },
     ],
-    safariBannerLabel: 'POTŘEBUJEŠ SAFARI',
-    safariBannerHeadline: 'Plnou instalaci na iPhone / iPad zvládne jen Safari.',
-    safariBannerBodyBefore: 'Otevři tuto stránku v Safari a postupuj podle návodu níže. Návod zobrazíš přes menu ',
-    safariBannerMenuLabel: 'Přidat na plochu',
-    safariBannerBodyAfter: '.',
-    iosStepsLabel: 'POSTUP',
-    iosStepsBadge: 'iOS · Safari',
-    iosSteps: [
-      { text: 'Stiskni ', bold: '… tečky', alt: '' },
-      { text: 'Stiskni tlačítko ', bold: 'Sdílet', alt: 'Share' },
-      { text: 'Posuň níž nebo stiskni ', bold: 'Zobrazit více', alt: 'View more' },
-      { text: 'Vyber ', bold: 'Přidat na plochu', alt: 'Add to Home Screen' },
-      { text: 'Stiskni ', bold: 'Přidat', alt: 'Add' },
-    ],
-    videoLabel: 'Video návod',
-    androidCtaLabel: 'Přidat na plochu mobilu',
-    androidCtaHint: 'Po stisknutí potvrď v dialogu prohlížeče ',
-    androidCtaHintBold: 'Instalovat',
+    playCtaLabel: 'Stáhnout na Google Play',
+    appStoreCtaLabel: 'Stáhnout v App Storu',
+    homeScreenAlternativeLabel: 'Nebo bez obchodu',
+    homeScreenCtaLabel: 'Přidat na plochu mobilu',
+    homeScreenCtaHint: 'Po stisknutí potvrď v dialogu prohlížeče ',
+    homeScreenCtaHintBold: 'Instalovat',
     desktopHint: 'Otevři menu prohlížeče a zvol "Přidat na plochu".',
-    skipInstallLabel: 'Pokračovat bez přidání na plochu',
+    skipInstallLabel: 'Pokračovat v prohlížeči',
   },
   vi: {
-    iosTitle: 'Vì sao nên thêm Get Word vào màn hình chính',
-    iosSubtitle: '',
-    androidTitle: 'Vì sao nên thêm Get Word vào màn hình chính',
-    androidSubtitle: '',
-    benefitChips: [
-      { title: 'Offline tốt hơn', description: '' },
-      { title: 'Dễ truy cập', description: '' },
-      { title: 'Không có thanh', description: '' },
-    ],
+    title: 'Get Word trên điện thoại',
+    subtitle: '',
     benefitList: [
       {
         title: 'Hỗ trợ offline tốt hơn',
@@ -140,26 +98,14 @@ const copyByLanguage: Record<string, PWAInstallIntroCopy> = {
         description: 'Mở như một ứng dụng độc lập.',
       },
     ],
-    safariBannerLabel: 'CẦN SAFARI',
-    safariBannerHeadline: 'Trên iPhone / iPad, chỉ Safari mới cài được đầy đủ.',
-    safariBannerBodyBefore: 'Mở trang này trong Safari rồi làm theo hướng dẫn bên dưới. Bạn có thể mở lại hướng dẫn bất kỳ lúc nào qua menu ',
-    safariBannerMenuLabel: 'Thêm vào màn hình chính',
-    safariBannerBodyAfter: '.',
-    iosStepsLabel: 'CÁC BƯỚC',
-    iosStepsBadge: 'iOS · Safari',
-    iosSteps: [
-      { text: 'Chạm vào ', bold: '… dấu chấm', alt: '' },
-      { text: 'Chạm nút ', bold: 'Chia sẻ', alt: 'Share' },
-      { text: 'Cuộn xuống hoặc chạm ', bold: 'Xem thêm', alt: 'View more' },
-      { text: 'Chọn ', bold: 'Thêm vào màn hình chính', alt: 'Add to Home Screen' },
-      { text: 'Chạm ', bold: 'Thêm', alt: 'Add' },
-    ],
-    videoLabel: 'Video hướng dẫn',
-    androidCtaLabel: 'Thêm vào màn hình chính',
-    androidCtaHint: 'Sau khi chạm, xác nhận ',
-    androidCtaHintBold: 'Cài đặt',
+    playCtaLabel: 'Tải trên Google Play',
+    appStoreCtaLabel: 'Tải trên App Store',
+    homeScreenAlternativeLabel: 'Hoặc, không qua cửa hàng',
+    homeScreenCtaLabel: 'Thêm vào màn hình chính',
+    homeScreenCtaHint: 'Sau khi chạm, xác nhận ',
+    homeScreenCtaHintBold: 'Cài đặt',
     desktopHint: 'Mở menu trình duyệt và chọn "Cài đặt ứng dụng" hoặc "Thêm vào Màn hình chính".',
-    skipInstallLabel: 'Tiếp tục mà không thêm vào màn hình chính',
+    skipInstallLabel: 'Tiếp tục trong trình duyệt',
   },
 };
 

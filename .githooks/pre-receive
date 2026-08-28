@@ -1,0 +1,22 @@
+#!/bin/sh
+# Refuse any push that moves main inside this local repository.
+#
+# Twice a feature branch was delivered into main with `git push . HEAD:main`
+# from a worktree (2026-08-15 and 2026-08-20). Both times main was not checked
+# out and the update was a fast-forward, so git took it silently: no merge
+# commit, no output, and in-development work sat on the release branch for days
+# before anyone noticed. Git only protects a branch that is currently checked
+# out, which is exactly the case these pushes were not.
+#
+# Land work on dev and fast-forward from there, or commit on main directly.
+status=0
+while read -r _old _new ref; do
+  case "$ref" in
+    refs/heads/main)
+      echo "pre-receive: refusing to move main by push." >&2
+      echo "  Land the work on dev, or commit on main directly." >&2
+      status=1
+      ;;
+  esac
+done
+exit $status

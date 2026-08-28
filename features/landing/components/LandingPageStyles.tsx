@@ -632,6 +632,95 @@ export function LandingPageStyles() {
 }
 .lp-github-link:hover{ transform:translateY(-2px); box-shadow:var(--shadow-soft); color:var(--rust-deep); }
 
+/* Store buttons. Deliberately not filled in the accent blue: on the hero this
+   is the only object on the screen, so there is nothing for a highlight to
+   distinguish it from — a solid blue slab there reads as an advert for itself
+   rather than as the page's one quiet instruction. */
+.lp-stores{
+  display:flex; flex-wrap:wrap; gap:.75rem;
+  justify-content:center;
+}
+.lp-store-link{
+  display:inline-flex; align-items:center; gap:.6rem;
+  padding:.72rem 1.25rem;
+  background:rgba(251,245,231,.72);
+  border:var(--hairline); border-radius:var(--radius-pill);
+  box-shadow:var(--shadow-chip);
+  font-size:.98rem; font-weight:600; color:var(--ink);
+  white-space:nowrap;
+  transition:transform var(--transition-fast), background var(--transition-fast),
+    color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.lp-store-link:hover{ transform:translateY(-2px); box-shadow:var(--shadow-soft); }
+.lp-store-icon{ width:1.15rem; height:1.15rem; flex:none; }
+
+/* The page's own definition of "desktop", reused rather than reinvented: 960px
+   is where the hero splits into two columns (see .lp-hero-top). Below it the
+   language pickers and the closing sign-in button give way to the stores.
+   Both sides are always in the HTML and only one is displayed, so crawlers and
+   store reviewers see the whole page and hydration has nothing to disagree
+   about.
+
+   Desktop-first on purpose. Only the compact side carries a base display
+   rule, and the desktop side is given none at all, so it keeps whatever display
+   its own component set — that is what stopped .lp-desktop-only overwriting
+   .lp-btn-primary's inline-flex. It also means an environment that does not
+   evaluate media queries at all (jsdom, and therefore the landing tests) falls
+   back to the complete desktop page rather than to half of it. */
+.lp-compact-only{ display:none; }
+@media (max-width:959px){
+  .lp-desktop-only{ display:none; }
+  .lp-compact-only{ display:block; }
+}
+
+/* Stacked full-width buttons: side by side they cannot hold "Download on the
+   App Store" at a thumb-sized height on a 360px screen. */
+.lp-stores--stacked{ flex-direction:column; align-items:stretch; margin-top:0; }
+.lp-store-link--stacked{
+  justify-content:center; padding:1rem 1.25rem; font-size:1.02rem;
+}
+.lp-compact-cta{ width:100%; max-width:26rem; margin-inline:auto; }
+.lp-hero-compact-cta{ margin-top:.5rem; }
+.lp-finish-compact{ width:100%; }
+/* The browser is still there, just not the headline any more. */
+.lp-browser-link{
+  display:block; margin-top:1rem; text-align:center;
+  font-size:.9rem; font-weight:500; color:var(--ink-soft);
+  text-decoration:underline; text-underline-offset:3px;
+}
+.lp-browser-link:hover{ color:var(--rust); }
+
+/* "Other options": the store this device is not on, plus the browser. A plain
+   <details>, so it opens without JavaScript and answers to the keyboard on its
+   own. The native marker is replaced by a caret of our own, because the
+   platform draws that triangle and it matches nothing else here. */
+.lp-other-options{ margin-top:1rem; }
+.lp-other-options-summary{
+  list-style:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:.4rem;
+  padding:.5rem; font-size:.9rem; font-weight:600; color:var(--ink-soft);
+}
+.lp-other-options-summary::-webkit-details-marker{ display:none; }
+.lp-other-options-summary::after{
+  content:''; width:.42rem; height:.42rem;
+  border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor;
+  transform:translateY(-2px) rotate(45deg);
+  transition:transform var(--transition-fast);
+}
+.lp-other-options[open] .lp-other-options-summary::after{
+  transform:translateY(1px) rotate(-135deg);
+}
+.lp-other-options-summary:hover{ color:var(--ink); }
+.lp-other-options-body{ padding-top:.35rem; }
+
+@media (max-width:767px){
+  .lp-compact-cta{ margin-inline:0; }
+}
+
+@media (max-width:767px){
+  .lp-stores{ justify-content:flex-start; }
+}
+
 .lp-finish{
   display:flex; justify-content:center;
   padding:clamp(1rem,4vw,2rem) 0 clamp(3rem,8vw,5rem);

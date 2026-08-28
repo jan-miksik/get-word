@@ -198,10 +198,14 @@ describe('LandingDemoCard', () => {
     expect(screen.getByText('Done')).toBeInTheDocument();
     expect(screen.queryByText(/All demo words are scheduled/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^\d+:\d{2}$/)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Continue to the app' })).toHaveAttribute(
-      'href',
-      '/login',
-    );
+    // Two of them: the breakpoint picks between the browser path and the one
+    // that scrolls back to the store block, and jsdom evaluates neither.
+    // Whichever the layout shows, it stays on /login rather than a store URL.
+    const continueLinks = screen.getAllByRole('link', { name: 'Continue to the app' });
+    expect(continueLinks.length).toBeGreaterThan(0);
+    for (const link of continueLinks) {
+      expect(link).toHaveAttribute('href', '/login');
+    }
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 
@@ -228,7 +232,9 @@ describe('LandingDemoCard', () => {
     });
     completeMatchingRound();
 
-    fireEvent.click(screen.getByRole('link', { name: 'Continue to the app' }));
+    fireEvent.click(
+      screen.getAllByRole('link', { name: 'Continue to the app' })[0],
+    );
 
     expect(onContinueToApp).toHaveBeenCalledTimes(1);
   });

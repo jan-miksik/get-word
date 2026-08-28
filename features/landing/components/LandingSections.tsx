@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { AppLogo } from '@/components/AppLogo';
 import { useI18n } from '@/components/I18nProvider';
 import type { I18nKey } from '@/lib/i18n/messages';
+import { CompactStoreCta } from './LandingAppStores';
 import { LandingPaceSlider } from './LandingPaceSlider';
 import { useDoubleActivate } from './LandingScratchBackground';
 import {
@@ -242,24 +243,42 @@ export function OpenSource() {
 /**
  * The end: one big button, no headline. Everything that could be said has been
  * said above this point.
+ *
+ * Below the desktop breakpoint that button is the stores instead. Someone who
+ * has read to the bottom of the page on a phone has decided; sending them to a
+ * browser sign-in at that moment, when the app they would actually use is two
+ * taps away, is the wrong close.
  */
-export function FinalCta() {
+export function FinalCta({ showLogin = true }: { showLogin?: boolean }) {
   const { t } = useI18n();
   return (
     <section className="lp-finish lp-reveal">
-      <Link href="/login" className="lp-btn-primary lp-btn-finish group">
-        {t('landing.cta.button')}
-        <IconArrow className="lp-btn-arrow" />
-      </Link>
+      {showLogin ? (
+        // The toggle sits on a wrapper, not on the button: .lp-desktop-only
+        // sets `display`, and on the button that would overwrite the
+        // inline-flex that keeps its label and arrow on one line.
+        <div className="lp-desktop-only">
+          <Link href="/login" className="lp-btn-primary lp-btn-finish group">
+            {t('landing.cta.button')}
+            <IconArrow className="lp-btn-arrow" />
+          </Link>
+        </div>
+      ) : null}
+      <div className="lp-compact-only lp-finish-compact">
+        <CompactStoreCta
+          showLogin={showLogin}
+          onBeforeLogin={() => {}}
+          loginLabel={t('landing.cta.button')}
+          loginClassName="lp-btn-primary lp-btn-finish group"
+        />
+      </div>
     </section>
   );
 }
 
 export function SiteFooter({
-  showLogin = true,
   onLogoDoubleActivate,
 }: {
-  showLogin?: boolean;
   onLogoDoubleActivate?: () => void;
 }) {
   const { t } = useI18n();
@@ -273,10 +292,11 @@ export function SiteFooter({
         <AppLogo size={28} />
         <span className="lp-display text-sm font-semibold text-[var(--ink)]">Get&nbsp;Word</span>
       </div>
+      {/* No way into the app down here. The page leads with the store on a
+          phone and with the picker on a desktop; a bare "Get started" among the
+          legal links only offered a fourth, quieter answer to a question the
+          rest of the page has already asked properly. */}
       <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        {showLogin ? (
-          <Link href="/login" className="lp-foot-link">{t('landing.hero.getStarted')}</Link>
-        ) : null}
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="lp-foot-link">
           {t('landing.footer.github')}
         </a>
