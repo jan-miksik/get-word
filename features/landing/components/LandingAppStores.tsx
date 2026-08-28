@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import Link from 'next/link';
 import { useI18n } from '@/components/I18nProvider';
 import { useStandaloneStatus } from '@/hooks/usePWAInstallState';
 import type { I18nKey } from '@/lib/i18n/messages';
@@ -72,19 +73,84 @@ function preferredTarget(platform: DevicePlatform): StoreTarget | null {
   return null;
 }
 
-function StoreLinkButton({ link, primary }: { link: StoreLink; primary: boolean }) {
+interface OrderedStoreLinks {
+  links: StoreLink[];
+  /** The store this device installs from, or null when neither is "the" one. */
+  preferred: StoreTarget | null;
+}
+
+/**
+ * Both listings, the device's own store first — or nothing at all for someone
+ * who already has the app (installed, or reading this inside one of the shipped
+ * apps), where a store button would be an offer they have already taken.
+ */
+function useOrderedStoreLinks(): OrderedStoreLinks {
+  const platform = useDevicePlatform();
+  const alreadyInstalled = useStandaloneStatus();
+  if (alreadyInstalled) return { links: [], preferred: null };
+
+  const preferred = preferredTarget(platform);
+  const links = preferred
+    ? [...STORE_LINKS].sort((left, right) => {
+        if (left.target === preferred) return -1;
+        if (right.target === preferred) return 1;
+        return 0;
+      })
+    : STORE_LINKS;
+  return { links, preferred };
+}
+
+function StoreLinkButton({
+  link,
+  primary,
+  stacked,
+}: {
+  link: StoreLink;
+  primary: boolean;
+  stacked: boolean;
+}) {
   const { t } = useI18n();
   return (
     <a
       href={link.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`lp-store-link group ${primary ? 'lp-store-link--primary' : ''}`}
+      className={`lp-store-link group ${primary ? 'lp-store-link--primary' : ''} ${
+        stacked ? 'lp-store-link--stacked' : ''
+      }`}
     >
       <link.Icon className="lp-store-icon" />
       <span>{t(link.labelKey)}</span>
       <IconArrow className="lp-btn-arrow" />
     </a>
+  );
+}
+
+/**
+ * The two store buttons on their own, for the places that are *only* a call to
+ * action — the hero and the closing block below the desktop breakpoint, where
+ * they stand in for the sign-in button rather than sitting under a heading.
+ *
+ * Returns null when there is nothing to offer, which callers must handle: on a
+ * phone this is the whole call to action, and a screen with no action on it is
+ * worse than one with the browser button the desktop shows.
+ */
+function StoreButtons({ stacked = false }: { stacked?: boolean }) {
+  const { links, preferred } = useOrderedStoreLinks();
+  if (links.length === 0) return null;
+  return (
+    <div className={`lp-stores ${stacked ? 'lp-stores--stacked' : ''}`}>
+      {links.map((link) => (
+        <StoreLinkButton
+          key={link.target}
+          link={link}
+          // On a desktop neither store is "the" one, so both stay quiet rather
+          // than arbitrarily promoting Play over the App Store.
+          primary={link.target === preferred}
+          stacked={stacked}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -99,18 +165,8 @@ function StoreLinkButton({ link, primary }: { link: StoreLink; primary: boolean 
  */
 export function AppStores() {
   const { t } = useI18n();
-  const platform = useDevicePlatform();
-  const alreadyInstalled = useStandaloneStatus();
-  if (alreadyInstalled || STORE_LINKS.length === 0) return null;
-
-  const preferred = preferredTarget(platform);
-  const ordered = preferred
-    ? [...STORE_LINKS].sort((left, right) => {
-        if (left.target === preferred) return -1;
-        if (right.target === preferred) return 1;
-        return 0;
-      })
-    : STORE_LINKS;
+  const { links } = useOrderedStoreLinks();
+  if (links.length === 0) return null;
 
   return (
     <section className="lp-section lp-haze lp-section--quiet lp-reveal">
@@ -118,17 +174,7 @@ export function AppStores() {
         <h2 className="lp-section-title lp-display">{t('landing.stores.title')}</h2>
       </div>
       <p className="lp-prose">{t('landing.stores.body')}</p>
-      <div className="lp-stores">
-        {ordered.map((link) => (
-          <StoreLinkButton
-            key={link.target}
-            link={link}
-            // On a desktop neither store is "the" one, so both stay quiet
-            // rather than arbitrarily promoting Play over the App Store.
-            primary={link.target === preferred}
-          />
-        ))}
-      </div>
+      <StoreButtons />
     </section>
   );
 }
@@ -141,5 +187,51 @@ export function AppStores() {
 export function PlayStoreLink() {
   const link = STORE_LINKS.find((candidate) => candidate.target === 'play');
   if (!link) return null;
-  return <StoreLinkButton link={link} primary />;
+  return <StoreLinkButton link={link} primary stacked={false} />;
+}
+
+/**
+ * What the hero and the closing block show below 960px, where the page stops
+ * being a desktop: the store buttons, with the browser kept as a quiet line
+ * underneath rather than removed.
+ *
+ * Someone who already has the app installed gets no store buttons — for them
+ * this falls back to the same primary button the desktop shows, because a
+ * phone screen whose only call to action has vanished is the one outcome worse
+ * than showing the browser path.
+ */
+export function CompactStoreCta({
+  showLogin,
+  onBeforeLogin,
+  loginLabel,
+  loginClassName,
+}: {
+  /** False on browsers where signing in does not work; see the Firefox notice. */
+  showLogin: boolean;
+  onBeforeLogin: () => void;
+  loginLabel: string;
+  loginClassName: string;
+}) {
+  const { t } = useI18n();
+  const { links } = useOrderedStoreLinks();
+
+  if (links.length === 0) {
+    return showLogin ? (
+      <Link href="/login" className={loginClassName} onClick={onBeforeLogin}>
+        {loginLabel}
+        <IconArrow className="lp-btn-arrow" />
+      </Link>
+    ) : null;
+  }
+
+  return (
+    <div className="lp-compact-cta">
+      <StoreButtons stacked />
+      {showLogin ? (
+        <Link href="/login" className="lp-browser-link" onClick={onBeforeLogin}>
+          {t('landing.stores.useInBrowser')}
+        </Link>
+      ) : null}
+    </div>
+  );
 }

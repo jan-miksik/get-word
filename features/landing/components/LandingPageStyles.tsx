@@ -660,6 +660,46 @@ export function LandingPageStyles() {
 .lp-store-link--primary:hover{ background:var(--blue-deep); }
 .lp-store-icon{ width:1.15rem; height:1.15rem; flex:none; }
 
+/* The page's own definition of "desktop", reused rather than reinvented: 960px
+   is where the hero splits into two columns (see .lp-hero-top). Below it the
+   language pickers and the closing sign-in button give way to the stores.
+   Both sides are always in the HTML and only one is displayed, so crawlers and
+   store reviewers see the whole page and hydration has nothing to disagree
+   about.
+
+   Desktop-first on purpose. Only the compact side carries a base display
+   rule, and the desktop side is given none at all, so it keeps whatever display
+   its own component set — that is what stopped .lp-desktop-only overwriting
+   .lp-btn-primary's inline-flex. It also means an environment that does not
+   evaluate media queries at all (jsdom, and therefore the landing tests) falls
+   back to the complete desktop page rather than to half of it. */
+.lp-compact-only{ display:none; }
+@media (max-width:959px){
+  .lp-desktop-only{ display:none; }
+  .lp-compact-only{ display:block; }
+}
+
+/* Stacked full-width buttons: side by side they cannot hold "Download on the
+   App Store" at a thumb-sized height on a 360px screen. */
+.lp-stores--stacked{ flex-direction:column; align-items:stretch; margin-top:0; }
+.lp-store-link--stacked{
+  justify-content:center; padding:1rem 1.25rem; font-size:1.02rem;
+}
+.lp-compact-cta{ width:100%; max-width:26rem; margin-inline:auto; }
+.lp-hero-compact-cta{ margin-top:.5rem; }
+.lp-finish-compact{ width:100%; }
+/* The browser is still there, just not the headline any more. */
+.lp-browser-link{
+  display:block; margin-top:1rem; text-align:center;
+  font-size:.9rem; font-weight:500; color:var(--ink-soft);
+  text-decoration:underline; text-underline-offset:3px;
+}
+.lp-browser-link:hover{ color:var(--rust); }
+
+@media (max-width:767px){
+  .lp-compact-cta{ margin-inline:0; }
+}
+
 @media (max-width:767px){
   .lp-stores{ justify-content:flex-start; }
 }

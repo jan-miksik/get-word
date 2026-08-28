@@ -124,6 +124,7 @@ export const viMessages: I18nMessages = {
   "landing.stores.title": "Tải ứng dụng",
   "landing.stores.body":
     "Get Word chạy trong mọi trình duyệt, và cũng có trên Google Play và App Store. Cùng một tài khoản, cùng những từ, dù bạn mở ở đâu.",
+  "landing.stores.useInBrowser": "Hoặc dùng ngay trong trình duyệt",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
   "landing.openSource.title": "Mã nguồn mở",

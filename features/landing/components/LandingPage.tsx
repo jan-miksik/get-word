@@ -7,7 +7,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
 import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
-import { AppStores, PlayStoreLink } from './LandingAppStores';
+import { AppStores, CompactStoreCta, PlayStoreLink } from './LandingAppStores';
 import { IconArrow } from './LandingIcons';
 import {
   Choice,
@@ -154,7 +154,7 @@ function LandingPageContent({
         <Pairs />
         <AppStores />
         <OpenSource />
-        {isFirefoxAndroid ? null : <FinalCta />}
+        <FinalCta showLogin={!isFirefoxAndroid} />
         {/* Last line before the footer rule. Outside FinalCta so it survives on
             Firefox-Android, where the closing button is hidden but the egg
             still works. */}
@@ -356,17 +356,34 @@ function Hero({
 
         {/* On unsupported browsers (Firefox-Android) the demo and the language
             pickers are both hidden, so the hero collapses to just the pitch. */}
-        {showLogin ? (
-          <div className="lp-hero-controls">
-            <HeroLanguagePicker
-              languageFrom={languageFrom}
-              languageTo={languageTo}
-              effectiveLanguageFrom={effectiveLanguageFrom}
-              onPairChange={onPairChange}
+        {/* The language pair is a desktop object. On a phone the first thing
+            asked of a visitor is not "which two languages" but "get the app" —
+            and two comboboxes with a dropdown each are the worst possible
+            version of that question on a small screen. The pair is asked again
+            in onboarding either way, so nothing is lost by not asking here.
+            Split in CSS rather than JS: both blocks are in the HTML, so there
+            is no hydration drift and no flash of the wrong call to action. */}
+        <div className="lp-hero-controls">
+          {showLogin ? (
+            <div className="lp-desktop-only">
+              <HeroLanguagePicker
+                languageFrom={languageFrom}
+                languageTo={languageTo}
+                effectiveLanguageFrom={effectiveLanguageFrom}
+                onPairChange={onPairChange}
+                onBeforeLogin={onBeforeLogin}
+              />
+            </div>
+          ) : null}
+          <div className="lp-compact-only lp-hero-compact-cta">
+            <CompactStoreCta
+              showLogin={showLogin}
               onBeforeLogin={onBeforeLogin}
+              loginLabel={t('landing.hero.getStarted')}
+              loginClassName="lp-btn-primary lp-btn-hero group"
             />
           </div>
-        ) : null}
+        </div>
 
         {/* The first screen is a full viewport tall, so something has to say
             that it is not the whole page. Decorative on purpose: it carries no

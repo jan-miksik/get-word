@@ -124,6 +124,7 @@ export const ukMessages: I18nMessages = {
   "landing.stores.title": "Завантажте застосунок",
   "landing.stores.body":
     "Get Word працює в будь-якому браузері, а також є в Google Play і App Store. Той самий обліковий запис, ті самі слова, де б ви його не відкрили.",
+  "landing.stores.useInBrowser": "Або користуйтеся у браузері",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
   "landing.openSource.title": "З відкритим кодом",

@@ -124,6 +124,7 @@ export const csMessages: I18nMessages = {
   "landing.stores.title": "Stáhni si aplikaci",
   "landing.stores.body":
     "Get Word běží v každém prohlížeči a najdeš ho i na Google Play a v App Storu. Stejný účet, stejná slovíčka, ať ho otevřeš kdekoli.",
+  "landing.stores.useInBrowser": "Nebo ho používej v prohlížeči",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
   "landing.openSource.title": "Open source",

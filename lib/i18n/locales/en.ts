@@ -122,6 +122,7 @@ export const enMessages = {
   "landing.stores.title": "Get the app",
   "landing.stores.body":
     "Get Word runs in any browser, and it is on Google Play and the App Store as well. Same account, same words, wherever you open it.",
+  "landing.stores.useInBrowser": "Or use it in the browser",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
   "landing.openSource.title": "Open source",
