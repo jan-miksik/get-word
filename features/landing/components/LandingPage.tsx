@@ -7,7 +7,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
 import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
-import { AppStores, CompactStoreCta, PlayStoreLink } from './LandingAppStores';
+import { CompactStoreCta, PlayStoreLink } from './LandingAppStores';
 import { IconArrow } from './LandingIcons';
 import {
   Choice,
@@ -152,7 +152,6 @@ function LandingPageContent({
         <Choice />
         <Growth />
         <Pairs />
-        <AppStores />
         <OpenSource />
         <FinalCta showLogin={!isFirefoxAndroid} />
         {/* Last line before the footer rule. Outside FinalCta so it survives on

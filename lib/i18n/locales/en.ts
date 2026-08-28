@@ -119,10 +119,8 @@ export const enMessages = {
   "landing.pairs.title": "Almost everything with everything",
   "landing.pairs.body":
     "We support combinations of any two languages. To be completely precise, for about 99% of the languages that are spoken. Ancient languages such as Old Persian or Babylonian are not there right now, but do get in touch if you would be interested in something like that and we will look into it.",
-  "landing.stores.title": "Get the app",
-  "landing.stores.body":
-    "Get Word runs in any browser, and it is on Google Play and the App Store as well. Same account, same words, wherever you open it.",
   "landing.stores.useInBrowser": "Or use it in the browser",
+  "landing.stores.otherOptions": "Other options",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
   "landing.openSource.title": "Open source",

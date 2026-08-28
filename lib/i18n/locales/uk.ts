@@ -121,10 +121,8 @@ export const ukMessages: I18nMessages = {
   "landing.pairs.title": "Майже все з усім",
   "landing.pairs.body":
     "Ми підтримуємо комбінації будь-яких мов. Якщо бути зовсім точними, то приблизно для 99 % мов, якими розмовляють. Давніх мов на кшталт староперської чи вавилонської поки немає, але обов'язково напиши, якщо тебе цікавить щось подібне, і ми подивимось.",
-  "landing.stores.title": "Завантажте застосунок",
-  "landing.stores.body":
-    "Get Word працює в будь-якому браузері, а також є в Google Play і App Store. Той самий обліковий запис, ті самі слова, де б ви його не відкрили.",
   "landing.stores.useInBrowser": "Або користуйтеся у браузері",
+  "landing.stores.otherOptions": "Інші можливості",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
   "landing.openSource.title": "З відкритим кодом",

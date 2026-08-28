@@ -73,109 +73,46 @@ function preferredTarget(platform: DevicePlatform): StoreTarget | null {
   return null;
 }
 
-interface OrderedStoreLinks {
-  links: StoreLink[];
-  /** The store this device installs from, or null when neither is "the" one. */
-  preferred: StoreTarget | null;
+interface StoreChoice {
+  /** The store this device installs from; null when neither is "the" one. */
+  primary: StoreLink | null;
+  /** Everything else on offer — the store this device is not on. */
+  rest: StoreLink[];
 }
+
+const NOTHING_TO_OFFER: StoreChoice = { primary: null, rest: [] };
 
 /**
- * Both listings, the device's own store first — or nothing at all for someone
- * who already has the app (installed, or reading this inside one of the shipped
- * apps), where a store button would be an offer they have already taken.
+ * The device's own store, and whatever is left over — or nothing at all for
+ * someone who already has the app (installed, or reading this inside one of
+ * the shipped apps), where a store button is an offer they have already taken.
  */
-function useOrderedStoreLinks(): OrderedStoreLinks {
+function useStoreChoice(): StoreChoice {
   const platform = useDevicePlatform();
   const alreadyInstalled = useStandaloneStatus();
-  if (alreadyInstalled) return { links: [], preferred: null };
+  if (alreadyInstalled) return NOTHING_TO_OFFER;
 
   const preferred = preferredTarget(platform);
-  const links = preferred
-    ? [...STORE_LINKS].sort((left, right) => {
-        if (left.target === preferred) return -1;
-        if (right.target === preferred) return 1;
-        return 0;
-      })
-    : STORE_LINKS;
-  return { links, preferred };
+  if (!preferred) return { primary: null, rest: STORE_LINKS };
+  return {
+    primary: STORE_LINKS.find((link) => link.target === preferred) ?? null,
+    rest: STORE_LINKS.filter((link) => link.target !== preferred),
+  };
 }
 
-function StoreLinkButton({
-  link,
-  primary,
-  stacked,
-}: {
-  link: StoreLink;
-  primary: boolean;
-  stacked: boolean;
-}) {
+function StoreLinkButton({ link, stacked }: { link: StoreLink; stacked: boolean }) {
   const { t } = useI18n();
   return (
     <a
       href={link.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`lp-store-link group ${primary ? 'lp-store-link--primary' : ''} ${
-        stacked ? 'lp-store-link--stacked' : ''
-      }`}
+      className={`lp-store-link group ${stacked ? 'lp-store-link--stacked' : ''}`}
     >
       <link.Icon className="lp-store-icon" />
       <span>{t(link.labelKey)}</span>
       <IconArrow className="lp-btn-arrow" />
     </a>
-  );
-}
-
-/**
- * The two store buttons on their own, for the places that are *only* a call to
- * action — the hero and the closing block below the desktop breakpoint, where
- * they stand in for the sign-in button rather than sitting under a heading.
- *
- * Returns null when there is nothing to offer, which callers must handle: on a
- * phone this is the whole call to action, and a screen with no action on it is
- * worse than one with the browser button the desktop shows.
- */
-function StoreButtons({ stacked = false }: { stacked?: boolean }) {
-  const { links, preferred } = useOrderedStoreLinks();
-  if (links.length === 0) return null;
-  return (
-    <div className={`lp-stores ${stacked ? 'lp-stores--stacked' : ''}`}>
-      {links.map((link) => (
-        <StoreLinkButton
-          key={link.target}
-          link={link}
-          // On a desktop neither store is "the" one, so both stay quiet rather
-          // than arbitrarily promoting Play over the App Store.
-          primary={link.target === preferred}
-          stacked={stacked}
-        />
-      ))}
-    </div>
-  );
-}
-
-/**
- * "Get the app" — both listings, with the one this device can actually install
- * from put first and given the filled button.
- *
- * Rendered for signed-out web visitors only. Inside the shipped apps (the
- * Capacitor iOS build, the Play TWA) and for anyone who already installed the
- * PWA it is hidden: they have the app, and an iOS build that advertises a rival
- * marketplace is a review rejection rather than a feature.
- */
-export function AppStores() {
-  const { t } = useI18n();
-  const { links } = useOrderedStoreLinks();
-  if (links.length === 0) return null;
-
-  return (
-    <section className="lp-section lp-haze lp-section--quiet lp-reveal">
-      <div className="lp-section-head">
-        <h2 className="lp-section-title lp-display">{t('landing.stores.title')}</h2>
-      </div>
-      <p className="lp-prose">{t('landing.stores.body')}</p>
-      <StoreButtons />
-    </section>
   );
 }
 
@@ -187,18 +124,25 @@ export function AppStores() {
 export function PlayStoreLink() {
   const link = STORE_LINKS.find((candidate) => candidate.target === 'play');
   if (!link) return null;
-  return <StoreLinkButton link={link} primary stacked={false} />;
+  return <StoreLinkButton link={link} stacked={false} />;
 }
 
 /**
  * What the hero and the closing block show below 960px, where the page stops
- * being a desktop: the store buttons, with the browser kept as a quiet line
- * underneath rather than removed.
+ * being a desktop.
+ *
+ * One button — the store this phone actually installs from — and everything
+ * else folded away behind "other options": the store it is not on, and the
+ * browser. A phone screen has room for one decision, and offering the App
+ * Store to an Android is noise on the way to the only line that applies.
+ *
+ * The fold is a plain <details>, so it needs no state, no JavaScript to open,
+ * and is keyboard-operable for free.
  *
  * Someone who already has the app installed gets no store buttons — for them
- * this falls back to the same primary button the desktop shows, because a
- * phone screen whose only call to action has vanished is the one outcome worse
- * than showing the browser path.
+ * this falls back to the same button the desktop shows, because a phone screen
+ * whose only call to action has vanished is the one outcome worse than showing
+ * the browser path.
  */
 export function CompactStoreCta({
   showLogin,
@@ -213,9 +157,15 @@ export function CompactStoreCta({
   loginClassName: string;
 }) {
   const { t } = useI18n();
-  const { links } = useOrderedStoreLinks();
+  const { primary, rest } = useStoreChoice();
 
-  if (links.length === 0) {
+  const browserLink = showLogin ? (
+    <Link href="/login" className="lp-browser-link" onClick={onBeforeLogin}>
+      {t('landing.stores.useInBrowser')}
+    </Link>
+  ) : null;
+
+  if (!primary && rest.length === 0) {
     return showLogin ? (
       <Link href="/login" className={loginClassName} onClick={onBeforeLogin}>
         {loginLabel}
@@ -224,14 +174,40 @@ export function CompactStoreCta({
     ) : null;
   }
 
+  // No store is "this device's" one — an unrecognised mobile browser, or a
+  // narrow desktop window. With nothing to promote there is nothing to fold
+  // away either, so both listings stay in the open.
+  if (!primary) {
+    return (
+      <div className="lp-compact-cta">
+        <div className="lp-stores lp-stores--stacked">
+          {rest.map((link) => (
+            <StoreLinkButton key={link.target} link={link} stacked />
+          ))}
+        </div>
+        {browserLink}
+      </div>
+    );
+  }
+
   return (
     <div className="lp-compact-cta">
-      <StoreButtons stacked />
-      {showLogin ? (
-        <Link href="/login" className="lp-browser-link" onClick={onBeforeLogin}>
-          {t('landing.stores.useInBrowser')}
-        </Link>
-      ) : null}
+      <div className="lp-stores lp-stores--stacked">
+        <StoreLinkButton link={primary} stacked />
+      </div>
+      <details className="lp-other-options">
+        <summary className="lp-other-options-summary">
+          {t('landing.stores.otherOptions')}
+        </summary>
+        <div className="lp-other-options-body">
+          <div className="lp-stores lp-stores--stacked">
+            {rest.map((link) => (
+              <StoreLinkButton key={link.target} link={link} stacked />
+            ))}
+          </div>
+          {browserLink}
+        </div>
+      </details>
     </div>
   );
 }

@@ -632,13 +632,13 @@ export function LandingPageStyles() {
 }
 .lp-github-link:hover{ transform:translateY(-2px); box-shadow:var(--shadow-soft); color:var(--rust-deep); }
 
-/* Store buttons. The row wraps rather than shrinking: two pills side by side
-   fit a 320px phone only by cutting the padding to nothing, and the platform
-   the visitor is actually on is the first one either way, so the second
-   dropping to its own line costs that visitor nothing. */
+/* Store buttons. Deliberately not filled in the accent blue: on the hero this
+   is the only object on the screen, so there is nothing for a highlight to
+   distinguish it from — a solid blue slab there reads as an advert for itself
+   rather than as the page's one quiet instruction. */
 .lp-stores{
   display:flex; flex-wrap:wrap; gap:.75rem;
-  justify-content:center; margin-top:1.6rem;
+  justify-content:center;
 }
 .lp-store-link{
   display:inline-flex; align-items:center; gap:.6rem;
@@ -652,12 +652,6 @@ export function LandingPageStyles() {
     color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .lp-store-link:hover{ transform:translateY(-2px); box-shadow:var(--shadow-soft); }
-/* The store this device can actually install from. Same fill as the page's
-   primary action, because on a phone this *is* the primary action. */
-.lp-store-link--primary{
-  background:var(--blue); color:var(--card-2); border-color:var(--blue-deep);
-}
-.lp-store-link--primary:hover{ background:var(--blue-deep); }
 .lp-store-icon{ width:1.15rem; height:1.15rem; flex:none; }
 
 /* The page's own definition of "desktop", reused rather than reinvented: 960px
@@ -695,6 +689,29 @@ export function LandingPageStyles() {
   text-decoration:underline; text-underline-offset:3px;
 }
 .lp-browser-link:hover{ color:var(--rust); }
+
+/* "Other options": the store this device is not on, plus the browser. A plain
+   <details>, so it opens without JavaScript and answers to the keyboard on its
+   own. The native marker is replaced by a caret of our own, because the
+   platform draws that triangle and it matches nothing else here. */
+.lp-other-options{ margin-top:1rem; }
+.lp-other-options-summary{
+  list-style:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:.4rem;
+  padding:.5rem; font-size:.9rem; font-weight:600; color:var(--ink-soft);
+}
+.lp-other-options-summary::-webkit-details-marker{ display:none; }
+.lp-other-options-summary::after{
+  content:''; width:.42rem; height:.42rem;
+  border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor;
+  transform:translateY(-2px) rotate(45deg);
+  transition:transform var(--transition-fast);
+}
+.lp-other-options[open] .lp-other-options-summary::after{
+  transform:translateY(1px) rotate(-135deg);
+}
+.lp-other-options-summary:hover{ color:var(--ink); }
+.lp-other-options-body{ padding-top:.35rem; }
 
 @media (max-width:767px){
   .lp-compact-cta{ margin-inline:0; }
