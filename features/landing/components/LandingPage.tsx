@@ -7,7 +7,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
 import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
-import { CompactStoreCta, PlayStoreLink } from './LandingAppStores';
+import { CompactStoreCta, PlayStoreLink, StoreFirstStartLink } from './LandingAppStores';
 import { IconArrow } from './LandingIcons';
 import {
   Choice,
@@ -297,9 +297,11 @@ function SiteHeader({
           onLangChange={onLangChange}
         />
         {showLogin ? (
-          <Link href="/login" className="lp-btn-ghost" onClick={onBeforeLogin}>
-            {t('landing.hero.getStarted')}
-          </Link>
+          <StoreFirstStartLink
+            label={t('landing.hero.getStarted')}
+            className="lp-btn-ghost"
+            onBeforeLogin={onBeforeLogin}
+          />
         ) : null}
       </nav>
     </header>

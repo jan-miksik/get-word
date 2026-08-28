@@ -128,6 +128,62 @@ export function PlayStoreLink() {
 }
 
 /**
+ * A "start here" link that follows the same store-first rule as the rest of the
+ * page once the window stops being a desktop.
+ *
+ * The header button and the demo card's closing link were the last two places
+ * that walked a phone straight into the browser app, past the store buttons
+ * every other call to action leads with. Desktop visitors, platforms we ship no
+ * store build for, and anyone who already has the app keep the browser path
+ * exactly as it was.
+ *
+ * Two elements rather than one link with a switched href: the breakpoint lives
+ * in CSS, so deciding it in JS here would mean a media query that has to agree
+ * with the stylesheet — including on the first paint, before hydration. The
+ * visibility class sits on wrappers because it sets `display`, which on the
+ * link itself would overwrite the inline-flex that keeps a label and its arrow
+ * on one line.
+ */
+export function StoreFirstStartLink({
+  label,
+  className,
+  onBeforeLogin,
+}: {
+  label: string;
+  className: string;
+  onBeforeLogin: () => void;
+}) {
+  const { primary } = useStoreChoice();
+
+  const browserLink = (
+    <Link href="/login" className={className} onClick={onBeforeLogin}>
+      {label}
+    </Link>
+  );
+
+  if (!primary) return browserLink;
+
+  return (
+    <>
+      <span className="lp-desktop-only">{browserLink}</span>
+      <span className="lp-compact-only">
+        <a
+          href={primary.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={className}
+          // Still worth saving the pair they picked: it is waiting for them
+          // when the installed app asks, or if they come back to this page.
+          onClick={onBeforeLogin}
+        >
+          {label}
+        </a>
+      </span>
+    </>
+  );
+}
+
+/**
  * What the hero and the closing block show below 960px, where the page stops
  * being a desktop.
  *

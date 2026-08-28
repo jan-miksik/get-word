@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CompactStoreCta } from '../LandingAppStores';
+import { CompactStoreCta, StoreFirstStartLink } from '../LandingAppStores';
 
 const MAC_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
@@ -113,5 +113,62 @@ describe('CompactStoreCta', () => {
     const { container } = renderCta();
 
     expect(container.querySelector('.lp-store-link--primary')).toBeNull();
+  });
+});
+
+// The header button and the demo card's closing link. Both sit outside the
+// compact call to action, and both used to walk a phone straight into the
+// browser app past every store button on the page.
+describe('StoreFirstStartLink', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function renderStart() {
+    return render(
+      <StoreFirstStartLink label="Get started" className="lp-btn-ghost" onBeforeLogin={vi.fn()} />,
+    );
+  }
+
+  it('sends a phone to its own store, keeping the browser link for the desktop layout', () => {
+    stubEnvironment({ ua: ANDROID_UA });
+    const { container } = renderStart();
+
+    expect(
+      container.querySelector('.lp-compact-only a')?.getAttribute('href'),
+    ).toContain('play.google.com');
+    // Still rendered, hidden by the same media query the rest of the page uses.
+    expect(
+      container.querySelector('.lp-desktop-only a')?.getAttribute('href'),
+    ).toBe('/login');
+  });
+
+  it('sends an iPhone to the App Store', () => {
+    stubEnvironment({ ua: IPHONE_UA });
+    const { container } = renderStart();
+
+    expect(
+      container.querySelector('.lp-compact-only a')?.getAttribute('href'),
+    ).toContain('apps.apple.com');
+  });
+
+  // A desktop has no store of its own, so there is nothing to swap in and the
+  // link stays exactly what it was.
+  it('leaves a desktop with the browser link alone', () => {
+    stubEnvironment({ ua: MAC_UA });
+    const { container } = renderStart();
+
+    expect(container.querySelectorAll('a')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/login');
+    expect(container.querySelector('.lp-compact-only')).toBeNull();
+  });
+
+  // Someone who already has the app does not need to be sent to install it.
+  it('leaves an installed phone with the browser link alone', () => {
+    stubEnvironment({ ua: ANDROID_UA, standalone: true });
+    const { container } = renderStart();
+
+    expect(container.querySelectorAll('a')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/login');
   });
 });
