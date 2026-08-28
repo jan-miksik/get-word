@@ -11,8 +11,20 @@ const MOBILE_WEB: AppInstallEnvironment = {
 
 describe('resolveAppInstallPlan', () => {
   it('offers nothing on a desktop or inside the shipped apps', () => {
-    expect(resolveAppInstallPlan({ ...MOBILE_WEB, isMobile: false, isIOS: true })).toBeNull();
+    expect(resolveAppInstallPlan({ ...MOBILE_WEB, isMobile: false })).toBeNull();
+    expect(resolveAppInstallPlan({ ...MOBILE_WEB, isMobile: false, isAndroid: true })).toBeNull();
     expect(resolveAppInstallPlan({ ...MOBILE_WEB, runtime: 'native', isAndroid: true })).toBeNull();
+  });
+
+  // iPadOS Safari runs in desktop mode, so an iPad reports a window wider than
+  // any phone breakpoint. It still installs from the App Store, so the width
+  // gate must not swallow it — that is what left iPads with the home-screen
+  // hint, or with nothing at all in landscape.
+  it('offers the App Store to an iPad whatever the window width', () => {
+    const plan = resolveAppInstallPlan({ ...MOBILE_WEB, isMobile: false, isIOS: true });
+
+    expect(plan?.store?.target).toBe('appStore');
+    expect(plan?.offerHomeScreen).toBe(false);
   });
 
   // Whoever already added Get Word to their home screen keeps it, on both

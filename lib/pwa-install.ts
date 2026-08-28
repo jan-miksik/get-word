@@ -72,6 +72,21 @@ export function isStandalone() {
  * On iOS we now send people to the App Store, which every browser can open, so
  * the distinction stopped meaning anything.
  */
+/**
+ * iPadOS runs Safari in desktop mode by default, and a desktop-mode iPad sends
+ * the same `Macintosh` user agent a MacBook does — no `iPad` token anywhere in
+ * it. The one thing that still separates the two is touch: every iPad reports
+ * several touch points, every Mac reports none.
+ * See https://bugs.webkit.org/show_bug.cgi?id=212937.
+ */
+function isIPadOSInDesktopMode(ua: string): boolean {
+  return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+function isAppleMobileUA(ua: string): boolean {
+  return /iPad|iPhone|iPod/.test(ua) || isIPadOSInDesktopMode(ua);
+}
+
 export type SimulatedPlatform = 'ios' | 'android' | null;
 
 export function getInstallPlatform(simulated?: SimulatedPlatform) {
@@ -83,7 +98,7 @@ export function getInstallPlatform(simulated?: SimulatedPlatform) {
   }
 
   const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
+  const isIOS = isAppleMobileUA(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
 
   return { isIOS };
 }
@@ -96,7 +111,7 @@ export function isSmallScreen() {
 export function isMobileDevice() {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent;
-  if (/iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream) {
+  if (isAppleMobileUA(ua) && !(window as Window & { MSStream?: unknown }).MSStream) {
     return true;
   }
   if (/Android/i.test(ua)) return true;

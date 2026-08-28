@@ -12,7 +12,7 @@ export interface AppInstallEnvironment {
   /** 'native' means we are already running inside one of the shipped apps. */
   runtime: 'web' | 'native';
   isInstalled: boolean;
-  /** Phone-sized: nothing here is offered on a desktop. */
+  /** Phone-sized: nothing here is offered on a desktop. iOS is exempt — see below. */
   isMobile: boolean;
   isIOS: boolean;
   isAndroid: boolean;
@@ -41,14 +41,20 @@ export interface AppInstallPlan {
  *              find the fallback already sitting there.
  */
 export function resolveAppInstallPlan(env: AppInstallEnvironment): AppInstallPlan | null {
-  if (env.runtime === 'native' || env.isInstalled || !env.isMobile) return null;
+  if (env.runtime === 'native' || env.isInstalled) return null;
 
+  // Deliberately ahead of the phone-size check: iPadOS Safari runs in desktop
+  // mode, so an iPad reports a window far wider than any phone breakpoint while
+  // still buying its apps from the App Store like every other iOS device. The
+  // width tells us how much room we have, not which store serves the visitor.
   if (env.isIOS) {
     const url = getStoreDownloadUrl('appStore');
     // No listing configured means nothing to offer: on iOS there is no longer a
     // home-screen path to fall back to.
     return url ? { store: { target: 'appStore', url }, offerHomeScreen: false } : null;
   }
+
+  if (!env.isMobile) return null;
 
   if (env.isAndroid) {
     const url = getStoreDownloadUrl('play');
