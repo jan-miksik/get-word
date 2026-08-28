@@ -121,6 +121,11 @@ export const viMessages: I18nMessages = {
   "landing.pairs.title": "Gần như mọi thứ với mọi thứ",
   "landing.pairs.body":
     "Chúng tôi hỗ trợ tổ hợp của hai ngôn ngữ bất kỳ. Nếu muốn thật chính xác thì khoảng 99 % các ngôn ngữ đang được nói. Những ngôn ngữ cổ như tiếng Ba Tư cổ hay tiếng Babylon hiện chưa có, nhưng cứ liên hệ nếu bạn quan tâm đến điều tương tự và chúng tôi sẽ xem xét.",
+  "landing.stores.title": "Tải ứng dụng",
+  "landing.stores.body":
+    "Get Word chạy trong mọi trình duyệt, và cũng có trên Google Play và App Store. Cùng một tài khoản, cùng những từ, dù bạn mở ở đâu.",
+  "landing.stores.play": "Google Play",
+  "landing.stores.appStore": "App Store",
   "landing.openSource.title": "Mã nguồn mở",
   "landing.openSource.body":
     "Chúng tôi là một ứng dụng mã nguồn mở. Chúng tôi rất vui nếu bạn đóng góp mã, tặng một ngôi sao trên GitHub hoặc báo lỗi.",

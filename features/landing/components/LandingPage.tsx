@@ -7,6 +7,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
 import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
+import { AppStores, PlayStoreLink } from './LandingAppStores';
 import { IconArrow } from './LandingIcons';
 import {
   Choice,
@@ -70,7 +71,7 @@ function LandingPageContent({
   // Firefox on Android can't run the app reliably (PWA install, canvas/scratch,
   // and the OTP tab-restore flow all break). Rather than ship broken sign-in, we
   // show an unsupported notice and hide every login CTA for those visitors,
-  // steering them to a Chromium browser (and later the Play Store). Detection is
+  // steering them to a Chromium browser or the Play Store build. Detection is
   // client-only, so the server snapshot is false — no hydration drift, the CTAs
   // render on the server and are removed after mount only on Firefox-Android.
   const isFirefoxAndroid = useIsFirefoxAndroid();
@@ -151,6 +152,7 @@ function LandingPageContent({
         <Choice />
         <Growth />
         <Pairs />
+        <AppStores />
         <OpenSource />
         {isFirefoxAndroid ? null : <FinalCta />}
         {/* Last line before the footer rule. Outside FinalCta so it survives on
@@ -208,8 +210,8 @@ function LanguageSwitcher({
 /**
  * Firefox on Android can't run the app reliably — PWA install, canvas/scratch,
  * and the OTP tab-restore sign-in flow all break — so instead of shipping broken
- * login we mark it unsupported and steer visitors to a Chromium browser (and,
- * later, the Play Store). Scoped to Android on purpose: iOS Firefox (FxiOS) is a
+ * login we mark it unsupported and steer visitors to a Chromium browser or the
+ * Play Store build. Scoped to Android on purpose: iOS Firefox (FxiOS) is a
  * WebKit wrapper, not Gecko, and behaves like Safari. Detection is client-only,
  * so the server snapshot is false (SSR/first paint renders as a supported
  * browser, no hydration drift) and the true value takes over after mount.
@@ -243,6 +245,12 @@ function FirefoxUnsupportedNotice() {
         <p className="m-0 mt-1 text-[var(--ink-2)]">
           {t('landing.firefoxUnsupportedBody')}
         </p>
+        {/* The other way in, and for this audience the only one that does not
+            require switching browsers first: the Play build is a TWA around the
+            same app, but it runs on Chrome's engine rather than Gecko. */}
+        <div className="mt-3">
+          <PlayStoreLink />
+        </div>
       </div>
     </div>
   );

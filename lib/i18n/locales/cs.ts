@@ -121,6 +121,11 @@ export const csMessages: I18nMessages = {
   "landing.pairs.title": "Skoro všechno se vším",
   "landing.pairs.body":
     "Podporujeme kombinace jakýchkoli jazyků. Kdybychom měli být úplně přesní, tak asi pro 99 % jazyků, kterými se mluví. Pradávné jazyky jako je staroperština nebo babylonština tam teď nejsou, ale určitě se ozvi, kdybys o něco podobného měl-a zájem, a podíváme se na to.",
+  "landing.stores.title": "Stáhni si aplikaci",
+  "landing.stores.body":
+    "Get Word běží v každém prohlížeči a najdeš ho i na Google Play a v App Storu. Stejný účet, stejná slovíčka, ať ho otevřeš kdekoli.",
+  "landing.stores.play": "Google Play",
+  "landing.stores.appStore": "App Store",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "Jsme open-source app. Budeme rádi za přispění do kódu, hvězdičku na GitHubu nebo nahlášení problému.",

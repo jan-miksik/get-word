@@ -632,6 +632,38 @@ export function LandingPageStyles() {
 }
 .lp-github-link:hover{ transform:translateY(-2px); box-shadow:var(--shadow-soft); color:var(--rust-deep); }
 
+/* Store buttons. The row wraps rather than shrinking: two pills side by side
+   fit a 320px phone only by cutting the padding to nothing, and the platform
+   the visitor is actually on is the first one either way, so the second
+   dropping to its own line costs that visitor nothing. */
+.lp-stores{
+  display:flex; flex-wrap:wrap; gap:.75rem;
+  justify-content:center; margin-top:1.6rem;
+}
+.lp-store-link{
+  display:inline-flex; align-items:center; gap:.6rem;
+  padding:.72rem 1.25rem;
+  background:rgba(251,245,231,.72);
+  border:var(--hairline); border-radius:var(--radius-pill);
+  box-shadow:var(--shadow-chip);
+  font-size:.98rem; font-weight:600; color:var(--ink);
+  white-space:nowrap;
+  transition:transform var(--transition-fast), background var(--transition-fast),
+    color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.lp-store-link:hover{ transform:translateY(-2px); box-shadow:var(--shadow-soft); }
+/* The store this device can actually install from. Same fill as the page's
+   primary action, because on a phone this *is* the primary action. */
+.lp-store-link--primary{
+  background:var(--blue); color:var(--card-2); border-color:var(--blue-deep);
+}
+.lp-store-link--primary:hover{ background:var(--blue-deep); }
+.lp-store-icon{ width:1.15rem; height:1.15rem; flex:none; }
+
+@media (max-width:767px){
+  .lp-stores{ justify-content:flex-start; }
+}
+
 .lp-finish{
   display:flex; justify-content:center;
   padding:clamp(1rem,4vw,2rem) 0 clamp(3rem,8vw,5rem);
