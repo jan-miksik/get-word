@@ -49,10 +49,10 @@ const NOTICE_COPY: Record<ReminderNotice, { title: I18nKey; body: I18nKey }> = {
 function BellIcon() {
   return (
     <svg aria-hidden viewBox="0 0 64 64" className="onboarding-step-icon" fill="none">
-      <circle cx="32" cy="32" r="29" fill="var(--ob-surface-hover, #FFF8E8)" stroke="var(--ob-ink, #2A2218)" strokeWidth="2" />
-      <path d="M20 39h24c-3-3-4-7-4-13a8 8 0 0 0-16 0c0 6-1 10-4 13Z" fill="var(--ob-accent, #1E6FA8)" stroke="var(--ob-ink, #2A2218)" strokeWidth="2.5" strokeLinejoin="round" />
-      <path d="M28 43a4 4 0 0 0 8 0" stroke="var(--ob-ink, #2A2218)" strokeWidth="3" strokeLinecap="round" />
-      <path d="M32 14v3" stroke="var(--ob-ink, #2A2218)" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="29" fill="var(--ob-surface-hover, var(--paper-hi))" stroke="var(--ob-ink, var(--ink))" strokeWidth="2" />
+      <path d="M20 39h24c-3-3-4-7-4-13a8 8 0 0 0-16 0c0 6-1 10-4 13Z" fill="var(--ob-accent, var(--sea))" stroke="var(--ob-ink, var(--ink))" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d="M28 43a4 4 0 0 0 8 0" stroke="var(--ob-ink, var(--ink))" strokeWidth="3" strokeLinecap="round" />
+      <path d="M32 14v3" stroke="var(--ob-ink, var(--ink))" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }

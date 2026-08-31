@@ -162,8 +162,9 @@ export function useLearningStreamGroups({
       // repeats the day was planning to ask about, which is what pulled the
       // whole day's bookkeeping apart.
       //
-      // A reinforcement block is itself the short active-recall exercise, and a
-      // review minigame there could advance a word past the five-minute stage.
+      // A reinforcement block is itself the short active-recall exercise. A
+      // multi-word game there could grade words before their own closing card
+      // and make the block's second-pass accounting jump ahead of the deck.
       const gamesAllowed = block.kind === 'review' && !block.reinforcement;
       if (minigameFrequency !== 'off' && gamesAllowed) {
         const { min, max } = minigameFrequency;

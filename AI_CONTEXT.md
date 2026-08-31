@@ -145,6 +145,16 @@ subsystem decisions and data-model notes.
 - Analysis/audio/rate-limit services: `features/photo-lab/server/*`
 - HTTP shells: `app/api/photo-lab/*/route.ts`
 
+### Design and styling
+
+- Colour tokens (the only place a colour is defined): `styles/tokens.css`, paper-palette block
+- Tailwind utilities for them (`bg-paper`, `text-ink`, `border-sea`): `@theme` in `app/tailwind.css`
+- TypeScript handles + the `--ob-*` / `--game-*` variable sets: `features/shared/theme/warm-palette.ts`
+- Hand-written CSS by concern: `styles/panels.css`, `styles/word-card.css`, `styles/minigames.css`, `styles/top-menu.css`, `styles/layout.css`
+- Enforcement and the migration checklist: `pnpm run check:design-tokens` (`--report` for near-duplicate colours), `config/design-token-baseline.json`, `config/design-token-exempt.json`
+- Open palette and button-language proposals: `app/dev/design-system/*` (dev-only route `/dev/design-system`)
+- Conventions and the rule about never re-pointing a token: `CLAUDE.md` → Styling → Design tokens
+
 ### Admin and maintenance
 
 - Admin guide and DTOs: `features/admin/README.md`, `features/admin/types.ts`

@@ -161,13 +161,13 @@ function LegalArticle({ kind }: { kind: LegalPageKind }) {
         <header className="flex flex-col gap-2">
           <Link
             href="/"
-            className="text-sm text-[#9fb6cc] underline underline-offset-2 hover:text-white"
+            className="text-sm text-sea-200 underline underline-offset-2 hover:text-white"
           >
             &larr; {t('legal.backHome')}
           </Link>
           <h1 className="m-0 text-3xl font-semibold text-white">{title}</h1>
           {page.showLastUpdated ? (
-            <p className="m-0 text-sm text-[#9aa6b8]">
+            <p className="m-0 text-sm text-sea-250">
               {t('legal.lastUpdated', { date })}
             </p>
           ) : null}
@@ -200,7 +200,7 @@ function LegalArticle({ kind }: { kind: LegalPageKind }) {
           <p className="m-0">
             {t(page.contactBody)}{' '}
             <span
-              className="cursor-text select-text font-medium text-[#9fb6cc]"
+              className="cursor-text select-text font-medium text-sea-200"
               style={{
                 WebkitTouchCallout: 'default',
                 WebkitUserSelect: 'text',
@@ -212,7 +212,7 @@ function LegalArticle({ kind }: { kind: LegalPageKind }) {
           </p>
         </section>
 
-        <footer className="mt-4 border-t border-white/10 pt-4 text-sm text-[#9aa6b8]">
+        <footer className="mt-4 border-t border-white/10 pt-4 text-sm text-sea-250">
           <LinkedTemplate
             template={t(page.seeAlso.template)}
             marker={page.seeAlso.marker}
@@ -244,7 +244,7 @@ function LinkedTemplate({
           {index < parts.length - 1 ? (
             <Link
               href={href}
-              className="text-[#9fb6cc] underline underline-offset-2 hover:text-white"
+              className="text-sea-200 underline underline-offset-2 hover:text-white"
             >
               {label}
             </Link>

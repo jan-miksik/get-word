@@ -50,7 +50,7 @@
 /* ─── Minigame Cards ─────────────────────────────────────── */
 
 /*
-  Tuned for the beige app background (#dcd1b9 from .app-background).
+  Tuned for the beige app background (var(--sand) from .app-background).
   Bold borders + flat fills carry the contrast; no offset shadows.
 
   Palette anchors:
@@ -77,13 +77,17 @@
 */
 .game-card,
 .study-ink-scope {
-  --game-surface: #F4EFE2;
-  --game-surface-hover: #FFF8E8;
-  --game-ink: #2A2218;
-  --game-ink-soft: #6B5E48;
-  --game-accent: #1E6FA8;
-  --game-correct: #15803D;
-  --game-wrong: #B91C1C;
+  /* Aliases, not values: the palette itself lives in styles/tokens.css. New
+     code should use the canonical names (--paper, --ink, --sea, …) or their
+     Tailwind utilities directly; --game-* stays only for the hand-written CSS
+     in this file and the components that already read it. */
+  --game-surface: var(--paper);
+  --game-surface-hover: var(--paper-hi);
+  --game-ink: var(--ink);
+  --game-ink-soft: var(--ink-soft);
+  --game-accent: var(--sea);
+  --game-correct: var(--green-alt);
+  --game-wrong: var(--brick);
 
   --text: var(--game-ink);
   --text-soft: var(--game-ink-soft);
@@ -91,7 +95,7 @@
   --bg-elevated: var(--game-surface-hover);
   --accent: var(--game-accent);
   --accent-soft: rgba(30, 111, 168, 0.12);
-  --accent-strong: #1E6FA8;
+  --accent-strong: var(--sea);
   --border-subtle: rgba(42, 34, 24, 0.35);
 
   --color-text: var(--text);
@@ -644,7 +648,7 @@
     color-mix(in srgb, #ffffff 82%, transparent),
     color-mix(in srgb, var(--rail-review) 16%, #ffffff)
   );
-  color: #1f1a12;
+  color: var(--ink-800);
   border: 2px solid color-mix(in srgb, var(--rail-review) 34%, transparent);
   box-shadow:
     0 6px 18px rgba(42, 34, 24, 0.16),
@@ -899,7 +903,7 @@
   font-size: 0.75rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: #4a4032;
+  color: var(--ink-500);
 }
 
 @media (prefers-reduced-motion: reduce) {

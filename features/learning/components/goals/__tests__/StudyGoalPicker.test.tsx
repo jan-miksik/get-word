@@ -23,8 +23,8 @@ function renderPicker(initial?: Partial<GoalPickerValue>) {
     </I18nProvider>,
   );
   const valueInput = () =>
-    screen.getByRole('textbox', { name: /new words a day|minutes a day/i }) as HTMLInputElement;
-  const slider = () => screen.getByRole('slider', { name: /new words a day|minutes a day/i });
+    screen.getByRole('textbox', { name: /new words a day/i }) as HTMLInputElement;
+  const slider = () => screen.getByRole('slider', { name: /new words a day/i });
   return { onSubmit, valueInput, slider };
 }
 
@@ -90,28 +90,18 @@ describe('StudyGoalPicker circular dial', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
-  it('keeps separate word and minute values and accepts exactly eight hours', () => {
-    const { onSubmit, valueInput } = renderPicker({ newWordsPerDay: 7, minutesPerDay: 10 });
+  it('edits and saves only a words goal even when the stored goal used minutes', () => {
+    const { onSubmit, valueInput } = renderPicker({ mode: 'minutes', newWordsPerDay: 7, minutesPerDay: 10 });
 
-    fireEvent.click(screen.getByRole('radio', { name: /time/i }));
-    fireEvent.change(valueInput(), { target: { value: '480' } });
+    expect(screen.queryByRole('radio', { name: /time/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /minutes a day/i })).not.toBeInTheDocument();
+    expect(valueInput()).toHaveValue('7');
+    fireEvent.change(valueInput(), { target: { value: '12' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({
-      mode: 'minutes',
-      minutesPerDay: 480,
+      mode: 'words',
+      newWordsPerDay: 12,
     }));
-
-    fireEvent.click(screen.getByRole('radio', { name: /words/i }));
-    expect(valueInput()).toHaveValue('7');
-  });
-
-  it('blocks 481 minutes', () => {
-    const { valueInput } = renderPicker({ mode: 'minutes' });
-
-    fireEvent.change(valueInput(), { target: { value: '481' } });
-
-    expect(screen.getByRole('alert')).toHaveTextContent('no higher than 480');
-    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
   it('uses a multi-select weekday calendar and never allows zero days', () => {
@@ -151,15 +141,12 @@ describe('StudyGoalPicker circular dial', () => {
     }));
   });
 
-  it('estimates words in words mode only', () => {
+  it('estimates reviews and monthly words without a time target', () => {
     renderPicker({ newWordsPerDay: 5 });
 
     expect(screen.getByText(/5 new \+ ~12 reviews/)).toBeInTheDocument();
+    expect(screen.getByText(/a month/i)).toBeInTheDocument();
     expect(screen.queryByText(/min a day/i)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('radio', { name: /time/i }));
-    expect(screen.queryByText(/reviews/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/a month/i)).not.toBeInTheDocument();
   });
 
   it('clears the number on focus so the next keystroke replaces the goal', () => {

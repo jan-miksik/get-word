@@ -65,8 +65,10 @@ describe('buildQuickPracticeBlock', () => {
     expect(rounds.every((round) => round.words.every((word) => word.id !== 'blank'))).toBe(true);
   });
 
-  it('builds nothing at all when there is not enough to ask with', () => {
-    expect(buildQuickPracticeBlock({ words: words(1), seed: 1 })).toEqual([]);
+  it('falls back to typing cards for a one-word practice scope', () => {
+    const single = buildQuickPracticeBlock({ words: words(1), seed: 1 });
+    expect(single).toHaveLength(QUICK_PRACTICE_BLOCK_ROUNDS);
+    expect(single.every((round) => round.gameType === 'typing')).toBe(true);
   });
 
   it('reshuffles between blocks but holds still within one', () => {
@@ -88,6 +90,8 @@ describe('canQuickPractice', () => {
   it('turns the offer off for a scope too thin to play with', () => {
     expect(canQuickPractice(words(3))).toBe(false);
     expect(canQuickPractice(words(4))).toBe(true);
+    expect(canQuickPractice(words(2), 2)).toBe(true);
+    expect(canQuickPractice(words(1), 1)).toBe(true);
   });
 
   it('counts only rows a round could actually be built from', () => {

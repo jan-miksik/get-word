@@ -28,35 +28,35 @@ function SignedInCard({
 }) {
   const { t } = useI18n();
   return (
-    <main className="app overflow-y-auto overflow-x-hidden bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
+    <main className="app overflow-y-auto overflow-x-hidden bg-sand px-4 py-8 sm:px-6 sm:py-10">
       <SpeckledBackground />
       <div className="flex min-h-full w-full items-center justify-center">
-        <div className="w-full max-w-md rounded-[28px] border-2 border-[#2A2218] bg-[#F4EFE2]/95 p-6 text-[#2A2218] sm:p-8">
+        <div className="w-full max-w-md rounded-[28px] border-2 border-ink bg-paper/95 p-6 text-ink sm:p-8">
           <div className="flex flex-col items-center gap-5 text-center">
             <AppLogo size={72} />
             <div className="space-y-1">
-              <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#6B5E48]">
+              <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-ink-soft">
                 {t('auth.brand')}
               </p>
-              <h1 className="m-0 text-2xl font-semibold text-[#2A2218]">
+              <h1 className="m-0 text-2xl font-semibold text-ink">
                 {t('auth.signedInTitle')}
               </h1>
               {email ? (
-                <p className="m-0 text-sm text-[#6B5E48]">{email}</p>
+                <p className="m-0 text-sm text-ink-soft">{email}</p>
               ) : null}
             </div>
             <div className="flex w-full flex-col gap-2">
               <button
                 type="button"
                 onClick={onContinue}
-                className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-5 py-3 text-base font-semibold text-[#F4EFE2] hover:border-[#155987] hover:bg-[#155987]"
+                className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-sea bg-sea px-5 py-3 text-base font-semibold text-paper hover:border-sea-600 hover:bg-sea-600"
               >
                 {t('auth.continue')}
               </button>
               <button
                 type="button"
                 onClick={onSignOut}
-                className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-[#2A2218] bg-transparent px-5 py-3 text-base font-semibold text-[#2A2218] hover:bg-[#2A2218]/5"
+                className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-ink bg-transparent px-5 py-3 text-base font-semibold text-ink hover:bg-ink/5"
               >
                 {t('common.signOut')}
               </button>
@@ -93,7 +93,7 @@ function LoginPageInner() {
           onSignOut={() => void signOut()}
         />
       ) : (
-        <main className="app overflow-y-auto overflow-x-hidden bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
+        <main className="app overflow-y-auto overflow-x-hidden bg-sand px-4 py-8 sm:px-6 sm:py-10">
           <SpeckledBackground />
           <div className="flex min-h-full w-full items-center justify-center">
             <SignInForm
@@ -113,7 +113,7 @@ export function LoginClient() {
   return (
     <Suspense
       fallback={
-        <main className="app bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
+        <main className="app bg-sand px-4 py-8 sm:px-6 sm:py-10">
           <SpeckledBackground />
         </main>
       }

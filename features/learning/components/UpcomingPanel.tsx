@@ -41,8 +41,8 @@ function formatRelativeDue(nextDueAt: number | undefined, now: number): string |
 }
 
 function stageBarStyle(stageIndex: number): string {
-  if (stageIndex >= 9) return 'bg-[#1E6FA8]';
-  if (stageIndex >= 5) return 'bg-[#3F8F4D]';
+  if (stageIndex >= 9) return 'bg-sea';
+  if (stageIndex >= 5) return 'bg-green-rail';
   if (stageIndex >= 1) return 'bg-[#B5651D]';
   return 'bg-[#C9BFA6]';
 }
@@ -71,20 +71,20 @@ function WordRow({
   const due = formatRelativeDue(progress?.nextDueAt, now);
   const isDueNow = due === 'now';
   return (
-    <li className="flex items-center gap-2 px-2.5 py-[5px] min-h-[28px] rounded-[10px] border-2 border-[#2A2218] bg-[#FFF8E8]">
+    <li className="flex items-center gap-2 px-2.5 py-[5px] min-h-[28px] rounded-[10px] border-2 border-ink bg-paper-hi">
       <span className={`block w-[3px] h-4 rounded-pill flex-none ${stageBarStyle(stageIdx)}`} aria-hidden />
       <span {...noTranslateProps('flex-1 flex items-baseline gap-1.5 min-w-0')}>
-        <span className="text-[0.875rem] leading-tight font-semibold text-[#2A2218] truncate">
+        <span className="text-[0.875rem] leading-tight font-semibold text-ink truncate">
           {source}
         </span>
-        <span className="text-[0.75rem] leading-tight text-[#6B5E48] truncate">{target}</span>
+        <span className="text-[0.75rem] leading-tight text-ink-soft truncate">{target}</span>
       </span>
       {due && (
         <span
           className={`text-[0.75rem] tabular-nums whitespace-nowrap flex-none px-1.5 rounded-md border-2 ${
             isDueNow
-              ? 'text-[#FFF8E8] bg-[#1E6FA8] border-[#1E6FA8] font-bold'
-              : 'text-[#2A2218] border-[#2A2218] bg-transparent font-semibold'
+              ? 'text-paper-hi bg-sea border-sea font-bold'
+              : 'text-ink border-ink bg-transparent font-semibold'
           }`}
         >
           {due}
@@ -107,10 +107,10 @@ function Section({
   return (
     <div className="mb-3 last:mb-0">
       <div className="flex items-baseline justify-between px-1 mb-1.5">
-        <span className="text-[0.6875rem] uppercase tracking-wider font-bold text-[#2A2218]">
+        <span className="text-[0.6875rem] uppercase tracking-wider font-bold text-ink">
           {label}
         </span>
-        <span className="text-[0.75rem] tabular-nums font-semibold text-[#6B5E48]">{count}</span>
+        <span className="text-[0.75rem] tabular-nums font-semibold text-ink-soft">{count}</span>
       </div>
       <ul className="m-0 p-0 list-none flex flex-col gap-1.5">{children}</ul>
     </div>
@@ -238,7 +238,7 @@ export function UpcomingPanel({ isOpen, onClose, progressStats, focusSection = n
                 onClick={() => setProgressExpanded((v) => !v)}
                 aria-expanded={progressExpanded}
                 aria-controls="upcoming-progress-stats"
-                className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[10px] border-2 border-[#2A2218] bg-[#FFF8E8] text-[0.875rem] font-semibold text-[#2A2218] cursor-pointer"
+                className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[10px] border-2 border-ink bg-paper-hi text-[0.875rem] font-semibold text-ink cursor-pointer"
               >
                 <span>📊 {t('progress.title')}</span>
                 <span
@@ -274,7 +274,7 @@ export function UpcomingPanel({ isOpen, onClose, progressStats, focusSection = n
                   ))}
                 </Section>
                 {done.length > 0 && (
-                  <div className="mt-4 pt-3 border-t-2 border-[#2A2218]/30">
+                  <div className="mt-4 pt-3 border-t-2 border-ink/30">
                     <Section label={t('upcoming.done')} count={done.length}>
                       {done.map((w) => (
                         <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />

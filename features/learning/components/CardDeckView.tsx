@@ -35,8 +35,8 @@ const ENTER_ANIMATIONS = [
 const AUDIO_LOOKAHEAD_CARDS = 1;
 
 const SWIPE_BADGE_STYLE = {
-  backgroundColor: '#1e6fa8',
-  borderColor: '#1e6fa8',
+  backgroundColor: 'var(--sea)',
+  borderColor: 'var(--sea)',
   color: '#ffffff',
 } satisfies CSSProperties;
 
@@ -117,12 +117,12 @@ interface CardDeckViewProps {
   isSwipeBlockedForWord?: (wordId: string) => boolean;
   renderCard: (
     word: NormalizedWord,
-    stageIndex: number,
+    blockIndex: number,
     onComplete: (
       afterExit?: () => void,
       options?: { skipAnimation?: boolean },
     ) => void,
-    opts?: { isExiting: boolean }
+    opts?: { isExiting: boolean; reinforcement?: boolean }
   ) => ReactNode;
   renderMiniGame: (config: MiniGameConfig, onComplete: () => void) => ReactNode;
 }
@@ -434,7 +434,7 @@ export function CardDeckView({
     return (
       <div className="flex h-full justify-center overflow-y-auto">
         {emptyState ?? (
-          <p className="m-auto text-2xl font-semibold text-[#2A2218] opacity-70">
+          <p className="m-auto text-2xl font-semibold text-ink opacity-70">
             {t('learning.sessionDoneTitle')}
           </p>
         )}
@@ -446,7 +446,7 @@ export function CardDeckView({
     return (
       <div className="flex h-full justify-center overflow-y-auto">
         {emptyState ?? (
-          <p className="m-auto text-2xl font-semibold text-[#2A2218] opacity-70">
+          <p className="m-auto text-2xl font-semibold text-ink opacity-70">
             {t('learning.sessionDoneTitle')}
           </p>
         )}
@@ -460,9 +460,8 @@ export function CardDeckView({
   const isMinigame = '_isMinigame' in item;
   const itemKey = entry.key;
   const isExiting = Boolean(exitAnim);
-  // Reinforcement has asymmetric SRS semantics: a correct answer confirms the
-  // five-minute stage instead of advancing it. The deck-level swipe callbacks
-  // are ordinary known/unknown actions, so keep this short block button-driven.
+  // Reinforcement uses a deliberately gentler exercise presentation. Keep this
+  // short block button-driven so that presentation cannot be bypassed by swipe.
   const swipeActive = swipeConfigured && !isMinigame && !entry.reinforcement;
   const horizontalSwipeActive = swipeActive && allowHorizontalSwipe;
 
@@ -523,7 +522,7 @@ export function CardDeckView({
                 blockIndex,
                 // eslint-disable-next-line react-hooks/refs -- The render contract passes this callback to an event prop; it is never invoked during render.
                 handleCardComplete,
-                { isExiting },
+                { isExiting, reinforcement: entry.reinforcement === true },
               )}
         </div>
         {horizontalSwipeActive && (

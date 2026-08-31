@@ -8,16 +8,17 @@
     "components/scratch-field/motifs.ts"
   ],
   "budgets": {
-    "features/word-chat/hooks/useWordChat.ts": 1700,
+    "features/word-chat/hooks/useWordChat.ts": 1710,
     "features/lists/components/translation-step/TranslationStep.tsx": 1530,
+    "features/learning/components/HomeClient.tsx": 1170,
     "features/admin/components/AdminStatsPage.tsx": 1140,
-    "lib/activity/runtime.ts": 1110,
+    "lib/activity/runtime.ts": 1120,
     "features/lists/components/category-browser/CategoryBrowser.tsx": 1090,
-    "features/learning/components/HomeClient.tsx": 1090,
     "features/learning/onboarding/server/autogenerate-common-list/index.ts": 1070,
-    "lib/db/queries/quality-pool-read.ts": 520,
+    "app/dev/design-system/button-personalities.ts": 1010,
     "components/TopMenu.tsx": 990,
     "features/learning/components/TypingStudyCard.tsx": 930,
-    "lib/db/queries/usage-stats.ts": 920
+    "lib/db/queries/usage-stats.ts": 920,
+    "lib/db/queries/quality-pool-read.ts": 520
   }
 }

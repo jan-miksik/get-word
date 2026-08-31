@@ -34,6 +34,7 @@ function renderChatStep({
   shareList = null,
   active = true,
   embedded = false,
+  onReplyRevealed,
 }: {
   uiLanguage?: string;
   languageFrom?: string;
@@ -47,6 +48,7 @@ function renderChatStep({
     content: string;
     id?: string;
     incomplete?: boolean;
+    awaitingReveal?: boolean;
   }>;
   suggestions?: string[];
   busy?: 'chat' | 'propose' | null;
@@ -60,6 +62,7 @@ function renderChatStep({
   shareList?: WordList | null;
   active?: boolean;
   embedded?: boolean;
+  onReplyRevealed?: (id: string | undefined) => void;
 } = {}) {
   const send = onSend ?? vi.fn<(text: string) => void>();
   const changePreferences = onPreferencesChange ?? vi.fn<(patch: WordChatPreferencePatch) => void>();
@@ -88,6 +91,7 @@ function renderChatStep({
         busy={busy}
         history={history}
         onSend={send}
+        onReplyRevealed={onReplyRevealed}
         onStartManualEntry={onStartManualEntry}
         active={active}
         embedded={embedded}
@@ -102,6 +106,38 @@ function renderChatStep({
 }
 
 describe('ChatStep', () => {
+  it('types out a reply that is whole but has not been shown yet', async () => {
+    // What the hook hands over once the stream resolves: the complete reply in
+    // a single render, flagged as still owing the learner its reveal. Reading
+    // the reveal off `incomplete` instead meant this render showed the whole
+    // answer at once.
+    const reply = 'Zaměříme se na objednávání v kavárně a na placení u pultu.';
+    const onReplyRevealed = vi.fn();
+    const { container } = renderChatStep({
+      messages: [
+        { role: 'user', content: 'Kavárna' },
+        { role: 'assistant', content: reply, id: 'reply-1', awaitingReveal: true },
+      ],
+      onReplyRevealed,
+    });
+
+    expect(container.textContent).not.toContain(reply);
+    await waitFor(() => expect(container.textContent).toContain(reply));
+    await waitFor(() => expect(onReplyRevealed).toHaveBeenCalledWith('reply-1'));
+  });
+
+  it('shows a reply the learner has already seen without replaying it', () => {
+    const reply = 'Tohle už jsi viděl.';
+    const { container } = renderChatStep({
+      messages: [
+        { role: 'user', content: 'Kavárna' },
+        { role: 'assistant', content: reply, id: 'reply-1' },
+      ],
+    });
+
+    expect(container.textContent).toContain(reply);
+  });
+
   it('lets the AI-chat settings edit the destination list and category names', () => {
     const onListNameChange = vi.fn();
     const onCategoryNameChange = vi.fn();

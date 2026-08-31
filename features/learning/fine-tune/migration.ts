@@ -29,8 +29,8 @@ function markMigrated(): void {
  *
  * They chose to type everything, so dropping them onto the plain default would
  * quietly take that away. Instead they get the balanced ladder with typing
- * already active from the one-day stage up — typing wherever it makes sense,
- * without asking them to type words they met minutes ago.
+ * already active from the five-minute stage up. That first writing card is
+ * heavily scaffolded; later stages progressively remove the help.
  *
  * Returns null when there is nothing to migrate: no legacy flag, already
  * migrated, or the account already carries a config from another device.

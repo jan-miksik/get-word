@@ -84,8 +84,11 @@ function practicable(words: readonly NormalizedWord[]): NormalizedWord[] {
 }
 
 /** Whether a block is worth offering at all for this study scope. */
-export function canQuickPractice(words: readonly NormalizedWord[]): boolean {
-  return practicable(words).length >= QUICK_PRACTICE_MIN_WORDS;
+export function canQuickPractice(
+  words: readonly NormalizedWord[],
+  minimumWords = QUICK_PRACTICE_MIN_WORDS,
+): boolean {
+  return practicable(words).length >= Math.max(1, minimumWords);
 }
 
 /**
@@ -144,7 +147,18 @@ export function buildQuickPracticeBlock({
   size = QUICK_PRACTICE_BLOCK_ROUNDS,
 }: QuickPracticeInput): MiniGameConfig[] {
   const pool = practicable(words);
-  if (pool.length < 2) return [];
+  if (pool.length === 0) return [];
+  // One learned word can still fill spare review time with typing cards.
+  // They are practice-only here, so completing them never writes progress.
+  if (pool.length === 1) {
+    return Array.from({ length: size }, (_, index) => ({
+      _isMinigame: true as const,
+      id: `quick-${index}-${pool[0].id}`,
+      gameType: 'typing' as const,
+      level: 1,
+      words: [pool[0]],
+    }));
+  }
 
   const random = createRng(seed);
   const rounds: MiniGameConfig[] = [];

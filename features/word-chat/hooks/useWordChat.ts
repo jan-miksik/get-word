@@ -833,7 +833,7 @@ export function useWordChat({
     setBusy('chat');
     setMessages([
       ...conversation,
-      { role: 'assistant', content: '', id: assistantId, incomplete: true },
+      { role: 'assistant', content: '', id: assistantId, incomplete: true, awaitingReveal: true },
     ]);
     let pendingDelta = '';
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -877,25 +877,14 @@ export function useWordChat({
       // place instead of being remounted with the full answer at once.
       const conversationWithReply: WordChatMessage[] = [
         ...conversation,
-        // Keep the streamed identity alive for this render. The server may
-        // deliver a validated reply in one final chunk; marking it complete in
-        // the same React batch made the bubble mount as static text and skip
-        // StreamedText's reveal animation entirely.
-        { role: 'assistant', content: response.reply, id: assistantId, incomplete: true },
+        // Whole, so no longer `incomplete` — but not yet seen, so still awaiting
+        // its reveal. The server usually delivers the validated reply in one
+        // final chunk, which means this single render is the reveal's only cue;
+        // `awaitingReveal` survives until the text has actually been drawn,
+        // rather than being cleared a frame later and racing the bubble's mount.
+        { role: 'assistant', content: response.reply, id: assistantId, awaitingReveal: true },
       ];
       setMessages(conversationWithReply);
-      const markReplyComplete = () => {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistantId ? { ...message, incomplete: undefined } : message,
-          ),
-        );
-      };
-      if (typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(markReplyComplete);
-      } else {
-        window.setTimeout(markReplyComplete, 0);
-      }
       setSuggestions(response.suggestions);
 
       if (
@@ -967,6 +956,22 @@ export function useWordChat({
     },
     [busy, messages, preferencesComplete, runChatTurn],
   );
+
+  /**
+   * The reply has finished typing itself out. Reported by the transcript rather
+   * than assumed after a delay, so a reply the learner steps away from mid-
+   * reveal is not replayed from the start when the chat is opened again.
+   */
+  const markReplyRevealed = useCallback((id: string | undefined) => {
+    if (!id) return;
+    setMessages((current) =>
+      current.some((message) => message.id === id && message.awaitingReveal)
+        ? current.map((message) =>
+            message.id === id ? { ...message, awaitingReveal: undefined } : message,
+          )
+        : current,
+    );
+  }, []);
 
   const toggleSelected = useCallback(
     (item: ProposedItem) => {
@@ -1615,6 +1620,7 @@ export function useWordChat({
   return {
     step,
     messages,
+    markReplyRevealed,
     suggestions,
     addressRegister,
     salutationGender,

@@ -183,7 +183,7 @@ export function MatchingPairsGame({
       {frameless ? (
         // Same quiet heading the assembly round uses. The bordered pill only
         // makes sense inside a bordered card.
-        <p className="m-0 text-center text-xs font-bold uppercase tracking-[0.12em] text-[#6B5E48]">
+        <p className="m-0 text-center text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">
           {t('game.match')}
         </p>
       ) : (

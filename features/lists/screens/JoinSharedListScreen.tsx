@@ -199,11 +199,11 @@ function JoinContent() {
     return (
       <CenteredScreen>
         <div className="w-full max-w-sm text-center">
-          <h1 className="text-lg font-semibold text-[#2A2218]">{t('join.invalidTitle')}</h1>
-          <p className="mt-2 text-sm text-[#6B5E48]">{t('join.invalidBody')}</p>
+          <h1 className="text-lg font-semibold text-ink">{t('join.invalidTitle')}</h1>
+          <p className="mt-2 text-sm text-ink-soft">{t('join.invalidBody')}</p>
           <button
             type="button"
-            className="mt-5 rounded-2xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-4 py-2 text-sm font-semibold text-[#F4EFE2] transition-colors hover:border-[#155987] hover:bg-[#155987]"
+            className="mt-5 rounded-2xl border-2 border-sea bg-sea px-4 py-2 text-sm font-semibold text-paper transition-colors hover:border-sea-600 hover:bg-sea-600"
             onClick={() => router.push('/lists')}
           >
             {t('join.goToLists')}
@@ -222,24 +222,24 @@ function JoinContent() {
 
   return (
     <CenteredScreen>
-      <div className="w-full max-w-md rounded-[36px] border-2 border-[#2A2218] bg-[#F4EFE2]/95 px-7 py-8 text-[#2A2218] shadow-[0_18px_50px_rgba(42,34,24,0.18)] backdrop-blur-sm sm:px-9 sm:py-10">
+      <div className="w-full max-w-md rounded-[36px] border-2 border-ink bg-paper/95 px-7 py-8 text-ink shadow-[0_18px_50px_rgba(42,34,24,0.18)] backdrop-blur-sm sm:px-9 sm:py-10">
         <div className="flex flex-col items-center gap-4 text-center">
           <AppLogo size={72} />
           <div className="space-y-2">
-            <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#6B5E48]">
+            <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-ink-soft">
               {t('auth.brand')}
             </p>
-            <h1 className="m-0 text-2xl font-semibold leading-tight text-[#2A2218]">
+            <h1 className="m-0 text-2xl font-semibold leading-tight text-ink">
               {t('join.prompt', { name: preview.name })}
             </h1>
-            <p className="m-0 text-sm font-semibold text-[#6B5E48]">
+            <p className="m-0 text-sm font-semibold text-ink-soft">
               {preview.languageFrom} → {preview.languageTo}
             </p>
           </div>
         </div>
 
         {!preview.isPublic && (
-          <p className="mx-auto mt-5 flex max-w-[21rem] items-start justify-center gap-2 rounded-2xl border border-[#2A2218]/15 bg-[#FFF8E8] px-3 py-2.5 text-center text-sm text-[#6B5E48]">
+          <p className="mx-auto mt-5 flex max-w-[21rem] items-start justify-center gap-2 rounded-2xl border border-ink/15 bg-paper-hi px-3 py-2.5 text-center text-sm text-ink-soft">
             <span aria-hidden>🔒</span>
             <span>{t('join.privateNotice')}</span>
           </p>
@@ -249,7 +249,7 @@ function JoinContent() {
           <button
             type="button"
             disabled={busy}
-            className="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-[#7CA7C5] bg-[#7CA7C5] px-5 py-3 text-base font-semibold text-[#F4EFE2] transition-colors hover:border-[#1E6FA8] hover:bg-[#1E6FA8] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-[#7CA7C5] bg-[#7CA7C5] px-5 py-3 text-base font-semibold text-paper transition-colors hover:border-sea hover:bg-sea disabled:cursor-not-allowed disabled:opacity-60"
             onClick={handleAddAndSwitch}
           >
             {busy ? t('join.adding') : t('join.addAndSwitch')}
@@ -257,7 +257,7 @@ function JoinContent() {
           <button
             type="button"
             disabled={busy}
-            className="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-[#2A2218] bg-transparent px-5 py-3 text-base font-semibold text-[#2A2218] transition-colors hover:bg-[#2A2218]/5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-ink bg-transparent px-5 py-3 text-base font-semibold text-ink transition-colors hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
             onClick={handleAddForLater}
           >
             {t('join.addForLater')}
@@ -265,7 +265,7 @@ function JoinContent() {
           <button
             type="button"
             disabled={busy}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold text-[#6B5E48] transition-colors hover:bg-[#2A2218]/5 hover:text-[#2A2218] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
             onClick={handleNotNow}
           >
             {t('join.notNow')}
@@ -278,7 +278,7 @@ function JoinContent() {
 
 function CenteredScreen({ children }: { children: ReactNode }) {
   return (
-    <main className="app relative flex min-h-screen items-center justify-center overflow-hidden bg-[#dcd1b9] p-4 text-[#2A2218]">
+    <main className="app relative flex min-h-screen items-center justify-center overflow-hidden bg-sand p-4 text-ink">
       <SpeckledBackground />
       {children}
     </main>

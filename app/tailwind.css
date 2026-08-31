@@ -20,6 +20,64 @@
   --color-fresh: var(--fresh);
   --color-done: var(--done);
 
+  /* ── The paper palette ──────────────────────────────────────────────
+     Registered here so the whole app can write bg-paper / text-ink /
+     border-ink-faint instead of the raw hex those used to be spelled with.
+
+     Unlike --color-text / --color-accent / --color-background above, NOTHING
+     re-points these inside a scope (.game-card and .study-ink-scope both
+     leave them alone), so these utilities mean the same thing on every
+     surface in the app. Prefer them everywhere. Values live in
+     styles/tokens.css; see that file for why the scales still have
+     near-duplicates in them. */
+  --color-paper-glow: var(--paper-glow);
+  --color-paper-hi: var(--paper-hi);
+  --color-paper-tint: var(--paper-tint);
+  --color-paper: var(--paper);
+  --color-paper-shade: var(--paper-shade);
+  --color-paper-dim: var(--paper-dim);
+  --color-paper-deep: var(--paper-deep);
+  --color-paper-deeper: var(--paper-deeper);
+  --color-sand: var(--sand);
+  --color-sand-edge: var(--sand-edge);
+  --color-paper-edge: var(--paper-edge);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-ink-900: var(--ink-900);
+  --color-ink-850: var(--ink-850);
+  --color-ink-800: var(--ink-800);
+  --color-ink: var(--ink);
+  --color-ink-600: var(--ink-600);
+  --color-ink-500: var(--ink-500);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-350: var(--ink-350);
+  --color-ink-300: var(--ink-300);
+  --color-ink-250: var(--ink-250);
+
+  --color-sea-700: var(--sea-700);
+  --color-sea-deep: var(--sea-deep);
+  --color-sea-600: var(--sea-600);
+  --color-sea-mid: var(--sea-mid);
+  --color-sea: var(--sea);
+  --color-sea-250: var(--sea-250);
+  --color-sea-200: var(--sea-200);
+  --color-wash-sea: var(--wash-sea);
+
+  --color-green-bright: var(--green-bright);
+  --color-moss: var(--moss);
+  --color-green-alt: var(--green-alt);
+  --color-green-rail: var(--green-rail);
+  --color-wash-moss: var(--wash-moss);
+
+  --color-brick: var(--brick);
+  --color-brick-deep: var(--brick-deep);
+  --color-wash-brick: var(--wash-brick);
+
+  --color-amber: var(--amber);
+  --color-amber-deep: var(--amber-deep);
+  --color-brown: var(--brown);
+  --color-brown-deep: var(--brown-deep);
+
   /* Custom border radius */
   --radius-pill: 999px;
   --radius-lg: 18px;
@@ -58,6 +116,19 @@
   }
 }
 
+/* ─── Onboarding step transitions ─────────────────────────
+   The sheet is the only thing that moves between steps: the backdrop is
+   hosted above the flow now (see OnboardingScreen), so the letters and the
+   scratch field carry straight through and the step reads as a card being
+   dealt onto the same table rather than as a new page.
+
+   The entrances are filled `backwards`, not `both`: `backwards` hides the
+   first frame before the animation starts (the point of the fill) but leaves
+   nothing behind once it ends. A forwards fill keeps an animated `transform`
+   on the card for the rest of the session — even one that resolves to the
+   identity matrix — and any transform makes the card the containing block for
+   its `position: fixed` children, which is how the phone's language sheet
+   would end up positioned inside the card instead of over the screen. */
 @keyframes onboarding-step-enter {
   from {
     opacity: 0;
@@ -65,7 +136,87 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: none;
+  }
+}
+
+@keyframes onboarding-step-enter-forward {
+  from {
+    opacity: 0;
+    transform: translate3d(30px, 6px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes onboarding-step-enter-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-30px, 6px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The frame arrives, then what is written on it — a stagger short enough to
+   read as one movement, long enough that the question does not land at the
+   same instant as the card it is written on. */
+@keyframes onboarding-step-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.onboarding-step-enter-plain,
+.onboarding-step-enter-forward,
+.onboarding-step-enter-back {
+  animation-duration: 340ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: backwards;
+}
+
+.onboarding-step-enter-plain {
+  animation-name: onboarding-step-enter;
+  animation-duration: 240ms;
+}
+
+.onboarding-step-enter-forward {
+  animation-name: onboarding-step-enter-forward;
+}
+
+.onboarding-step-enter-back {
+  animation-name: onboarding-step-enter-back;
+}
+
+.onboarding-step-head,
+.onboarding-step-body {
+  animation: onboarding-step-content-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.onboarding-step-head {
+  animation-delay: 60ms;
+}
+
+.onboarding-step-body {
+  animation-delay: 110ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-step-enter-plain,
+  .onboarding-step-enter-forward,
+  .onboarding-step-enter-back,
+  .onboarding-step-head,
+  .onboarding-step-body {
+    animation: none;
   }
 }
 

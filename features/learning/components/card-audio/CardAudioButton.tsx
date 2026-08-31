@@ -29,7 +29,7 @@ export function CardAudioButton({
       onClick={onPlay}
       aria-label={label ?? t('card.playAudio')}
       title={label ?? t('card.playAudio')}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] transition-colors duration-150 hover:border-[#1E6FA8] hover:bg-[#1E6FA8] hover:text-[#F4EFE2] active:border-[#1E6FA8] active:bg-[#1E6FA8] active:text-[#F4EFE2] ${box} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full border-2 border-ink bg-paper text-ink transition-colors duration-150 hover:border-sea hover:bg-sea hover:text-paper active:border-sea active:bg-sea active:text-paper ${box} ${className}`}
     >
       <SpeakerIcon size={size === 'lg' ? 23 : 20} />
     </button>

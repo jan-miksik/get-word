@@ -6,6 +6,7 @@ import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
 import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
 import { SessionRail } from './SessionRail';
+import { QuickPracticeRail } from '@/features/learning/quick-practice/QuickPracticeRail';
 import { SessionTimeStrip, type SessionTimeGoal } from './SessionTimeStrip';
 import { SessionDoneCard } from './SessionDoneCard';
 import type { SchoolMembership } from '@/features/auth/public.client';
@@ -56,12 +57,22 @@ interface LearningStudyContentProps {
    */
   chatContent?: React.ReactNode;
   /**
-   * The bonus block, when one is running. It covers the study surface rather
-   * than replacing it: the deck and the card that closes the day stay mounted
-   * underneath, so ending the block puts the learner back exactly where they
-   * were instead of on a freshly rebuilt deck.
+   * The bonus block, when one is running: the round itself, plus how far the
+   * block has got so the study area can pace it on its own rail.
+   *
+   * It takes the deck's place inside the study panel rather than covering the
+   * surface with a panel of its own — that is what makes it look like every
+   * other stretch of work instead of a screen that arrived from somewhere else.
+   * The deck it replaces has already run out (the card that closes the day is
+   * its empty state), so nothing is lost by standing where it stood.
    */
-  practiceRun?: React.ReactNode;
+  practice?: {
+    run: React.ReactNode;
+    done: number;
+    total: number;
+    /** Clock-owned fallback: keep the time strip instead of the practice rail. */
+    timed?: boolean;
+  } | null;
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
   phrasesCallbackRef: (node: HTMLElement | null) => void;
@@ -86,10 +97,14 @@ interface LearningStudyContentProps {
       afterExit?: () => void,
       options?: { skipAnimation?: boolean },
     ) => void,
-    opts?: { isExiting: boolean }
+    opts?: { isExiting: boolean; reinforcement?: boolean }
   ) => React.ReactNode;
   renderMiniGameForDeck: (config: MiniGameConfig, onComplete: () => void) => React.ReactNode;
-  renderCard: (word: NormalizedWord, stageIndex?: number) => React.ReactNode;
+  renderCard: (
+    word: NormalizedWord,
+    blockIndex?: number,
+    options?: { reinforcement?: boolean },
+  ) => React.ReactNode;
   renderMiniGame: (config: MiniGameConfig, isActive: boolean) => React.ReactNode;
   showNotReady: boolean;
   settlingCount: number;
@@ -141,7 +156,7 @@ export function LearningStudyContent({
   activeSurface = 'study',
   onSurfaceChange,
   chatContent,
-  practiceRun,
+  practice = null,
   categories,
   progressStats,
   phrasesCallbackRef,
@@ -179,11 +194,11 @@ export function LearningStudyContent({
   const showPhotoLabOffer = photoLabAvailable && Boolean(onOpenPhotoLab);
   const noPersonalWordsState = studyEmptyForPair && learningLanguagePair ? (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-      <p className="m-0 max-w-md text-lg font-semibold text-[#2A2218]">
+      <p className="m-0 max-w-md text-lg font-semibold text-ink">
         {t('learning.noPersonalWords', { pair: personalPairLabel })}
       </p>
       {onOpenWordChat || showPhotoLabOffer ? (
-        <p className="m-0 max-w-md text-sm text-[#2A2218] opacity-70">
+        <p className="m-0 max-w-md text-sm text-ink opacity-70">
           {t('learning.noPersonalWordsHint')}
         </p>
       ) : null}
@@ -262,11 +277,16 @@ export function LearningStudyContent({
             get out of the way once the day is walked — a clock still ticking
             beside the closing card paces work that no longer exists, and the
             card carries the day's settled time itself. */}
-        {activeSurface === 'study' && !practiceRun && sessionTimeGoal && sessionTimeGoal.budgetMs > 0 && !sessionFlow?.complete ? (
+        {activeSurface === 'study' && (!practice || practice.timed) && sessionTimeGoal && sessionTimeGoal.budgetMs > 0 && !sessionFlow?.complete ? (
           <SessionTimeStrip goal={sessionTimeGoal} />
         ) : null}
-        {sessionFlow && activeSurface === 'study' && !practiceRun && !sessionTimeGoal ? (
+        {sessionFlow && activeSurface === 'study' && !practice && !sessionTimeGoal ? (
           <SessionRail flow={sessionFlow} />
+        ) : null}
+        {/* The bonus block gets the same edge the session had, for the same
+            reason: the panel below it scrolls, and this must not. */}
+        {activeSurface === 'study' && practice && !practice.timed ? (
+          <QuickPracticeRail done={practice.done} total={practice.total} />
         ) : null}
         <AppSurfacePanel
           surface="study"
@@ -279,13 +299,22 @@ export function LearningStudyContent({
           // is inside padding, so the absolutely positioned rails stay pinned
           // to the real edges. Stream mode already has `app-content-column`
           // padding, so only the deck needs it.
-          className={viewMode === 'card' ? 'learning-card-main px-3 sm:px-0' : ''}
+          // Once the day is complete, reclaim the large desktop bottom rest
+          // reserved for ordinary card actions. Keeping it here left the
+          // closing modal in a shorter box and visibly clipped its last action.
+          // A running bonus block is card work whatever the view mode is, and it
+          // wants the ordinary desktop bottom rest back: the trim below belongs
+          // to the closing modal, which the block is standing in front of.
+          className={practice || viewMode === 'card'
+            ? `learning-card-main px-3 sm:px-0 ${!practice && dayFlow?.complete ? 'sm:!pb-4' : ''}`
+            : ''}
         >
-          {viewMode === 'card' ? (
+          {practice ? (
+            practice.run
+          ) : viewMode === 'card' ? (
             // No width cap here. The 800px reading width belongs to the cards
-            // being studied, and `CardDeckView` applies it to those directly —
-            // capping the whole column instead also caps the card that closes
-            // the day, which is the one thing meant to own the screen.
+            // being studied, and `CardDeckView` applies it to those directly;
+            // the closing modal owns its narrower cap in SessionCardShell.
             <div className="learning-card-viewport relative mx-auto flex h-full w-full flex-col gap-2">
               <div className="min-h-0 flex-1">
                 <CardDeckView
@@ -347,15 +376,6 @@ export function LearningStudyContent({
           >
             {chatContent}
           </AppSurfacePanel>
-        ) : null}
-        {/* Neither a surface nor a card: the block belongs to the day that just
-            ended, so it is laid over the study area and takes the rails' room
-            with it, rather than becoming a fourth thing the back button has to
-            know about. */}
-        {activeSurface === 'study' && practiceRun ? (
-          <div className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto">
-            {practiceRun}
-          </div>
         ) : null}
       </main>
     </AppLayout>

@@ -49,6 +49,18 @@ const baseProps = {
 };
 
 describe('LearningSettingsPanel', () => {
+  it('uses a larger desktop dialog', () => {
+    const { container } = render(<LearningSettingsPanel {...baseProps} />);
+
+    expect(container.querySelector('.learning-settings-panel')).toHaveClass(
+      'md:!w-[calc(100vw-2rem)]',
+      'md:!max-w-[720px]',
+    );
+    expect(container.querySelector('.panel-content')).toHaveClass(
+      'md:!max-h-[calc(100dvh-5rem)]',
+    );
+  });
+
   it('renders the learning-method sections in order with advanced features last', () => {
     render(<LearningSettingsPanel {...baseProps} />);
 

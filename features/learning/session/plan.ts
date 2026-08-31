@@ -1,7 +1,7 @@
 import type { ProgressData } from '@/features/sync/contracts';
 import type { NormalizedWord } from '@/lib/words';
 import { hasIntroducedWord, type StudyGoalVersion } from '@/packages/domain/goals/goal';
-import { resolveGoalTargets } from '@/packages/domain/goals/calibration';
+import { adjustNewTargetForBacklog, resolveGoalTargets } from '@/packages/domain/goals/calibration';
 import { planSessionBlocks, planTimeSessionBlocks, type SessionBlock } from './blocks';
 
 export interface SessionPlanInput {
@@ -35,6 +35,10 @@ export interface SessionPlan {
   reviewTarget?: number;
   reason: 'normal' | 'rampUp' | 'unbounded';
   blocks: SessionBlock[];
+  /** Frozen clock split for a minutes day; absent for a words day. */
+  timePhaseShares?: number[];
+  /** Expected content kind for each clock stretch, including an empty one. */
+  timePhaseKinds?: Array<'new' | 'review'>;
   /**
    * Answers already recorded per word when the plan was frozen, for the ids a
    * second-pass block covers. A same-day repeat is "answered twice today",
@@ -136,6 +140,73 @@ export function planSession(input: SessionPlanInput): SessionPlan {
     }),
   ];
 
+  if (!isWordsGoal) {
+    const hasReviews = reviewPool.length > 0;
+    const baseNewTarget = clamp(Math.round(cap / 3), NEW_MIN, Math.min(NEW_MAX, Math.max(NEW_MIN, cap)));
+    const backlogNewTarget = adjustNewTargetForBacklog(baseNewTarget, reviewPool.length, cap);
+    const maximumNewTarget = Math.min(NEW_MAX, Math.floor(cap / 2));
+    // Old reviews may own at most half the session. Even under heavy backlog,
+    // reserve the other half for introducing and then checking new material.
+    const minimumNewTarget = hasReviews
+      // A minutes day promises some growth even under backlog pressure. Each
+      // new word owns one introduction slot and one later reinforcement slot;
+      // reserving at least 30% of the event budget for introductions leaves at
+      // most 40% for the opening backlog and at least 30% for consolidation.
+      ? Math.min(maximumNewTarget, Math.max(NEW_MIN, Math.ceil(cap * NEW_SHARE)))
+      : NEW_MIN;
+    const pacedNewTarget = hasReviews
+      ? clamp(backlogNewTarget, minimumNewTarget, maximumNewTarget)
+      : maximumNewTarget;
+    // Every new word consumes two answer slots: the introduction and the
+    // closing reinforcement. The rest of the time budget belongs to the old
+    // backlog. This is the key distinction from words mode, whose target is
+    // counted in distinct words.
+    const reviewTarget = hasReviews
+      ? Math.min(Math.floor(cap / 2), Math.max(0, cap - (2 * pacedNewTarget)))
+      : 0;
+    const newTarget = pacedNewTarget;
+    const selectedNew = newPool.slice(0, newTarget);
+    const selectedReview = reviewPool.slice(0, reviewTarget);
+    const reviewIds = selectedReview.map((word) => word.id);
+    const newIds = selectedNew.map((word) => word.id);
+    const blocks = planTimeSessionBlocks({ reviewIds, newIds });
+    // Shares follow the material actually available for the opening review,
+    // while the two new-word stretches reserve the full proportional target.
+    // This lets a short opening fall straight into new cards, keeps either new
+    // stretch at or below 50%, and never lets backlog swallow the whole lesson.
+    const phaseUnits = Math.max(1, reviewIds.length + (2 * newTarget));
+    const hasPlannedReviews = reviewIds.length > 0;
+    const timePhaseShares = hasPlannedReviews
+      ? [reviewIds.length / phaseUnits, newTarget / phaseUnits, newTarget / phaseUnits]
+      : [0.5, 0.5];
+    const timePhaseKinds = hasPlannedReviews
+      ? ['review', 'new', 'review'] as const
+      : ['new', 'review'] as const;
+    const answerBaseline: Record<string, number> = {};
+    for (const block of blocks) {
+      if ((block.pass ?? 1) < 2) continue;
+      for (const id of block.ids) answerBaseline[id] = answerCount(input.progress[id]);
+    }
+
+    return {
+      enabled: true,
+      sessionItemCap: cap,
+      priorityIds: selectedReview.filter((word) => priorityIds.has(word.id)).map((word) => word.id),
+      dueIds: selectedReview.filter((word) => !priorityIds.has(word.id)).map((word) => word.id),
+      newIds,
+      deferredDueCount: Math.max(0, reviewPool.length - selectedReview.length),
+      shortfall: Math.max(0, cap - reviewIds.length - (2 * newIds.length)),
+      newShortfall: Math.max(0, newTarget - selectedNew.length),
+      newTarget,
+      reviewTarget,
+      reason: rampUp ? 'rampUp' : 'normal',
+      blocks,
+      answerBaseline,
+      timePhaseShares,
+      timePhaseKinds: [...timePhaseKinds],
+    };
+  }
+
   const newTarget = frozenWordTargets
     ? frozenWordTargets.newTarget
     : clamp(Math.round(cap * (rampUp ? NEW_SHARE_RAMP : NEW_SHARE)), NEW_MIN, NEW_MAX);
@@ -151,8 +222,6 @@ export function planSession(input: SessionPlanInput): SessionPlan {
   const selectedNew = spare > 0
     ? newPool.slice(0, Math.min(baseNew.length + spare, NEW_MAX, cap))
     : baseNew;
-  const reviewBudget = frozenWordTargets ? reviewTarget : cap - selectedNew.length;
-
   const reviewIds = selectedReview.map((word) => word.id);
   const newIds = selectedNew.map((word) => word.id);
 
@@ -163,23 +232,7 @@ export function planSession(input: SessionPlanInput): SessionPlan {
   // unaffected either way, since it counts distinct words and a same-day repeat
   // adds none.
   const fillWithRepeats = newIds.length > 0 && selectedReview.length === 0;
-  // A minutes day is cut by the clock rather than by card counts, so it keeps
-  // its three time stretches — and with them the wider fallback, because there
-  // the alternative is a closing stretch that runs out at sixty per cent of the
-  // budget with the clock still going.
-  const fillTimeDayWithRepeats = newIds.length > 0 &&
-    (selectedReview.length === 0 || selectedReview.length < reviewBudget);
-  const blocks = isWordsGoal
-    // Coming back after a week opens on new ground rather than on a wall of
-    // overdue repeats.
-    ? planSessionBlocks({ reviewIds, newIds, openOnNew: rampUp, fillWithRepeats })
-    : planTimeSessionBlocks({
-        reviewIds,
-        newIds,
-        itemBudget: cap,
-        fillWithRepeats: fillTimeDayWithRepeats,
-        openOnNew: rampUp,
-      });
+  const blocks = planSessionBlocks({ reviewIds, newIds, openOnNew: rampUp, fillWithRepeats });
   // The server earns a day on *distinct* words answered (see `recomputeUserDayStat`),
   // so a day padded out with same-day repeats can still fall short of the goal.
   // That gap is what turns the closing card from "day done" into "you have run

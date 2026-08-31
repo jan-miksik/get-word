@@ -246,6 +246,21 @@ describe('MiniGameCard', () => {
     expect(badge.className).not.toContain('absolute');
   });
 
+  it('keeps choice controls in the same centred frame as the answer grid', async () => {
+    const { container } = render(
+      <MiniGameCard config={config('multipleChoice')} role="knownLanguage" onDismiss={vi.fn()} />,
+    );
+
+    await screen.findByRole('img', { name: 'New' });
+    const frame = container.querySelector<HTMLElement>('[data-game-frame="contained"]');
+    const skip = screen.getByRole('button', { name: 'Skip' });
+    const answerGrid = container.querySelector<HTMLElement>('[data-choice-layout]');
+
+    expect(frame).toHaveClass('mx-auto', 'max-w-3xl');
+    expect(frame).toContainElement(skip);
+    expect(frame).toContainElement(answerGrid);
+  });
+
   // Popping the last bubble used to advance the deck on its own, which took the
   // card away mid-burst. A cleared field now raises the same tap-to-continue bar
   // every other game ends on.

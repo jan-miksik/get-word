@@ -32,7 +32,7 @@ export function FullyKnownOffer({
     <button
       type="button"
       onClick={onRetire}
-      className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#12750f] bg-[#12750f]/[0.08] px-4 py-2 text-[0.82rem] font-bold leading-tight text-[#12750f] [touch-action:manipulation] transition-colors hover:bg-[#12750f]/20 active:bg-[#12750f]/30 ${className}`}
+      className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-green-bright bg-green-bright/[0.08] px-4 py-2 text-[0.82rem] font-bold leading-tight text-green-bright [touch-action:manipulation] transition-colors hover:bg-green-bright/20 active:bg-green-bright/30 ${className}`}
     >
       <span aria-hidden="true">✓</span>
       <span>{t('card.fullyKnownNoRepeat')}</span>

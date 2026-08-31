@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { hasIntroducedWord, hasStudyGoal } from '@/packages/domain/goals/goal';
-import { adjustNewTargetForBacklog, resolveGoalTargets, sessionItemCapFromWordGoal } from '@/packages/domain/goals/calibration';
+import { resolveGoalTargets, resolveWordsDayTargets, sessionItemCapFromWordGoal } from '@/packages/domain/goals/calibration';
 import { db } from '../client';
 import { userDayStats, users } from '../schema';
 import { getLocalDayActivity } from './activity-stats';
@@ -85,12 +85,21 @@ export async function ensureDayGoalSnapshot(userId: string, dayKey: string, time
     const [goal, counts] = await Promise.all([getGoalVersionForDay(userId, dayKey), getEligibleCounts(userId, now)]);
     if (!goal?.enabled) return null;
     const targets = resolveGoalTargets(goal);
-    const backlogAdjustedNew = goal.mode === 'words'
-      ? adjustNewTargetForBacklog(targets.desiredNew, counts.dueReviewCount, targets.itemBudget) : 0;
-    const resolvedNewTarget = goal.mode === 'words' ? Math.min(backlogAdjustedNew, counts.availableNewWords) : null;
-    const resolvedReviewTarget = goal.mode === 'words'
-      ? Math.min(targets.itemBudget - backlogAdjustedNew, counts.dueReviewCount) : null;
-    const status = goal.mode === 'words' && resolvedNewTarget === 0 && resolvedReviewTarget === 0 ? 'nothing_due' : 'active';
+    const wordsTargets = goal.mode === 'words'
+      ? resolveWordsDayTargets(targets, counts.dueReviewCount)
+      : null;
+    const hasWordsContent = counts.availableNewWords > 0 || counts.dueReviewCount > 0;
+    // Availability describes whether the frozen target can be reached; it must
+    // not resize the target itself. Otherwise zero new words plus a handful of
+    // repeats becomes a completed words day even though the learner chose a
+    // daily goal measured in new words.
+    const resolvedNewTarget = wordsTargets
+      ? (hasWordsContent ? wordsTargets.newTarget : 0)
+      : null;
+    const resolvedReviewTarget = wordsTargets
+      ? (hasWordsContent ? wordsTargets.reviewTarget : 0)
+      : null;
+    const status = goal.mode === 'words' && !hasWordsContent ? 'nothing_due' : 'active';
     const snapshotValues = {
       userId, dayKey, timezone, goalVersionId: goal.id, goalDaysPerWeek: goal.daysPerWeek,
       goalMinutes: goal.minutesPerDay, goalWords: goal.wordsPerDay, goalMode: goal.mode, goalStatus: status,
@@ -149,20 +158,15 @@ export async function reopenNothingDueDayGoalSnapshot(
       getEligibleCounts(userId, now),
     ]);
     if (!goal?.enabled || goal.mode !== 'words') return toSnapshot(locked);
+    if (counts.availableNewWords === 0 && counts.dueReviewCount === 0) {
+      return toSnapshot(locked);
+    }
 
     const targets = resolveGoalTargets(goal);
-    const backlogAdjustedNew = adjustNewTargetForBacklog(
-      targets.desiredNew,
-      counts.dueReviewCount,
-      targets.itemBudget,
-    );
-    const resolvedNewTarget = Math.min(backlogAdjustedNew, counts.availableNewWords);
-    const resolvedReviewTarget = Math.min(
-      targets.itemBudget - backlogAdjustedNew,
-      counts.dueReviewCount,
-    );
-    if (resolvedNewTarget === 0 && resolvedReviewTarget === 0) return toSnapshot(locked);
-
+    const {
+      newTarget: resolvedNewTarget,
+      reviewTarget: resolvedReviewTarget,
+    } = resolveWordsDayTargets(targets, counts.dueReviewCount);
     await tx.update(userDayStats).set({
       timezone,
       goalVersionId: goal.id,
@@ -263,6 +267,23 @@ export async function recomputeUserDayStat(userId: string, dayKey: string, timez
   // null targets as zero would otherwise earn the day without any study.
   const isWords = existing?.goalMode === 'words' || (!existing && goal?.mode === 'words');
   const hasWordsSnapshot = isWords && existing?.snapshotCreatedAt !== null && existing?.snapshotCreatedAt !== undefined;
+  // Builds before the target/availability distinction capped this field at
+  // `availableNewWords`. Repair those snapshots while the rolling summary is
+  // already self-healing the day, including clearing an incorrectly sticky
+  // `met` verdict from a repeats-only session.
+  const canonicalWordsTargets = isWords && hasWordsSnapshot && existing?.goalStatus !== 'nothing_due' && goal?.mode === 'words'
+    ? resolveWordsDayTargets(
+        resolveGoalTargets(goal),
+        existing?.dueReviewCount ?? 0,
+      )
+    : null;
+  const repairsUndersizedNewTarget = Boolean(
+    canonicalWordsTargets &&
+    (existing?.resolvedNewTarget ?? 0) < canonicalWordsTargets.newTarget,
+  );
+  const resolvedNewTarget = repairsUndersizedNewTarget
+    ? canonicalWordsTargets!.newTarget
+    : existing?.resolvedNewTarget ?? null;
   // Minutes days retain the old frozen planner/met rule. A later pacing or
   // goal change must not resize a day that already has a stats row.
   const minuteItemBudget = sessionItemCapFromWordGoal(existing?.goalWords ?? goal?.wordsPerDay ?? 0);
@@ -274,7 +295,7 @@ export async function recomputeUserDayStat(userId: string, dayKey: string, timez
     status: existing?.goalStatus === 'nothing_due' ? 'nothing_due' : 'active',
     introducedWords,
     reviewedWords,
-    resolvedNewTarget: existing?.resolvedNewTarget ?? null,
+    resolvedNewTarget,
     resolvedReviewTarget: existing?.resolvedReviewTarget ?? null,
     answeredWords,
     activeMs,
@@ -287,9 +308,13 @@ export async function recomputeUserDayStat(userId: string, dayKey: string, timez
     userId, dayKey, timezone, activeMs, answeredWords, introducedWords, reviewedWords,
     goalVersionId: goal?.id ?? null, goalDaysPerWeek: goal?.daysPerWeek ?? null,
     goalMinutes: goal?.minutesPerDay ?? null, goalWords: goal?.wordsPerDay ?? null, goalMode: goal?.mode ?? null,
-    met, firstActivityAt, lastActivityAt, computedAt: new Date(),
+    resolvedNewTarget, met, firstActivityAt, lastActivityAt, computedAt: new Date(),
   }).onConflictDoUpdate({ target: [userDayStats.userId, userDayStats.dayKey], set: {
-    activeMs, answeredWords, introducedWords, reviewedWords, met: sql`${userDayStats.met} OR ${met}`,
+    activeMs, answeredWords, introducedWords, reviewedWords,
+    resolvedNewTarget: repairsUndersizedNewTarget
+      ? resolvedNewTarget
+      : sql`${userDayStats.resolvedNewTarget}`,
+    met: repairsUndersizedNewTarget ? met : sql`${userDayStats.met} OR ${met}`,
     // Use the typed INSERT values. Passing a Date directly through a raw SQL
     // interpolation gives postgres-js a `text` parameter, and Postgres cannot
     // resolve `least(timestamptz, text)` / `greatest(timestamptz, text)`. That

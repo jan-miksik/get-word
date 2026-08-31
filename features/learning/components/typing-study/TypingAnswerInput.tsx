@@ -61,7 +61,7 @@ export function TypingAnswerInput({
     <button
       ref={hintButtonRef}
       type="button"
-      className="game-hint-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 !items-center !justify-center !rounded-full !border-0 !bg-[#F4EFE2] !p-0 !text-2xl !font-bold !normal-case !tracking-normal !text-[#2A2218] shadow-none hover:!bg-[#FFF8E8] disabled:!opacity-50"
+      className="game-hint-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 !items-center !justify-center !rounded-full !border-0 !bg-paper !p-0 !text-2xl !font-bold !normal-case !tracking-normal !text-ink shadow-none hover:!bg-paper-hi disabled:!opacity-50"
       onClick={onReveal}
       onPointerDown={onPreserveFocus}
       disabled={hintExhausted}
@@ -110,7 +110,7 @@ export function TypingAnswerInput({
             <input
               ref={inputRef}
               type="text"
-              className={`w-full rounded-xl border-2 border-[#2A2218] bg-[#FFF8E8] px-4 py-2 text-center !text-[1.5rem] sm:!text-[2.5rem] font-bold text-[#2A2218] outline-none transition-colors focus:border-[#1E6FA8] disabled:opacity-80 ${result ? `game-input--${result.match}` : ''}`}
+              className={`w-full rounded-xl border-2 border-ink bg-paper-hi px-4 py-2 text-center !text-[1.5rem] sm:!text-[2.5rem] font-bold text-ink outline-none transition-colors focus:border-sea disabled:opacity-80 ${result ? `game-input--${result.match}` : ''}`}
               placeholder={t('game.typeTranslation')}
               onChange={(event) => onApplyValue(event.target.value)}
               onCompositionStart={() => {

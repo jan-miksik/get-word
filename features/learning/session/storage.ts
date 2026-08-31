@@ -1,7 +1,7 @@
 import type { SessionPlan } from './plan';
 
-const PREFIX = 'get-word-session-plan:v3:';
-const VERSION = 3;
+const PREFIX = 'get-word-session-plan:v6:';
+const VERSION = 6;
 const RETENTION_DAYS = 14;
 
 interface StoredSessionPlan {
@@ -33,6 +33,8 @@ function isSessionPlan(value: unknown): value is SessionPlan {
     Array.isArray(plan.dueIds) &&
     Array.isArray(plan.newIds) &&
     Array.isArray(plan.blocks) &&
+    (plan.timePhaseShares === undefined || Array.isArray(plan.timePhaseShares)) &&
+    (plan.timePhaseKinds === undefined || Array.isArray(plan.timePhaseKinds)) &&
     plan.blocks.every((block) =>
       block &&
       (block.kind === 'review' || block.kind === 'new') &&

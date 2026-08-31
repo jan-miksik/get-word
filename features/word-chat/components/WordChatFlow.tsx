@@ -375,6 +375,7 @@ export function WordChatFlow({
           busy={chat.busy === 'chat' || chat.busy === 'propose' ? chat.busy : null}
           history={chat.history}
           onSend={chat.sendMessage}
+          onReplyRevealed={chat.markReplyRevealed}
           onStartManualEntry={hostEntryTabs ? undefined : chat.startManualEntry}
           settingsOpen={settingsIsOpen}
           onSettingsOpenChange={setSettingsIsOpen}

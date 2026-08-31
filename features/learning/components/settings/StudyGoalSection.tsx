@@ -21,7 +21,6 @@ import {
   requestStudyReminderPermission,
   unsubscribeFromStudyWebPush,
 } from '@/features/learning/goals/web-push';
-import { StudyGoalHistory } from './StudyGoalHistory';
 
 /**
  * The settings panel deliberately uses the same card as first-time setup.
@@ -149,8 +148,6 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
           submitLabel={t('goal.editSubmit')}
         />
       ) : null}
-
-      {summary ? <StudyGoalHistory summary={summary} /> : null}
 
       <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
         <div>

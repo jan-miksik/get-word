@@ -164,6 +164,36 @@ describe('CardDeckView', () => {
     expect(screen.getByTestId('card-w1-block-1')).toBeInTheDocument();
   });
 
+  it('passes reinforcement semantics explicitly instead of inferring them from position', async () => {
+    const renderCard = vi.fn((
+      word: NormalizedWord,
+      _blockIndex: number,
+      onComplete: (afterExit?: () => void) => void,
+      options?: { reinforcement?: boolean },
+    ) => (
+      <button onClick={() => onComplete()}>
+        {word.id}:{String(options?.reinforcement)}
+      </button>
+    ));
+    render(
+      <CardDeckView
+        streamGroups={[
+          { key: 'review-0', kind: 'review', blockIndex: 0, items: [makeWord('old')] },
+          {
+            key: 'review-1', kind: 'review', blockIndex: 1,
+            reinforcement: true, items: [makeWord('fresh')],
+          },
+        ]}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button')).toHaveTextContent('old:false');
+    await userEvent.click(screen.getByRole('button'));
+    expect(screen.getByRole('button')).toHaveTextContent('fresh:true');
+  });
+
   // Same root cause seen from the card's side: the repeat is a fresh round, so
   // it must not inherit the state the first appearance left behind.
   it('remounts the card when a later block repeats the same word', async () => {

@@ -17,6 +17,8 @@ export interface TimePhaseInput {
   timezone: string;
   budgetMs: number;
   serverActiveMs: number;
+  /** Frozen shares of this day's two or three content stretches. */
+  phaseShares?: readonly number[];
 }
 
 /**
@@ -33,7 +35,17 @@ export function useTimePhase(goal: TimePhaseInput | null | undefined): number | 
   const timezone = goal?.timezone;
   const budgetMs = goal?.budgetMs ?? 0;
   const serverActiveMs = goal?.serverActiveMs;
-  const [phase, setPhase] = useState(0);
+  const phaseShares = goal?.phaseShares;
+  const phaseKey = `${dayKey ?? '-'}:${budgetMs}:${phaseShares?.join(',') ?? 'default'}`;
+  const initialPhase = dayKey && budgetMs > 0
+    ? timePhaseIndex(
+        Math.max(getBestKnownDayActiveMs(dayKey), serverActiveMs ?? 0),
+        budgetMs,
+        phaseShares,
+      )
+    : 0;
+  const [storedPhase, setStoredPhase] = useState({ key: phaseKey, value: initialPhase });
+  const phase = storedPhase.key === phaseKey ? storedPhase.value : initialPhase;
 
   useEffect(() => {
     if (!timezone) return;
@@ -48,13 +60,17 @@ export function useTimePhase(goal: TimePhaseInput | null | undefined): number | 
   useEffect(() => {
     if (!dayKey || budgetMs <= 0) return;
     const update = () => {
-      const next = timePhaseIndex(getBestKnownDayActiveMs(dayKey), budgetMs);
-      setPhase((current) => (current === next ? current : next));
+      const next = timePhaseIndex(getBestKnownDayActiveMs(dayKey), budgetMs, phaseShares);
+      setStoredPhase((current) => (
+        current.key === phaseKey && current.value === next
+          ? current
+          : { key: phaseKey, value: next }
+      ));
     };
     update();
     const timer = window.setInterval(update, POLL_MS);
     return () => window.clearInterval(timer);
-  }, [budgetMs, dayKey]);
+  }, [budgetMs, dayKey, phaseKey, phaseShares]);
 
   return dayKey && budgetMs > 0 ? phase : undefined;
 }

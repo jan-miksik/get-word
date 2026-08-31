@@ -12,6 +12,7 @@ import { LanguageLevelOnboarding } from '@/features/learning/onboarding/Language
 import type { WordChatLanguageLevel } from '@/features/word-chat/public.client';
 import {
   OnboardingBody,
+  OnboardingBackdropHost,
   OnboardingScreen,
   OnboardingTitle,
 } from '@/features/learning/onboarding/OnboardingScreen';
@@ -215,13 +216,13 @@ export function OnboardingDevPreview({
   return (
     <I18nProvider language="cs">
       <div className="relative">
-        <aside className="fixed left-3 top-3 z-[100] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-2 rounded-xl border border-[#CBBEA6] bg-[#FFFDF7]/95 p-2 text-xs text-[#2A2218] shadow-lg backdrop-blur">
+        <aside className="fixed left-3 top-3 z-[100] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-2 rounded-xl border border-sand-edge bg-[#FFFDF7]/95 p-2 text-xs text-ink shadow-lg backdrop-blur">
           <label className="font-bold" htmlFor="onboarding-step">Krok</label>
           <select
             id="onboarding-step"
             value={step}
             onChange={(event) => setStep(event.target.value as PreviewStep)}
-            className="min-w-0 rounded-lg border border-[#CBBEA6] bg-white px-2 py-1 font-semibold"
+            className="min-w-0 rounded-lg border border-sand-edge bg-white px-2 py-1 font-semibold"
           >
             <option value="language">1 · Jazyky</option>
             <option value="level">2 · Úroveň</option>
@@ -235,7 +236,7 @@ export function OnboardingDevPreview({
             id="onboarding-scenario"
             value={scenario}
             onChange={(event) => reset(event.target.value as Scenario)}
-            className="min-w-0 rounded-lg border border-[#CBBEA6] bg-white px-2 py-1 font-semibold"
+            className="min-w-0 rounded-lg border border-sand-edge bg-white px-2 py-1 font-semibold"
           >
             <option value="fresh">Nový účet</option>
             <option value="returning-no-goal">Hotový onboarding bez cíle</option>
@@ -248,7 +249,11 @@ export function OnboardingDevPreview({
           </select>
           <ViewportReadout />
         </aside>
-        {content}
+        {/* Same host and same per-step key as the real flow, so the preview
+            shows the actual step transition rather than a version of it. */}
+        <OnboardingBackdropHost>
+          <div key={step} className="contents">{content}</div>
+        </OnboardingBackdropHost>
       </div>
     </I18nProvider>
   );

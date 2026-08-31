@@ -52,7 +52,7 @@ describe('preset table', () => {
       {
         reveal: { weight: 2, variants: ['foreign'] },
         choice: { weight: 2, variants: ['2:II:foreign', '3:II:foreign'] },
-        typing: { weight: 1, variants: [] },
+        typing: { weight: 1, variants: ['90:90'] },
         assembly: { weight: 1, variants: ['letters:I', 'words:I'] },
         match: { variants: ['2:I', '3:I', '4:I'] },
       },
@@ -151,7 +151,7 @@ describe('normalizeFineTuneConfig', () => {
 
   it('drops variant codes it does not recognise', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 4,
+      version: 5,
       stages: [
         {
           reveal: { weight: 2, variants: ['foreign', 'sideways'] },
@@ -175,7 +175,7 @@ describe('normalizeFineTuneConfig', () => {
 
   it('clamps weights into range', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 4,
+      version: 5,
       stages: [{ reveal: { weight: 9999, variants: ['foreign'] } }],
     });
     expect(normalized.stages[0].reveal.weight).toBe(4);
@@ -183,7 +183,7 @@ describe('normalizeFineTuneConfig', () => {
 
   it('guarantees at least one active method per stage', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 4,
+      version: 5,
       stages: Array.from({ length: 8 }, () => ({
         reveal: { weight: 1, variants: [] },
         choice: { weight: 1, variants: [] },
@@ -198,7 +198,7 @@ describe('normalizeFineTuneConfig', () => {
   });
 
   it('pads a short stage list up to the full ladder', () => {
-    const normalized = normalizeFineTuneConfig({ version: 4, stages: [] });
+    const normalized = normalizeFineTuneConfig({ version: 5, stages: [] });
     expect(normalized.stages).toHaveLength(STAGES.length);
     expect(detectPreset(normalized)).toBe('balanced');
   });
@@ -218,7 +218,7 @@ describe('normalizeFineTuneConfig', () => {
         match: { variants: ['6:III'] },
       }],
     });
-    expect(normalized.version).toBe(4);
+    expect(normalized.version).toBe(5);
     expect(normalized.stages[0].typing).toEqual(DEFAULT_FINE_TUNE_CONFIG.stages[0].typing);
     expect(normalized.stages[0].match.variants).toEqual(['6:III']);
   });
@@ -239,5 +239,18 @@ describe('normalizeFineTuneConfig', () => {
       DEFAULT_FINE_TUNE_CONFIG.stages[3].choice.variants,
     );
     expect(normalized.stages[3].choice.weight).toBe(3);
+  });
+
+  it('adds gentle typing to a stored version-four five-minute stage', () => {
+    const stages = DEFAULT_FINE_TUNE_CONFIG.stages.map((stage) => ({
+      ...stage,
+      typing: { ...stage.typing, variants: [...stage.typing.variants] },
+    }));
+    stages[1].typing = { weight: 4, variants: [] };
+
+    const normalized = normalizeFineTuneConfig({ version: 4, stages });
+
+    expect(normalized.version).toBe(5);
+    expect(normalized.stages[1].typing).toEqual({ weight: 1, variants: ['90:90'] });
   });
 });

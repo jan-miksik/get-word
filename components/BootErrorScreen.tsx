@@ -14,7 +14,7 @@ export function BootErrorScreen({ onRetry }: { onRetry: () => void }) {
   const { t } = useI18n();
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-[#fefff5fa] px-6">
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-paper-glow/98 px-6">
       <RisingLettersBackground variant="loader" count={48} className="z-0" />
 
       <div className="relative z-10 flex max-w-sm flex-col items-center text-center">
@@ -22,14 +22,14 @@ export function BootErrorScreen({ onRetry }: { onRetry: () => void }) {
           size={72}
           showLabel
           className="flex-col gap-5"
-          labelClassName="text-[#4f2f24]/55 text-[0.65rem] tracking-[0.45em]"
+          labelClassName="text-brown-deep/55 text-[0.65rem] tracking-[0.45em]"
         />
-        <h1 className="mt-8 text-lg font-bold text-[#4f2f24]">{t('boot.stuckTitle')}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-[#4f2f24]/70">{t('boot.stuckBody')}</p>
+        <h1 className="mt-8 text-lg font-bold text-brown-deep">{t('boot.stuckTitle')}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-brown-deep/70">{t('boot.stuckBody')}</p>
         <button
           type="button"
           onClick={onRetry}
-          className="mt-6 rounded-full bg-[#4f2f24] px-6 py-2.5 text-sm font-semibold text-[#fefff5] transition-opacity hover:opacity-85"
+          className="mt-6 rounded-full bg-brown-deep px-6 py-2.5 text-sm font-semibold text-paper-glow transition-opacity hover:opacity-85"
         >
           {t('boot.retry')}
         </button>

@@ -2,15 +2,14 @@ export function LandingPageStyles() {
   return (
     <style>{`
 .lp-root{
-  --paper:#dcd1b9;
   --card:#f3ead5; --card-2:#fbf5e7;
-  --ink:#211a0f; --ink-2:#52462f; --ink-soft:#857449;
-  --blue:#1E6FA8; --blue-deep:#134f78;
+  --ink-2:#52462f;
+  --blue:var(--sea); --blue-deep:var(--sea-700);
   --rust:#bf472a; --rust-deep:#963620;
   --line:rgba(33,26,15,0.16); --line-strong:rgba(33,26,15,0.3);
   --ob-surface:var(--card); --ob-surface-hover:var(--card-2);
   --ob-ink:var(--ink); --ob-ink-soft:var(--ink-soft);
-  --ob-accent:var(--blue); --ob-danger:#B91C1C;
+  --ob-accent:var(--blue); --ob-danger:var(--brick);
 
   /* Borrowed from the signed-in app (styles/tokens.css) so the landing is the
      same product in a lighter skin: one large radius, pill controls, hairline
@@ -32,7 +31,7 @@ export function LandingPageStyles() {
      its own: painted on .lp-root it was sized to the *page*, and cover on a box
      five thousand pixels tall means the whole map rescales whenever the page
      grows or shrinks. Opening the "More" toggle was enough to visibly zoom it. */
-  background-color:var(--paper);
+  background-color:var(--sand);
   font-family:var(--font-hanken),system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
   /* overflow-x hidden computes the other axis to auto, which makes this a second
@@ -323,15 +322,15 @@ export function LandingPageStyles() {
    state, and the dropdown list, which otherwise stayed on --card and no longer
    matched the field it opened from. (The touch bottom-sheet is portaled to the
    body, where these variables do not reach, but its CSS fallback is already
-   this same #F4EFE2.)
+   this same var(--paper).)
 
-   The literals are deliberate: InterfaceLanguageSelector pins these exact
-   values inline on its own wrapper, so var(--ob-surface) here would resolve to
-   .lp-root's --card and quietly break the match. */
+   These have to be spelled out rather than left to .lp-root's --ob-surface,
+   which is --card. InterfaceLanguageSelector pins the same two tokens inline on
+   its own wrapper, so the pair has to agree. */
 .lp-hero-picker{
   padding:0;
-  --ob-surface:#F4EFE2;
-  --ob-surface-hover:#FFF8E8;
+  --ob-surface:var(--paper);
+  --ob-surface-hover:var(--paper-hi);
 }
 .lp-hero-picker .onboarding-combobox{ box-shadow:var(--shadow-chip); }
 

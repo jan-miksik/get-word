@@ -11,7 +11,7 @@ const MINIGAME_ROW_HEIGHT = 520;
 
 type VirtualItem =
   | { type: 'header'; label: string; stageIndex: number }
-  | { type: 'card'; word: NormalizedWord; stageIndex: number; blockIndex: number }
+  | { type: 'card'; word: NormalizedWord; stageIndex: number; blockIndex: number; reinforcement?: true }
   | { type: 'minigame'; config: MiniGameConfig; stageIndex: number }
   | { type: 'footer'; stageIndex: number; content: ReactNode };
 
@@ -19,7 +19,7 @@ interface VirtualizedWordListProps {
   streamGroups?: LearningStreamGroup[];
   /** Transitional compatibility for direct component consumers and older tests. */
   groupedWords?: (NormalizedWord | MiniGameConfig)[][];
-  renderCard: (word: NormalizedWord, stageIndex: number) => ReactNode;
+  renderCard: (word: NormalizedWord, blockIndex: number, options?: { reinforcement?: boolean }) => ReactNode;
   renderMiniGame?: (config: MiniGameConfig, isActive: boolean) => ReactNode;
   stageFooter?: (stageIndex: number) => ReactNode | null;
   groupFooter?: (group: LearningStreamGroup) => ReactNode | null;
@@ -83,6 +83,7 @@ export function VirtualizedWordList({
               word: item,
               stageIndex,
               blockIndex: group.blockIndex,
+              ...(group.reinforcement ? { reinforcement: true as const } : {}),
             });
           }
         });
@@ -435,7 +436,9 @@ export function VirtualizedWordList({
                 willChange: 'transform'
               }}
             >
-              {renderCard(item.word, item.blockIndex)}
+              {renderCard(item.word, item.blockIndex, {
+                reinforcement: item.reinforcement === true,
+              })}
             </div>
           );
         })}

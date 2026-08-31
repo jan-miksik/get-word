@@ -2,13 +2,13 @@ export function LandingDemoStyles() {
   return (
     <style>{`
 .lp-demo-card{
-  --lp-demo-game-surface:#F4EFE2;
-  --lp-demo-game-surface-hover:#FFF8E8;
-  --lp-demo-game-ink:#2A2218;
-  --lp-demo-game-ink-soft:#6B5E48;
-  --lp-demo-game-accent:#1E6FA8;
-  --lp-demo-game-correct:#15803D;
-  --lp-demo-game-wrong:#B91C1C;
+  --lp-demo-game-surface:var(--paper);
+  --lp-demo-game-surface-hover:var(--paper-hi);
+  --lp-demo-game-ink:var(--ink);
+  --lp-demo-game-ink-soft:var(--ink-soft);
+  --lp-demo-game-accent:var(--sea);
+  --lp-demo-game-correct:var(--green-alt);
+  --lp-demo-game-wrong:var(--brick);
   --lp-demo-match-1:56 189 248;
   --lp-demo-match-2:167 139 250;
   --lp-demo-match-3:251 191 36;
@@ -27,8 +27,8 @@ export function LandingDemoStyles() {
   border:1.5px solid #8a7a55; background:transparent;
   transition:background .25s, border-color .25s, transform .25s;
 }
-.lp-demo-dot.is-on{ background:#1E6FA8; border-color:#134f78; }
-.lp-demo-dot.is-current{ transform:scale(1.2); border-color:#134f78; }
+.lp-demo-dot.is-on{ background:var(--sea); border-color:var(--sea-700); }
+.lp-demo-dot.is-current{ transform:scale(1.2); border-color:var(--sea-700); }
 .lp-demo-stage{
   display:grid; grid-template-rows:minmax(0,1fr) auto;
   gap:1rem;
@@ -41,7 +41,7 @@ export function LandingDemoStyles() {
   min-height:0;
 }
 .lp-demo-front{
-  font-size:clamp(2.25rem,5.1vw,2.75rem); font-weight:500; color:#1c1410; line-height:1.2;
+  font-size:clamp(2.25rem,5.1vw,2.75rem); font-weight:500; color:var(--ink-850); line-height:1.2;
   overflow-wrap:anywhere;
 }
 .lp-demo-answer-row{
@@ -54,7 +54,7 @@ export function LandingDemoStyles() {
 }
 .lp-demo-back-word{
   font-size:clamp(2.25rem,5.1vw,2.75rem); font-weight:500; line-height:1.2;
-  color:#1c1410; overflow-wrap:anywhere;
+  color:var(--ink-850); overflow-wrap:anywhere;
 }
 .lp-demo-action-zone{
   position:relative;
@@ -72,7 +72,7 @@ export function LandingDemoStyles() {
 .lp-demo-audio{
   grid-column:3; justify-self:end; margin-right:.2rem;
   width:64px; height:64px; min-width:64px; border-radius:999px;
-  border:2px solid #2A2218; background:#F4EFE2; color:#2A2218;
+  border:2px solid var(--ink); background:var(--paper); color:var(--ink);
   display:inline-flex; align-items:center; justify-content:center;
   cursor:pointer;
   pointer-events:auto;
@@ -177,21 +177,21 @@ export function LandingDemoStyles() {
 }
 .lp-demo-done-mark{
   display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px;
-  border-radius:999px; border:2px solid #134f78; background:var(--lp-demo-game-accent); color:var(--lp-demo-game-surface);
+  border-radius:999px; border:2px solid var(--sea-700); background:var(--lp-demo-game-accent); color:var(--lp-demo-game-surface);
   font-size:1.55rem; font-weight:900;
 }
 .lp-demo-done-title{ margin:0; font-size:clamp(1.45rem,3.2vw,1.85rem); font-weight:800; line-height:1.05; }
 .lp-demo-continue{
   display:inline-flex; align-items:center; justify-content:center;
-  min-height:3rem; border:2px solid #2A2218; border-radius:999px;
-  background:#1E6FA8; color:#F4EFE2; padding:.65rem 1.15rem;
+  min-height:3rem; border:2px solid var(--ink); border-radius:999px;
+  background:var(--sea); color:var(--paper); padding:.65rem 1.15rem;
   font-size:.95rem; font-weight:900; text-decoration:none;
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
   transition:transform .15s, background .15s;
 }
 .lp-demo-replay{
-  border:0; background:transparent; color:#134f78; font-weight:800;
+  border:0; background:transparent; color:var(--sea-700); font-weight:800;
   text-decoration:underline; text-underline-offset:4px; cursor:pointer; padding:.2rem .4rem;
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
@@ -202,7 +202,7 @@ export function LandingDemoStyles() {
   position:absolute; right:0; bottom:calc(100% + .55rem); z-index:20;
   width:min(15rem, calc(100vw - 2rem)); max-height:min(76dvh,27rem);
   display:flex; flex-direction:column; overflow:hidden;
-  border:2px solid #2A2218; border-radius:18px; background:#F4EFE2; color:#2A2218;
+  border:2px solid var(--ink); border-radius:18px; background:var(--paper); color:var(--ink);
   box-shadow:0 18px 42px -24px rgba(33,26,15,.7);
 }
 .lp-demo-custom-menu-head{
@@ -214,7 +214,7 @@ export function LandingDemoStyles() {
   display:flex; flex-direction:column; overflow-y:auto; min-height:0;
 }
 .lp-demo-custom-option{
-  border:0; border-bottom:1px solid rgba(42,34,24,.08); background:#F4EFE2; color:#2A2218;
+  border:0; border-bottom:1px solid rgba(42,34,24,.08); background:var(--paper); color:var(--ink);
   padding:.56rem .75rem; text-align:left; font-size:.9rem; line-height:1.15; cursor:pointer;
   flex:none;
   touch-action:manipulation;
@@ -223,15 +223,15 @@ export function LandingDemoStyles() {
 .lp-demo-custom-option:nth-child(odd){ background:rgba(42,34,24,.045); }
 .lp-demo-custom-option.is-current{
   background:rgba(42,34,24,.13); font-weight:800;
-  box-shadow:inset 4px 0 0 #2A2218;
+  box-shadow:inset 4px 0 0 var(--ink);
 }
-.lp-demo-custom-option--done{ color:#12750f; font-weight:700; background:rgba(18,117,15,.08); }
+.lp-demo-custom-option--done{ color:var(--green-bright); font-weight:700; background:rgba(18,117,15,.08); }
 /* Touch browsers can synthesize hover during taps, which makes the matching
    words flash between idle/hover/selected colors. Keep those hover lifts for
    precise pointers only. */
 @media (hover:hover) and (pointer:fine){
   .lp-demo-audio:not(:disabled):hover{
-    background:#1E6FA8; border-color:#1E6FA8; color:#F4EFE2; transform:translateY(-1px);
+    background:var(--sea); border-color:var(--sea); color:var(--paper); transform:translateY(-1px);
   }
   .lp-demo-match-btn--idle:not(:disabled):hover{
     transform:translateY(-1px);

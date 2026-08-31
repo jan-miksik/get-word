@@ -357,6 +357,40 @@ describe('useWordChat', () => {
     });
   });
 
+  it('leaves the finished reply awaiting its reveal until the bubble reports back', async () => {
+    mocks.sendChatMessageStream.mockReset();
+    mocks.sendChatMessageStream.mockImplementationOnce(async () => ({
+      reply: 'Připravím návrh.',
+      suggestions: [],
+      ready_to_propose: false,
+      content_mode: null,
+      metadata_valid: true,
+      diagnostics: null,
+    }));
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+
+    // Whole, so safe to send back — but not yet drawn, so still owed a reveal.
+    // This used to be cleared a frame after the reply landed, which raced the
+    // bubble's own mount and cost the typing animation whenever React committed
+    // both in one render.
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: 'Připravím návrh.',
+      awaitingReveal: true,
+    });
+    expect(result.current.messages[1]?.incomplete).toBeUndefined();
+
+    act(() => result.current.markReplyRevealed(result.current.messages[1]?.id));
+    expect(result.current.messages[1]?.awaitingReveal).toBeUndefined();
+  });
+
   it('sends the chosen chat preferences to the chat endpoint', async () => {
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),

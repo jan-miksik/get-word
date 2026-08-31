@@ -143,6 +143,28 @@ describe('session day progress', () => {
     // A single-pass block would have called both of them finished.
     expect(computeBlockProgress([{ ...block, pass: 1 }], input)[0]).toMatchObject({ done: 2, liveRemaining: 0 });
   });
+
+  it('reinforces only words reached during a clock-owned new phase', () => {
+    const [progress] = computeBlockProgress(
+      [{
+        key: 'review-0', kind: 'review', ids: ['introduced', 'stocked'],
+        pass: 2, phase: 1, reinforcement: true,
+      }],
+      {
+        progress: {
+          introduced: { stageIndex: 1, knownCount: 1, unknownCount: 0 },
+        },
+        liveIds: new Set(['introduced', 'stocked']),
+        settlingIds: new Set(['introduced']),
+        dayKey,
+        timezone: 'UTC',
+        answerBaseline: { introduced: 0, stocked: 0 },
+      },
+    );
+
+    expect(progress).toMatchObject({ total: 1, done: 0, liveRemaining: 1, unavailable: 0 });
+  });
+
   it('carries each block\'s minigame rounds alongside its words', () => {
     const [progress] = computeBlockProgress(
       [{ key: 'review-0', kind: 'review', ids: ['a', 'b'] }],

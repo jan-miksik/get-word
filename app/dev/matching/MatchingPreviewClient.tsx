@@ -70,8 +70,8 @@ export function MatchingPreviewClient() {
 
   return (
     <I18nProvider language="cs">
-      <div className="flex min-h-[100dvh] flex-col bg-[#dcd1b9]">
-        <div className="flex flex-wrap items-center gap-2 border-b border-black/10 px-3 py-2 text-xs text-[#2A2218]">
+      <div className="flex min-h-[100dvh] flex-col bg-sand">
+        <div className="flex flex-wrap items-center gap-2 border-b border-black/10 px-3 py-2 text-xs text-ink">
           <span className="font-bold uppercase tracking-wider">párování</span>
           {COUNTS.map((value) => (
             <button

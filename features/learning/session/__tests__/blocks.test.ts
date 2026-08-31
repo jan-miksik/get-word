@@ -65,51 +65,52 @@ describe('planSessionBlocks', () => {
 });
 
 describe('planTimeSessionBlocks', () => {
-  it('gives each stretch its share of the day, repeats first', () => {
+  it('uses old reviews, new words, then reinforcement as its three stretches', () => {
     const blocks = planTimeSessionBlocks({
-      reviewIds: ids('r', 22), newIds: ids('n', 10), itemBudget: 32,
+      reviewIds: ids('r', 22), newIds: ids('n', 10),
     });
 
     expect(blocks.map((block) => [block.kind, block.phase, block.ids.length]))
-      .toEqual([['review', 0, 10], ['new', 1, 10], ['review', 2, 12]]);
+      .toEqual([['review', 0, 22], ['new', 1, 10], ['review', 2, 10]]);
+    expect(blocks[2]).toMatchObject({ pass: 2, reinforcement: true });
+    expect(blocks[2].ids).toEqual(blocks[1].ids);
   });
 
-  it('opens on new ground when there is nothing to repeat', () => {
+  it('splits a first day into learning and reinforcing the same new words', () => {
     const blocks = planTimeSessionBlocks({
-      reviewIds: [], newIds: ids('n', 6), itemBudget: 10, fillWithRepeats: true,
+      reviewIds: [], newIds: ids('n', 6),
     });
 
     expect(blocks.map((block) => [block.kind, block.phase, block.pass ?? 1]))
-      .toEqual([['new', 0, 1], ['new', 1, 1], ['review', 2, 2]]);
+      .toEqual([['new', 0, 1], ['review', 1, 2]]);
     // The closing stretch is a second pass over the very words just met, so a
     // day without repeats of its own still ends on consolidation.
     expect(blocks.at(-1)?.ids).toEqual(ids('n', 6));
     expect(blocks.at(-1)?.reinforcement).toBe(true);
   });
 
-  it('opens on new ground after a long absence rather than on the backlog', () => {
+  it('still opens on due reviews after a long absence', () => {
     const blocks = planTimeSessionBlocks({
-      reviewIds: ids('r', 10), newIds: ids('n', 8), itemBudget: 18, openOnNew: true,
+      reviewIds: ids('r', 10), newIds: ids('n', 8),
     });
 
-    expect(blocks[0].kind).toBe('new');
-    expect(blocks.filter((block) => block.kind === 'review').flatMap((block) => block.ids))
-      .toEqual(ids('r', 10));
+    expect(blocks[0]).toMatchObject({ kind: 'review', phase: 0 });
+    expect(blocks[1]).toMatchObject({ kind: 'new', phase: 1 });
+    expect(blocks[2]).toMatchObject({ kind: 'review', phase: 2, reinforcement: true });
   });
 
-  it('leaves the new words the earlier stretches could not hold for the closing one', () => {
+  it('never spends the closing stretch on untouched new words', () => {
     const blocks = planTimeSessionBlocks({
-      reviewIds: ids('r', 4), newIds: ids('n', 16), itemBudget: 20,
+      reviewIds: ids('r', 4), newIds: ids('n', 16),
     });
 
-    // Four repeats do not fill the opening stretch, so the closing one has no
-    // repeats left to spend its time on and takes the new words instead.
     const closing = blocks.filter((block) => block.phase === 2);
-    expect(closing.map((block) => block.kind)).toEqual(['new']);
-    expect(closing[0].ids).toEqual(['n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15']);
+    expect(closing.map((block) => block.kind)).toEqual(['review']);
+    expect(closing[0].ids).toEqual(ids('n', 16));
+    expect(closing[0].reinforcement).toBe(true);
   });
 
   it('plans nothing at all when there is nothing to study', () => {
-    expect(planTimeSessionBlocks({ reviewIds: [], newIds: [], itemBudget: 10 })).toEqual([]);
+    expect(planTimeSessionBlocks({ reviewIds: [], newIds: [] })).toEqual([]);
   });
 });

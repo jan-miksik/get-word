@@ -6,7 +6,6 @@ import { PencilIcon, PhotoLabIcon, RobotIcon } from '@/components/icons/AppIcons
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
 import { WordChatFlow, type WordChatEntryActions } from './WordChatFlow';
-import { WordChatProgress } from './WordChatProgress';
 import { loadDraft, readAddWordsTab, storeAddWordsTab } from '../client/storage';
 import { useMobileKeyboardOpen } from '../hooks/useMobileKeyboardOpen';
 import type { WordChatStep } from '../hooks/useWordChat';
@@ -306,7 +305,7 @@ export function AddWordsScreen({
             <div
               role="tablist"
               aria-label={t('addWords.title')}
-              className="-mx-1 flex items-stretch gap-1 overflow-x-auto border-b-2 border-[color:color-mix(in_srgb,var(--ob-ink,#2A2218)_16%,transparent)] px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="-mx-1 flex items-stretch gap-1 overflow-x-auto border-b-2 border-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_16%,transparent)] px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {tabs.map((tab) => {
                 const selected = tab.id === activeTab;
@@ -325,11 +324,11 @@ export function AddWordsScreen({
                       'whitespace-nowrap rounded-t-lg border-b-[3px] bg-transparent px-3 py-2',
                       'text-xs font-extrabold transition-[color,border-color,background] duration-150',
                       selected
-                        ? 'border-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-accent,#1E6FA8)]'
+                        ? 'border-[color:var(--ob-accent,var(--sea))] text-[color:var(--ob-accent,var(--sea))]'
                         : [
-                            'border-transparent text-[color:color-mix(in_srgb,var(--ob-ink,#2A2218)_68%,transparent)]',
-                            'hover:bg-[color:color-mix(in_srgb,var(--ob-ink,#2A2218)_6%,transparent)]',
-                            'hover:text-[color:var(--ob-ink,#2A2218)]',
+                            'border-transparent text-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_68%,transparent)]',
+                            'hover:bg-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_6%,transparent)]',
+                            'hover:text-[color:var(--ob-ink,var(--ink))]',
                           ].join(' '),
                     ].join(' ')}
                   >
@@ -339,23 +338,22 @@ export function AddWordsScreen({
                 );
               })}
             </div>
-          ) : (
+          ) : headerBackAction ? (
+            // Back, and nothing else. There used to be a three-dot step rail
+            // beside it, but adding words is one errand the learner is already
+            // inside — the rail only counted the screens they were being walked
+            // through, and Back is the sole thing they can actually do here.
             <div className="flex items-center gap-3">
-              {headerBackAction ? (
-                <button
-                  type="button"
-                  onClick={headerBackAction}
-                  className="onboarding-option-secondary inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold"
-                >
-                  <span aria-hidden="true" className="text-base leading-none">←</span>
-                  <span>{t('wordChat.back')}</span>
-                </button>
-              ) : null}
-              <div className="min-w-0 flex-1">
-                <WordChatProgress step={step} compact={keyboardOpen} />
-              </div>
+              <button
+                type="button"
+                onClick={headerBackAction}
+                className="onboarding-option-secondary inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold"
+              >
+                <span aria-hidden="true" className="text-base leading-none">←</span>
+                <span>{t('wordChat.back')}</span>
+              </button>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Both tabs stay mounted: a half-typed batch and an analyzed photo are

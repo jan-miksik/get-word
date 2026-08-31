@@ -56,18 +56,27 @@ describe('time phases', () => {
   const budget = 10 * MINUTE;
 
   it('walks the day in three stretches, cut at the declared boundaries', () => {
-    expect(TIME_PHASE_BOUNDARIES).toEqual([0.3, 0.6]);
+    expect(TIME_PHASE_BOUNDARIES[0]).toBeCloseTo(1 / 3);
+    expect(TIME_PHASE_BOUNDARIES[1]).toBeCloseTo(2 / 3);
     expect(timePhaseIndex(0, budget)).toBe(0);
-    expect(timePhaseIndex(2 * MINUTE + 59_999, budget)).toBe(0);
-    expect(timePhaseIndex(3 * MINUTE, budget)).toBe(1);
-    expect(timePhaseIndex(5 * MINUTE + 59_999, budget)).toBe(1);
-    expect(timePhaseIndex(6 * MINUTE, budget)).toBe(2);
+    expect(timePhaseIndex(3 * MINUTE + 19_999, budget)).toBe(0);
+    expect(timePhaseIndex(3 * MINUTE + 20_000, budget)).toBe(1);
+    expect(timePhaseIndex(6 * MINUTE + 39_999, budget)).toBe(1);
+    expect(timePhaseIndex(6 * MINUTE + 40_000, budget)).toBe(2);
   });
 
   it('enters the terminal phase once the budget is spent', () => {
     expect(timePhaseIndex(budget - 1, budget)).toBe(2);
     expect(timePhaseIndex(budget, budget)).toBe(3);
     expect(timePhaseIndex(budget * 3, budget)).toBe(3);
+  });
+
+  it('supports a first-day half-and-half split', () => {
+    const halves = [0.5, 0.5];
+    expect(timePhaseIndex(4 * MINUTE + 59_999, budget, halves)).toBe(0);
+    expect(timePhaseIndex(5 * MINUTE, budget, halves)).toBe(1);
+    expect(timePhaseIndex(budget, budget, halves)).toBe(2);
+    expect(computeTimeCountdown(5 * MINUTE, budget, halves).phase).toBe(1);
   });
 
   it('has no stretches to speak of without a budget', () => {

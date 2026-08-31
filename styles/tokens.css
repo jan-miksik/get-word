@@ -1,4 +1,85 @@
 :root {
+  /* ───────────────────────────────────────────────────────────────────────
+     THE PAPER PALETTE — the one place a colour of this app is written down.
+
+     Every value below already existed in the codebase; nothing here is a new
+     colour and nothing changes visually. What changes is that each value now
+     has exactly one home instead of four (this file's dark defaults, the
+     --game-* block in styles/minigames.css, GAME_PALETTE in TypingStudyCard,
+     and ~730 raw hex literals across 74 components).
+
+     These names are NEVER remapped by a scope. That is the whole point: the
+     reason ContinueButton writes hex literals on purpose is that .game-card
+     and .study-ink-scope re-point --accent / --text / --color-*, so a
+     token-driven button changed colour from card to card. --ink and --paper
+     are safe to use anywhere, in any scope, forever. If you ever feel the urge
+     to override one of them inside a component, add a new token instead.
+
+     Tailwind utilities for all of these are registered in app/tailwind.css
+     (bg-paper, text-ink, border-ink-faint, …), so components should reach for
+     the utility and not for var() or a hex.
+
+     THE SCALES ARE NOT YET RATIONALISED. They are an honest inventory of what
+     the app actually draws today — which includes four different greens and
+     seven creams. `pnpm run check:design-tokens` lists the near-duplicates;
+     collapsing them is a design decision, not a refactor, and is parked until
+     the palette is chosen (see /dev/design-system).
+     ─────────────────────────────────────────────────────────────────────── */
+
+  /* Surfaces — warm paper, lightest to darkest */
+  --paper-glow: #FEFFF5;
+  --paper-hi: #FFF8E8;
+  --paper-tint: #F6F1E6;
+  --paper: #F4EFE2;
+  --paper-shade: #F4ECDA;
+  --paper-dim: #F1EBDC;
+  --paper-deep: #EFE5CF;
+  --paper-deeper: #EADFC8;
+  --sand: #DCD1B9;
+  --sand-edge: #CBBEA6;
+  --paper-edge: #C9BBA3;
+  --ink-faint: #BBAE98;
+
+  /* Ink — text and borders, darkest to lightest */
+  --ink-900: #171208;
+  --ink-850: #1C1410;
+  --ink-800: #1F1A12;
+  --ink: #2A2218;
+  --ink-600: #3D3226;
+  --ink-500: #4A4032;
+  --ink-soft: #6B5E48;
+  --ink-350: #6F6453;
+  --ink-300: #735D43;
+  --ink-250: #7C6A55;
+
+  /* Sea — the de facto primary accent of the study surface */
+  --sea-700: #134F78;
+  --sea-deep: #14547F;
+  --sea-600: #155987;
+  --sea-mid: #17608F;
+  --sea: #1E6FA8;
+  --sea-250: #9AA6B8;
+  --sea-200: #9FB6CC;
+  --wash-sea: #E4EEF6;
+
+  /* Greens. Four of them, all in use, none interchangeable today. */
+  --green-bright: #12750F;
+  --moss: #187A43;
+  --green-alt: #15803D;
+  --green-rail: #3F8F4D;
+  --wash-moss: #E3F3E7;
+
+  /* Red — errors and destructive actions only */
+  --brick: #B91C1C;
+  --brick-deep: #8F1515;
+  --wash-brick: #FCE7E5;
+
+  /* Amber and brown — streaks, warnings, warm accents */
+  --amber: #F0A11A;
+  --amber-deep: #C79320;
+  --brown: #A95E2A;
+  --brown-deep: #4F2F24;
+
   color-scheme: light dark;
   --bg: #060a18;
   --bg-elevated: #0d1626;

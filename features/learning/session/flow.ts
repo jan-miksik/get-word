@@ -64,9 +64,11 @@ export function resolveSessionFlow(
    * is walked block by block as before.
    */
   currentPhase?: number,
+  /** Number of clock stretches in this frozen minutes plan. */
+  phaseCount: number = TIME_PHASE_COUNT,
 ): SessionFlowState {
   if (blocks.length === 0) {
-    return currentPhase !== undefined && currentPhase >= TIME_PHASE_COUNT
+    return currentPhase !== undefined && currentPhase >= phaseCount
       ? { ...EMPTY, complete: true, settled: true }
       : EMPTY;
   }
@@ -74,7 +76,7 @@ export function resolveSessionFlow(
   const dayDone = blocks.reduce((sum, block) => sum + block.done, 0);
   const dayTotal = blocks.reduce((sum, block) => sum + block.total, 0);
   const dayPending = blocks.reduce((sum, block) => sum + block.pending, 0);
-  if (currentPhase !== undefined && currentPhase >= TIME_PHASE_COUNT) {
+  if (currentPhase !== undefined && currentPhase >= phaseCount) {
     return {
       ...EMPTY,
       blocks,
@@ -101,9 +103,10 @@ export function resolveSessionFlow(
   const settled = blocks.every((block) => !owesCommittedWork(block));
   const index = currentPhase === undefined
     ? blocks.findIndex(owesWork)
-    // Falls forward, never back: a stretch whose material runs out early hands
-    // the session to the next one instead of ending the day.
-    : blocks.findIndex((block) => (block.phase ?? 0) >= currentPhase && owesWork(block));
+    // The clock owns the phase. A future block must never leak into the current
+    // one; the live minutes resolver decides whether an exhausted opening review
+    // can use new material and whether an empty stretch needs an explicit card.
+    : blocks.findIndex((block) => (block.phase ?? 0) === currentPhase && owesWork(block));
 
   if (index === -1 && currentPhase === undefined) {
     return { ...EMPTY, blocks, blockCount: blocks.length, dayDone, dayTotal, dayPending, complete: true, settled };

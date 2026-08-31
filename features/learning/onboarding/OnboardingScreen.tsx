@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 import {
@@ -12,6 +12,7 @@ import {
 import { SupportButton } from '@/components/SupportButton';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { OnboardingProgress, type OnboardingProgressStep } from './OnboardingProgress';
+import { onboardingStepEnterClass, trackOnboardingStep } from './stepTransition';
 
 /**
  * The frame every onboarding step is rendered in.
@@ -36,6 +37,27 @@ const WIDTH_CLASS: Record<OnboardingScreenWidth, string> = {
   /** Screens that need two columns or a conversation: languages, goal, words. */
   wide: 'max-w-3xl',
 };
+
+/**
+ * Whether something above the flow already draws the backdrop.
+ *
+ * Each step renders its own `OnboardingScreen`, so without this the whole
+ * ground — scratch cover, motifs, rising letters — was thrown away and rebuilt
+ * on every step change: the letters restarted mid-flight and whatever the
+ * learner had rubbed clear went back under cover. Hosting it once above the
+ * steps is what lets a step change *be* a transition; the screen keeps its own
+ * copy for anywhere the flow is rendered without a host.
+ */
+const BackdropHostedContext = createContext(false);
+
+export function OnboardingBackdropHost({ children }: { children: ReactNode }) {
+  return (
+    <BackdropHostedContext.Provider value={true}>
+      <OnboardingBackdrop />
+      {children}
+    </BackdropHostedContext.Provider>
+  );
+}
 
 export function OnboardingScreen({
   step = null,
@@ -64,6 +86,10 @@ export function OnboardingScreen({
 }) {
   const { t } = useI18n();
   const showHeader = step !== null || Boolean(onBack);
+  const backdropHosted = useContext(BackdropHostedContext);
+  // Read once, on mount: the direction belongs to the arrival, and re-reading
+  // it on a later re-render would answer about a move that has already played.
+  const [enterClass] = useState(() => onboardingStepEnterClass(trackOnboardingStep(step)));
 
   return (
     <div
@@ -78,17 +104,17 @@ export function OnboardingScreen({
         gutter === 'tight' ? 'px-1 sm:px-4' : 'px-2 sm:px-4',
       ].join(' ')}
     >
-      <OnboardingBackdrop />
+      {backdropHosted ? null : <OnboardingBackdrop />}
       <SupportButton />
       {overlay}
       <section
-        className={`onboarding-page-card relative z-10 m-auto w-full p-4 motion-safe:animate-[onboarding-step-enter_240ms_cubic-bezier(0.22,1,0.36,1)_both] sm:p-7 ${WIDTH_CLASS[width]}`}
+        className={`onboarding-page-card relative z-10 m-auto w-full p-4 ${enterClass} sm:p-7 ${WIDTH_CLASS[width]}`}
       >
         {/* The rail gets a row of its own. Sharing one with Back cost it about
             a fifth of the card's width, which on a phone left the five segments
             too short to read as a position at all. */}
         {showHeader ? (
-          <div className="mb-4 flex flex-col gap-2">
+          <div className="onboarding-step-head mb-4 flex flex-col gap-2">
             {step ? <OnboardingProgress step={step} /> : null}
             {onBack ? (
               <button
@@ -111,7 +137,7 @@ export function OnboardingScreen({
             ) : null}
           </div>
         ) : null}
-        <div className={contentClassName}>{children}</div>
+        <div className={`onboarding-step-body ${contentClassName}`}>{children}</div>
       </section>
     </div>
   );

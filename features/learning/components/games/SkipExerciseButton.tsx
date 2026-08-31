@@ -24,7 +24,7 @@ export function SkipExerciseButton({ onSkip }: { onSkip: () => void }) {
         event.stopPropagation();
         onSkip();
       }}
-      className="absolute left-3 top-3 z-20 inline-flex h-9 items-center rounded-full px-3 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[#2A2218]/45 transition-colors duration-150 hover:bg-[#2A2218]/8 hover:text-[#2A2218]"
+      className="absolute left-3 top-3 z-20 inline-flex h-9 items-center rounded-full px-3 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-ink/45 transition-colors duration-150 hover:bg-ink/8 hover:text-ink"
     >
       {t('game.skipExercise')}
     </button>

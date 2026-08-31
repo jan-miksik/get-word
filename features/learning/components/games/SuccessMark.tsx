@@ -54,27 +54,27 @@ type SkinStyle = {
 const SKIN_STYLES: Record<SuccessMarkSkin, SkinStyle> = {
   /** The original: pale green chip with a hard offset shadow. */
   green: {
-    surface: 'bg-[#E3F3E7] text-[#187A43] shadow-[0_4px_0_rgba(24,122,67,0.2)]',
-    border: 'border-2 border-[#187A43]',
-    halo: 'border-2 border-[#187A43]/45',
+    surface: 'bg-wash-moss text-moss shadow-[0_4px_0_rgba(24,122,67,0.2)]',
+    border: 'border-2 border-moss',
+    halo: 'border-2 border-moss/45',
     inner: null,
     tickWidth: 4,
     circleWidth: 3,
   },
   /** Filled disc, cream tick. The loudest of the five. */
   solid: {
-    surface: 'bg-[#187A43] text-[#F4EFE2] shadow-[0_6px_14px_rgba(24,122,67,0.35)]',
+    surface: 'bg-moss text-paper shadow-[0_6px_14px_rgba(24,122,67,0.35)]',
     border: '',
-    halo: 'border-2 border-[#187A43]/40',
+    halo: 'border-2 border-moss/40',
     inner: null,
     tickWidth: 4.6,
     circleWidth: 2.6,
   },
   /** Paper and ink, exactly like the card frame around it. No colour reward. */
   ink: {
-    surface: 'bg-[#F4EFE2] text-[#2A2218]',
-    border: 'border-2 border-[#2A2218]',
-    halo: 'border-2 border-[#2A2218]/35',
+    surface: 'bg-paper text-ink',
+    border: 'border-2 border-ink',
+    halo: 'border-2 border-ink/35',
     inner: null,
     tickWidth: 3.4,
     circleWidth: 2.6,
@@ -82,17 +82,17 @@ const SKIN_STYLES: Record<SuccessMarkSkin, SkinStyle> = {
   /** Heavier rim plus a hairline inside it — reads as a small medal. */
   gold: {
     surface: 'bg-[#FBF1D8] text-[#9A6B0C] shadow-[0_4px_0_rgba(154,107,12,0.18)]',
-    border: 'border-[3px] border-[#C79320]',
-    halo: 'border-2 border-[#C79320]/45',
-    inner: 'absolute inset-[4px] rounded-full border border-[#C79320]/40',
+    border: 'border-[3px] border-amber-deep',
+    halo: 'border-2 border-amber-deep/45',
+    inner: 'absolute inset-[4px] rounded-full border border-amber-deep/40',
     tickWidth: 4,
     circleWidth: 3.4,
   },
   /** No rim at all; a soft glow in the app's blue carries the edge. */
   accent: {
-    surface: 'bg-[#E4EEF6] text-[#1E6FA8] shadow-[0_0_0_4px_rgba(30,111,168,0.14)]',
+    surface: 'bg-wash-sea text-sea shadow-[0_0_0_4px_rgba(30,111,168,0.14)]',
     border: '',
-    halo: 'border-2 border-[#1E6FA8]/40',
+    halo: 'border-2 border-sea/40',
     inner: null,
     tickWidth: 4,
     circleWidth: 3,

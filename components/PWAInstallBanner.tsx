@@ -60,7 +60,7 @@ export function PWAInstallBanner() {
         className="relative w-full h-full flex flex-col"
         style={{
           maxWidth: 520,
-          background: '#dcd1b9',
+          background: 'var(--sand)',
         }}
       >
         <button

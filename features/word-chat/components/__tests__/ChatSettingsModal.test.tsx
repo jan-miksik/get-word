@@ -60,7 +60,9 @@ describe('ChatSettingsModal', () => {
     const dialog = screen.getByRole('dialog', { name: 'Nastavení pro přidání vlastních slovíček' });
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveClass('max-w-2xl', 'overflow-visible');
-    expect(dialog).toHaveStyle('--ob-surface: #F4EFE2');
+    // The warm palette is handed over as var() handles now; the value itself
+    // lives once, in styles/tokens.css.
+    expect(dialog).toHaveStyle('--ob-surface: var(--paper)');
     expect(screen.getByText('Jazyk rozhraní')).toBeInTheDocument();
     expect(screen.getByTestId('interface-language-selector')).toBeInTheDocument();
     expect(screen.queryByText('Studijní jazyky')).not.toBeInTheDocument();

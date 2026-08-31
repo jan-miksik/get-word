@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { writePreferredPublicLanguage } from '@/lib/i18n/public-language';
 import {
   COMMON_LANGUAGES,
@@ -30,14 +30,6 @@ interface InterfaceLanguageSelectorProps {
   hideLabelBelowSm?: boolean;
   languages?: SupportedLanguage[];
 }
-
-const onboardingVars = {
-  '--ob-surface': '#F4EFE2',
-  '--ob-surface-hover': '#FFF8E8',
-  '--ob-ink': '#2A2218',
-  '--ob-ink-soft': '#6B5E48',
-  '--ob-accent': '#1E6FA8',
-} as CSSProperties;
 
 const BUNDLED_UI_LANGUAGE_CODE_SET = new Set(
   BUNDLED_UI_LANGUAGE_CODES.map(normalizeLanguageCode),
@@ -170,7 +162,7 @@ export function InterfaceLanguageSelector({
   return (
     <div
       ref={ref}
-      style={onboardingVars}
+      style={warmPaletteVars}
       className={`relative ${compact ? 'w-full' : 'inline-block'} ${className}`}
       data-testid="interface-language-selector"
     >

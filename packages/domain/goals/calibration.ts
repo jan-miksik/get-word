@@ -159,3 +159,31 @@ export function adjustNewTargetForBacklog(
   const minNew = Math.max(1, Math.ceil(desiredNew * 0.2));
   return Math.max(minNew, Math.round(desiredNew * ratio));
 }
+
+/**
+ * Freeze the two targets for a words-mode day.
+ *
+ * Due reviews may ease the new-word target through the backlog brake, but a
+ * shortage of available new words must not lower it again. The target is the
+ * promise the learner chose; availability only decides whether the session can
+ * fulfil that promise. Keeping the shortage in the target lets the planner end
+ * on "add words" instead of turning a repeats-only session into a completed
+ * day.
+ */
+export function resolveWordsDayTargets(
+  targets: Pick<ResolvedGoalTargets, 'desiredNew' | 'itemBudget'>,
+  dueReviewCount: number,
+): { newTarget: number; reviewTarget: number } {
+  const newTarget = adjustNewTargetForBacklog(
+    targets.desiredNew,
+    dueReviewCount,
+    targets.itemBudget,
+  );
+  return {
+    newTarget,
+    reviewTarget: Math.min(
+      Math.max(0, targets.itemBudget - newTarget),
+      Math.max(0, dueReviewCount),
+    ),
+  };
+}

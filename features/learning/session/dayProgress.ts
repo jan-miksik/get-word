@@ -1,5 +1,6 @@
 import type { ProgressData } from '@/features/sync/contracts';
 import { localDayKeyAt } from '@/lib/local-day';
+import { hasIntroducedWord } from '@/packages/domain/goals/goal';
 import type { SessionBlock, SessionBlockKind } from './blocks';
 
 export interface SessionBlockProgress {
@@ -106,6 +107,13 @@ export function computeBlockProgress(
   const { progress, liveIds, dayKey, timezone } = input;
   return blocks.map((block) => {
     const passes = block.pass ?? 1;
+    // A minutes plan may carry more unseen words than its estimate so a fast
+    // learner does not hit an artificial wall. Its closing reinforcement only
+    // owns the subset actually introduced before the clock boundary.
+    const ids = block.phase !== undefined && block.reinforcement
+      ? block.ids.filter((id) =>
+          hasIntroducedWord(progress[id]) || input.pendingAnswers?.[id] !== undefined)
+      : block.ids;
     // A single pass with no recorded floor is settled by "answered today", which
     // survives a reload and a second device. Anything with a floor counts
     // answers from it instead — a same-day repeat owes two, the bonus round owes
@@ -129,17 +137,17 @@ export function computeBlockProgress(
     };
     const isLive = (id: string) => liveIds.has(id) || (passes > 1 && Boolean(input.settlingIds?.has(id)));
 
-    const done = block.ids.filter(isDone).length;
+    const done = ids.filter(isDone).length;
     const pending = input.pendingAnswers
-      ? block.ids.filter((id) => !isDone(id) && settles(id, queuedAnswer(id))).length
+      ? ids.filter((id) => !isDone(id) && settles(id, queuedAnswer(id))).length
       : 0;
-    const liveRemaining = block.ids.filter(isLive).length;
-    const unavailable = block.ids.filter((id) => !isLive(id) && !isDone(id)).length;
+    const liveRemaining = ids.filter(isLive).length;
+    const unavailable = ids.filter((id) => !isLive(id) && !isDone(id)).length;
     const games = input.blockGames?.[block.key];
     return {
       key: block.key,
       kind: block.kind,
-      total: block.ids.length,
+      total: ids.length,
       done,
       pending,
       liveRemaining,

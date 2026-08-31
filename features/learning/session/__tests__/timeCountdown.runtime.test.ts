@@ -169,6 +169,21 @@ describe('minutes countdown against measured activity', () => {
     expect(remainingMs()).toBe(whileIdle - 12_000);
   });
 
+  it.each([
+    ['moving the pointer over the page', 'pointermove'],
+    ['moving a finger across the page', 'touchmove'],
+  ])('resumes counting down after idle when %s', async (_label, eventType) => {
+    await settle();
+    interact();
+    advance(2 * 60_000);
+    const whileIdle = remainingMs();
+
+    window.dispatchEvent(new Event(eventType));
+    advance(12_000);
+
+    expect(remainingMs()).toBe(whileIdle - 12_000);
+  });
+
   it('reaches zero after a full budget of real use and does not go past it', async () => {
     await settle();
 

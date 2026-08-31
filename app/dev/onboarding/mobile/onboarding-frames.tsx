@@ -83,7 +83,7 @@ export function OnboardingFrames() {
               <figcaption className="text-xs font-bold text-[#8E9AB5]">
                 {STEP_LABELS[entry]}
               </figcaption>
-              <div className="overflow-hidden rounded-[1.5rem] border-8 border-[#20283A] bg-[#F4EFE2] shadow-2xl">
+              <div className="overflow-hidden rounded-[1.5rem] border-8 border-[#20283A] bg-paper shadow-2xl">
                 <iframe
                   title={`Onboarding — ${STEP_LABELS[entry]}`}
                   src={`/dev/onboarding/${entry}`}

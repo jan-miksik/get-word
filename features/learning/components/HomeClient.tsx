@@ -12,11 +12,16 @@ import { useLearningRenderers } from '@/features/learning/hooks/useLearningRende
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import { countIntroducedOnDay } from '@/features/learning/session/dayProgress';
 import { useSessionBreather } from '@/features/learning/session/useSessionBreather';
-import { useTimePhase } from '@/features/learning/session/useTimePhase';
 import { useSessionCompletions } from '@/features/learning/hooks/useSessionCompletions';
 import { setActivitySurfaceOverride } from '@/lib/activity/runtime';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
 import { SessionPreflightCard } from '@/features/learning/components/SessionPreflightCard';
+import { SessionTimeTransitionCard } from '@/features/learning/components/SessionTimeTransitionCard';
+import {
+  SessionTimeNewWordsCard,
+  SessionTimeNoPracticeCard,
+  SessionTimePracticePendingCard,
+} from '@/features/learning/components/SessionTimePhaseEmptyCard';
 import { planSessionPreflight } from '@/features/learning/session/preflight';
 import { useAppState } from '@/hooks/useAppState';
 import {
@@ -59,7 +64,7 @@ import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
 import { resolveStreakData } from '@/features/learning/goals/streakWeek';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
-import type { StudyGoalVersion, StudyPacing } from '@/packages/domain/goals/goal';
+import { hasIntroducedWord, type StudyGoalVersion, type StudyPacing } from '@/packages/domain/goals/goal';
 import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
 import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
 import {
@@ -71,6 +76,7 @@ import {
   type LearningOnboardingStep,
 } from '@/features/learning/onboarding/flow';
 import { useLanguageLevelStep } from '@/features/learning/onboarding/useLanguageLevelStep';
+import { OnboardingProgressNavigationProvider } from '@/features/learning/onboarding/OnboardingProgressNavigation';
 import { unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
 import { syncUserData } from '@/lib/sync';
 
@@ -436,9 +442,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       serverActiveMs: goalDay.activeMs,
     };
   }, [continueAnyway, goalDay, goalSummary]);
-  // On a minutes day the clock, not the card count, is what moves the session
-  // from repeats to new words and on to the closing stretch.
-  const sessionTimePhase = useTimePhase(sessionTimeGoal);
   const {
     showNotReady,
     setShowNotReady,
@@ -453,6 +456,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     progressStats,
     upcomingAudioWords,
     bonusBlockProgress,
+    timePhase: sessionTimePhase,
+    timePhaseKinds,
+    timePhaseEmptyKind,
+    timeTransition,
   } = useLearningPageState({
     filteredWords,
     selectedCategories,
@@ -476,7 +483,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     pendingAnswers,
     completedGameIds,
     continueAnyway,
-    timePhase: sessionTimePhase,
+    timeGoal: sessionTimeGoal,
     dayTargets: goalDay ? {
       resolvedNewTarget: goalDay.resolvedNewTarget,
       resolvedReviewTarget: goalDay.resolvedReviewTarget,
@@ -512,7 +519,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     markReallyKnown,
     markUnknown,
     setCustomStage,
-    sessionBlocks: session.dailyPlan?.blocks,
     setMemoryHook,
     lastMovedId,
     showEnglish,
@@ -643,6 +649,17 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // they already have, with nothing written back. It is built from the study
   // scope, so category filters apply to it exactly as they do to the deck.
   const quickPractice = useQuickPractice({ words: filteredWords });
+  const timePracticeWords = useMemo(() => {
+    const introduced = filteredWords.filter((word) => hasIntroducedWord(progress[word.id]));
+    // Prefer genuine review material. A completely new learner who skipped an
+    // empty new phase can still use newly added words as progress-free cards.
+    return introduced.length > 0 ? introduced : filteredWords;
+  },
+    [filteredWords, progress],
+  );
+  // Review time is allowed to continue without moving SRS once every due card
+  // has been answered. Even one word can support a typing card.
+  const timeQuickPractice = useQuickPractice({ words: timePracticeWords, minimumWords: 1 });
 
   const shouldShowAddWordsPrompt = useMemo(
     () =>
@@ -676,7 +693,23 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // The session flow drives both edge rails and the pause between blocks. The
   // breather takes the interstitial slot ahead of every other card: it is the
   // seam in the learner's own session, so nothing else should cut in front.
-  const sessionFlow = useMemo(() => resolveSessionFlow(sessionBlockProgress, sessionTimePhase), [sessionBlockProgress, sessionTimePhase]);
+  const sessionTimePhaseCount = session.dailyPlan?.timePhaseShares?.length;
+  const sessionFlow = useMemo(
+    () => resolveSessionFlow(sessionBlockProgress, sessionTimePhase, sessionTimePhaseCount),
+    [sessionBlockProgress, sessionTimePhase, sessionTimePhaseCount],
+  );
+  const needsTimePractice = timePhaseEmptyKind === 'review';
+  useEffect(() => {
+    let timer: number | undefined;
+    if (needsTimePractice && timeQuickPractice.available && !timeQuickPractice.rounds) {
+      timer = window.setTimeout(timeQuickPractice.start, 0);
+    } else if (!needsTimePractice && timeQuickPractice.rounds) {
+      timer = window.setTimeout(timeQuickPractice.finish, 0);
+    }
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [needsTimePractice, timeQuickPractice.available, timeQuickPractice.finish, timeQuickPractice.rounds, timeQuickPractice.start]);
   // Carrying on past the day still deserves a sense of how far the stretch runs.
   // The bonus round has its own frozen plan, so it gets its own rail; the day's
   // own flow keeps driving the breather and the closing card either way.
@@ -698,9 +731,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   }, [bonusClosed, refreshGoalSummary, sessionFlow.settled]);
   const { breather, dismiss: dismissBreather } = useSessionBreather(railFlow, railBlocks, answeredWords,
     `${session.planIdentity ?? 'unplanned'}:${continueAnyway ? 'bonus' : 'day'}`);
+  const effectiveSessionShortfall = sessionTimeGoal ? 0 : session.dailyPlan?.shortfall ?? 0;
   // One derivation for both surfaces, so the chip in the bar and the card that
   // closes the day can never disagree about the same week.
-  const dayClosedLocally = Boolean(goalDay?.met) || (sessionFlow.complete && (session.dailyPlan?.shortfall ?? 0) === 0);
+  const dayClosedLocally = Boolean(goalDay?.met) || (sessionFlow.complete && effectiveSessionShortfall === 0);
   const streak = useMemo(
     () => goalSummary
       ? resolveStreakData(goalSummary, { optimisticTodayComplete: dayClosedLocally })
@@ -731,13 +765,22 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
         : null,
     [goalDay, localIntroducedToday],
   );
-  const sessionBreatherCard = breather ? (
+  const sessionBreatherCard = breather && !sessionTimeGoal ? (
     <SessionBreatherCard
       breather={breather}
-      role={role}
       onContinue={dismissBreather}
       showDayProgress={!sessionTimeGoal}
     />
+  ) : null;
+  const timeTransitionCard = timeTransition ? (
+    <SessionTimeTransitionCard onContinue={timeTransition.dismiss} />
+  ) : null;
+  const timePhaseEmptyCard = timePhaseEmptyKind === 'new' ? (
+    <SessionTimeNewWordsCard onAddWords={openAddWords} />
+  ) : needsTimePractice && !timeQuickPractice.available ? (
+    <SessionTimeNoPracticeCard onAddWords={openAddWords} />
+  ) : needsTimePractice && !timeQuickPractice.rounds ? (
+    <SessionTimePracticePendingCard />
   ) : null;
 
   // Before the day's first card, and only there: the clock now credits studying
@@ -746,7 +789,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const preflight = useMemo(
     () =>
       planSessionPreflight({
-        plan: session.dailyPlan,
+        // A minutes session asks the live phase resolver whether material is
+        // actually missing. Its compatibility item plan is not a quota and must
+        // never put an add-words screen in front of an already stocked deck.
+        plan: sessionTimeGoal ? null : session.dailyPlan,
         goalEnabled: Boolean(goalSummary?.goal.active?.enabled),
         goalStatus: goalDay?.goalStatus ?? null,
         // The live plan, not the server rollup: the summary lags a sync behind,
@@ -762,6 +808,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       session.dailyPlan,
       sessionFlow.dayDone,
       sessionFlow.dayPending,
+      sessionTimeGoal,
     ],
   );
   const preflightCard = preflight ? (
@@ -776,7 +823,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   ) : null;
 
   const interstitialCard =
-    sessionBreatherCard ?? preflightCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
+    timeTransitionCard ?? timePhaseEmptyCard ?? sessionBreatherCard ?? preflightCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
   const hasNoSelectedWordList = Boolean(
     onboardingCompletedAt &&
       learningLanguageFrom &&
@@ -837,7 +884,9 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // word-chat run after a minutes goal has already been saved.
   useEffect(() => {
     setActivitySurfaceOverride(
-      onboardingSurfaceActive
+      timeTransition
+        ? 'other'
+        : onboardingSurfaceActive
         ? 'onboarding'
         : activeSurface === 'chat'
           ? 'word_chat'
@@ -846,7 +895,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
             : null,
     );
     return () => setActivitySurfaceOverride(null);
-  }, [activeSurface, onboardingSurfaceActive]);
+  }, [activeSurface, onboardingSurfaceActive, timeTransition]);
   // Everything from the languages to the first list is one run of setup, and
   // the progress bar belongs to that run only — not to an existing learner who
   // reopened a screen from the menu.
@@ -961,32 +1010,34 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
         ) : isListRefreshPending && !onboardingCompletedAt ? (
           <LoadingScreen />
         ) : onboardingStep !== 'app' ? (
-          <LearningOnboardingContent
-            step={onboardingStep}
-            isSettingUp={isSettingUp}
-            initialFrom={onboardingInitialFrom}
-            initialTo={onboardingInitialTo}
-            accountEmail={displayEmail}
-            forceWordChat={forceWordChat}
-            languageScreenExit={leaveLanguageScreen}
-            targetLanguage={learningLanguageTo}
-            languageLevel={languageLevelStep.level}
-            languageLevelSaving={languageLevelStep.saving}
-            goalRevision={goalSummary?.goal.revision}
-            goalPacing={goalPacing}
-            goalSaving={isSavingStudyGoal}
-            editableGoal={editableGoal}
-            reminderMinutes={goalSummary?.reminder.localMinutes ?? 19 * 60}
-            reminderSaving={isSavingReminderOnboarding}
-            onSignOut={signOut}
-            onBack={goToPreviousOnboardingStep}
-            onLeaveStep={leaveOnboardingStep}
-            onCompleteLanguagePair={completeLanguagePair}
-            onSelectList={setActiveListId}
-            onSaveLanguageLevel={languageLevelStep.save}
-            onSaveGoal={saveStudyGoal}
-            onCompleteReminder={completeReminderOnboarding}
-          />
+          <OnboardingProgressNavigationProvider onNavigate={setOnboardingBackStep}>
+            <LearningOnboardingContent
+              step={onboardingStep}
+              isSettingUp={isSettingUp}
+              initialFrom={onboardingInitialFrom}
+              initialTo={onboardingInitialTo}
+              accountEmail={displayEmail}
+              forceWordChat={forceWordChat}
+              languageScreenExit={leaveLanguageScreen}
+              targetLanguage={learningLanguageTo}
+              languageLevel={languageLevelStep.level}
+              languageLevelSaving={languageLevelStep.saving}
+              goalRevision={goalSummary?.goal.revision}
+              goalPacing={goalPacing}
+              goalSaving={isSavingStudyGoal}
+              editableGoal={editableGoal}
+              reminderMinutes={goalSummary?.reminder.localMinutes ?? 19 * 60}
+              reminderSaving={isSavingReminderOnboarding}
+              onSignOut={signOut}
+              onBack={goToPreviousOnboardingStep}
+              onLeaveStep={leaveOnboardingStep}
+              onCompleteLanguagePair={completeLanguagePair}
+              onSelectList={setActiveListId}
+              onSaveLanguageLevel={languageLevelStep.save}
+              onSaveGoal={saveStudyGoal}
+              onCompleteReminder={completeReminderOnboarding}
+            />
+          </OnboardingProgressNavigationProvider>
         ) : (
           <>
             {shouldShowFeatureTour && <FeatureTour onFinish={finishFeatureTour} />}
@@ -1035,14 +1086,33 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                   }}
                 />
               ) : undefined}
-              practiceRun={
-                quickPractice.rounds ? (
-                  <QuickPracticeRun
-                    rounds={quickPractice.rounds}
-                    role={role}
-                    onFinish={quickPractice.finish}
-                  />
-                ) : null
+              practice={
+                timeQuickPractice.rounds ? {
+                  run: (
+                    <QuickPracticeRun
+                      rounds={timeQuickPractice.rounds}
+                      index={timeQuickPractice.index}
+                      role={role}
+                      onAdvance={timeQuickPractice.advance}
+                      onFinish={timeQuickPractice.finish}
+                    />
+                  ),
+                  done: timeQuickPractice.index,
+                  total: timeQuickPractice.rounds.length,
+                  timed: true,
+                } : quickPractice.rounds ? {
+                  run: (
+                    <QuickPracticeRun
+                      rounds={quickPractice.rounds}
+                      index={quickPractice.index}
+                      role={role}
+                      onAdvance={quickPractice.advance}
+                      onFinish={quickPractice.finish}
+                    />
+                  ),
+                  done: quickPractice.index,
+                  total: quickPractice.rounds.length,
+                } : null
               }
               categories={categories}
               progressStats={progressStats}
@@ -1055,7 +1125,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               isSwipeBlockedForWord={isTypingCard}
               streamGroups={streamGroups}
               sessionFlow={railFlow}
-              sessionTimeGoal={sessionTimeGoal}
+              sessionTimeGoal={sessionTimeGoal ? {
+                ...sessionTimeGoal,
+                phaseShares: session.dailyPlan?.timePhaseShares,
+                phaseKinds: timePhaseKinds,
+              } : null}
               renderCardForDeck={renderCardForDeck}
               renderMiniGameForDeck={renderMiniGameForDeck}
               renderCard={renderCard}
@@ -1077,7 +1151,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               // still reporting the day.
               dayFlow={sessionFlow}
               dayScore={dayScore}
-              shortfall={session.dailyPlan?.shortfall ?? 0}
+              shortfall={effectiveSessionShortfall}
               streak={streak}
               onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
             />

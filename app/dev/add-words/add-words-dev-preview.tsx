@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { I18nProvider } from '@/components/I18nProvider';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
-import { WordChatProgress } from '@/features/word-chat/components/WordChatProgress';
 import { SelectStep } from '@/features/word-chat/components/SelectStep';
 import { ReviewStep } from '@/features/word-chat/components/ReviewStep';
 import { DoneStep } from '@/features/word-chat/components/DoneStep';
@@ -79,16 +78,13 @@ const SCREENS: Array<[Screen, string]> = [
   ['done', '3 · Saved'],
 ];
 
-function Frame({ step, children }: { step: Screen; children: React.ReactNode }) {
+function Frame({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[800px] px-4 pb-10">
       <section
         style={warmPaletteVars}
         className="onboarding-card w-full rounded-2xl! border-2! p-4 sm:p-7"
       >
-        <div className="mb-5">
-          <WordChatProgress step={step} />
-        </div>
         {children}
       </section>
     </div>
@@ -125,7 +121,7 @@ export function AddWordsDevPreview() {
         </div>
 
         {screen === 'select' ? (
-          <Frame step="select">
+          <Frame>
             <SelectStep
               mode="manual"
               listName="Moje slovíčka — angličtina"
@@ -155,7 +151,7 @@ export function AddWordsDevPreview() {
             />
           </Frame>
         ) : screen === 'review' ? (
-          <Frame step="review">
+          <Frame>
             <ReviewStep
               items={reviewItems}
               listName="Moje slovíčka — angličtina"
@@ -172,7 +168,7 @@ export function AddWordsDevPreview() {
             />
           </Frame>
         ) : (
-          <Frame step="done">
+          <Frame>
             <DoneStep
               result={commitResult}
               refreshStatus="success"

@@ -33,7 +33,6 @@ function renderBetween(props: Partial<React.ComponentProps<typeof SessionBreathe
     <I18nProvider language="en">
       <SessionBreatherCard
         breather={between()}
-        role="knownLanguage"
         onContinue={() => {}}
         {...props}
       />
@@ -49,14 +48,27 @@ describe('SessionBreatherCard at the seam between two stretches', () => {
     expect(screen.getByText('3 new words')).toBeInTheDocument();
   });
 
-  it('names the stretch that just ended, on the side the learner already knows', () => {
+  it('does not repeat newly added words after their block is complete', () => {
     renderBetween();
 
-    expect(screen.getByText('pes')).toBeInTheDocument();
-    expect(screen.getByText('kočka')).toBeInTheDocument();
-    // The block starting now is a pass over these same words; printing their
-    // other side here would answer it in advance.
+    expect(screen.queryByText('Just added')).not.toBeInTheDocument();
+    expect(screen.queryByText('pes')).not.toBeInTheDocument();
+    expect(screen.queryByText('kočka')).not.toBeInTheDocument();
     expect(screen.queryByText('con chó')).not.toBeInTheDocument();
+  });
+
+  it('does not show a just-reviewed label or the reviewed words', () => {
+    const reviewBreather = between();
+    renderBetween({
+      breather: {
+        ...reviewBreather,
+        finished: { ...reviewBreather.finished, kind: 'review' },
+      },
+    });
+
+    expect(screen.queryByText('Just reviewed')).not.toBeInTheDocument();
+    expect(screen.queryByText('pes')).not.toBeInTheDocument();
+    expect(screen.queryByText('kočka')).not.toBeInTheDocument();
   });
 
   it('drops the item bar on a minutes day, where the countdown already answers it', () => {

@@ -48,7 +48,7 @@ export const KEPT = 'var(--rail-review)';
 const BONUS = 'var(--rail-new)';
 export const TRACK = 'var(--rail-track)';
 /** The bar's own ink, for outlines that must survive a near-transparent track. */
-export const INK = '#2a2218';
+export const INK = 'var(--ink)';
 
 /**
  * Days are told apart by shape, not by shades of one colour.
@@ -209,17 +209,17 @@ export function StreakSummary({ streak }: { streak: StreakChipData }) {
     <div className="mt-5 flex flex-col items-center gap-2.5">
       <div className="flex items-baseline justify-center gap-5">
         {streak.dailyStreak === 0 && streak.weeklyStreak === 0 ? (
-          <p className="m-0 text-base font-black tabular-nums text-[#4a4032] sm:text-lg">
+          <p className="m-0 text-base font-black tabular-nums text-ink-500 sm:text-lg">
             {t('goal.streakLabel', { count: streak.dailyStreak })}
           </p>
         ) : null}
         {streak.dailyStreak > 0 ? (
-          <p className="m-0 text-base font-black tabular-nums text-[#4a4032] sm:text-lg">
+          <p className="m-0 text-base font-black tabular-nums text-ink-500 sm:text-lg">
             {t('goal.streakLabel', { count: streak.dailyStreak })}
           </p>
         ) : null}
         {streak.weeklyStreak > 0 ? (
-          <p className="m-0 text-base font-black tabular-nums text-[#4a4032] sm:text-lg">
+          <p className="m-0 text-base font-black tabular-nums text-ink-500 sm:text-lg">
             {t('goal.streakWeeksLabel', { count: streak.weeklyStreak })}
           </p>
         ) : null}

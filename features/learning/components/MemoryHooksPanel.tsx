@@ -28,20 +28,20 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
       )}
       <div className="panel-content">
         <div className="memory-hooks-learn-more">
-          <header className="sticky top-0 z-10 border-b-2 border-dashed border-[rgba(31,26,18,0.14)] bg-[#f4ecda] px-5 py-4 sm:px-8 sm:py-6">
+          <header className="sticky top-0 z-10 border-b-2 border-dashed border-[rgba(31,26,18,0.14)] bg-paper-shade px-5 py-4 sm:px-8 sm:py-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="m-0 font-mono text-[0.76rem] font-bold uppercase tracking-[0.28em] text-[#6f6453] sm:text-[0.84rem]">
+                <p className="m-0 font-mono text-[0.76rem] font-bold uppercase tracking-[0.28em] text-ink-350 sm:text-[0.84rem]">
                   {copy.eyebrow}
                 </p>
-                <h2 className="m-0 mt-2 text-[1.75rem] font-black leading-none tracking-normal text-[#1f1a12] sm:text-[2rem]">
+                <h2 className="m-0 mt-2 text-[1.75rem] font-black leading-none tracking-normal text-ink-800 sm:text-[2rem]">
                   {copy.title}
                 </h2>
               </div>
               {onClose && (
                 <button
                   onClick={onClose}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[#1f1a12] bg-transparent text-[#1f1a12] transition-colors hover:bg-[#efe5cf] sm:h-12 sm:w-12"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-ink-800 bg-transparent text-ink-800 transition-colors hover:bg-paper-deep sm:h-12 sm:w-12"
                   aria-label={t('memory.close')}
                 >
                   <span className="relative block h-5 w-5" aria-hidden="true">
@@ -54,9 +54,9 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
           </header>
 
           <div className="space-y-7 px-5 py-5 sm:space-y-8 sm:px-8 sm:py-7">
-            <section className="space-y-3 text-[1.04rem] font-medium leading-relaxed text-[#4a4032] sm:text-[1.18rem]">
+            <section className="space-y-3 text-[1.04rem] font-medium leading-relaxed text-ink-500 sm:text-[1.18rem]">
               <p className="m-0 text-[#3f3529]">{copy.intro}</p>
-              <p className="m-0 text-[#6f6453]">{copy.temporary}</p>
+              <p className="m-0 text-ink-350">{copy.temporary}</p>
             </section>
 
             <section className="space-y-3">
@@ -65,10 +65,10 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
                 {copy.kinds.map((kind) => (
                   <div
                     key={kind.label}
-                    className="rounded-[1.05rem] border-2 border-[rgba(31,26,18,0.13)] bg-[#efe5cf]/70 px-4 py-3 text-[#4a4032] sm:px-5"
+                    className="rounded-[1.05rem] border-2 border-[rgba(31,26,18,0.13)] bg-paper-deep/70 px-4 py-3 text-ink-500 sm:px-5"
                   >
                     <p className="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[1rem] font-bold leading-snug sm:text-[1.08rem]">
-                      <span className="inline-flex rounded-full bg-[var(--tm-accent)] px-3 py-1 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-[#f4ecda]">
+                      <span className="inline-flex rounded-full bg-[var(--tm-accent)] px-3 py-1 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-paper-shade">
                         {kind.label}
                       </span>
                       <span>{kind.title}</span>
@@ -84,12 +84,12 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
                 {copy.qualities.map((quality) => (
                   <div
                     key={quality.title}
-                    className="min-h-[92px] rounded-[1.05rem] border-2 border-[rgba(31,26,18,0.13)] bg-[#efe5cf]/70 px-4 py-3 sm:px-5"
+                    className="min-h-[92px] rounded-[1.05rem] border-2 border-[rgba(31,26,18,0.13)] bg-paper-deep/70 px-4 py-3 sm:px-5"
                   >
-                    <h3 className="m-0 text-[1.08rem] font-black leading-tight text-[#1f1a12] sm:text-[1.16rem]">
+                    <h3 className="m-0 text-[1.08rem] font-black leading-tight text-ink-800 sm:text-[1.16rem]">
                       {quality.title}
                     </h3>
-                    <p className="m-0 mt-1 text-[0.98rem] font-medium leading-snug text-[#6f6453] sm:text-[1.02rem]">
+                    <p className="m-0 mt-1 text-[0.98rem] font-medium leading-snug text-ink-350 sm:text-[1.02rem]">
                       {quality.description}
                     </p>
                   </div>
@@ -108,7 +108,7 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <h3 className="m-0 font-mono text-[0.78rem] font-bold uppercase tracking-[0.28em] text-[#6f6453] sm:text-[0.86rem]">
+    <h3 className="m-0 font-mono text-[0.78rem] font-bold uppercase tracking-[0.28em] text-ink-350 sm:text-[0.86rem]">
       {children}
     </h3>
   );
@@ -121,7 +121,7 @@ function TextSection({ title, paragraphs }: { title: string; paragraphs: string[
       {paragraphs.map((paragraph, index) => (
         <p
           key={index}
-          className="m-0 text-[1.02rem] font-medium leading-relaxed text-[#4a4032] sm:text-[1.12rem]"
+          className="m-0 text-[1.02rem] font-medium leading-relaxed text-ink-500 sm:text-[1.12rem]"
         >
           {paragraph}
         </p>

@@ -19,7 +19,7 @@ export function SpeckledBackground({
 }: SpeckledBackgroundProps) {
   const nativeApp = usePlatformCapabilities().runtime === 'native';
   const cls = [
-    'speckled-background pointer-events-none fixed left-0 top-0 -z-10 w-full max-w-[stretch] bg-[#dcd1b9] object-fill',
+    'speckled-background pointer-events-none fixed left-0 top-0 -z-10 w-full max-w-[stretch] bg-sand object-fill',
     className,
   ].filter(Boolean).join(' ');
 

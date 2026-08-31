@@ -346,14 +346,14 @@ export const WordCard = memo(function WordCard({
         <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
           <div
             ref={hookDisplayRef}
-            className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-[#2A2218] hover:!bg-[#2A2218]/5 ${coverMemoryHook ? 'is-covered' : ''}`}
+            className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-ink hover:!bg-ink/5 ${coverMemoryHook ? 'is-covered' : ''}`}
             data-lang="memory-hook"
             onDoubleClick={startEditing}
             onClick={() => {
               if (!coverMemoryHook) handleHookTap();
             }}
           >
-            <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${coverMemoryHook ? '[.is-pressed_&]:!text-[#2A2218]' : '!text-[#2A2218]'} ${!memoryHook ? 'opacity-60 italic' : ''}`}>
+            <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${coverMemoryHook ? '[.is-pressed_&]:!text-ink' : '!text-ink'} ${!memoryHook ? 'opacity-60 italic' : ''}`}>
               {displayHook}
             </span>
             {coverMemoryHook && <RevealHint />}
@@ -361,7 +361,7 @@ export const WordCard = memo(function WordCard({
           <input
             ref={hookInputRef}
             type="text"
-            className={`memory-hook-input !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none`}
+            className={`memory-hook-input !border-2 !border-ink !bg-paper !text-ink placeholder:!text-ink/50 focus:!border-sea focus:!shadow-none`}
             placeholder={t('card.memoryHookInput')}
             value={hookValue}
             maxLength={MEMORY_HOOK_MAX_LENGTH}
@@ -401,7 +401,7 @@ export const WordCard = memo(function WordCard({
         {audioSrc && (
           <button
             type="button"
-            className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#1E6FA8] hover:!border-[#1E6FA8] hover:!text-[#F4EFE2] active:!bg-[#1E6FA8] active:!border-[#1E6FA8] active:!text-[#F4EFE2]"
+            className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-ink !bg-paper !text-ink !shadow-none hover:!bg-sea hover:!border-sea hover:!text-paper active:!bg-sea active:!border-sea active:!text-paper"
             onClick={() => playAudio(audioSrc)}
             title={role === 'languageToLearn' ? t('card.playCzechAudio') : t('card.playVietnameseAudio')}
             aria-label={t('card.playAudio')}
@@ -443,7 +443,7 @@ export const WordCard = memo(function WordCard({
               {unknownPresses > 0 && (
                 <span
                   aria-label={`${unknownPresses} ${t('card.forgotten')}`}
-                  className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#2A2218] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                  className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-ink text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
                 >
                   {unknownPresses}
                 </span>
@@ -462,7 +462,7 @@ export const WordCard = memo(function WordCard({
               {knownPresses > 0 && (
                 <span
                   aria-label={`${knownPresses} ${t('card.known')}`}
-                  className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                  className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-sea text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
                 >
                   {knownPresses}
                 </span>

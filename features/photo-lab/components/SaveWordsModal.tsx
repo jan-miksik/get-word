@@ -297,7 +297,7 @@ export function SaveWordsModal({
             </ul>
 
             {state.status === 'error' && (
-              <p className="m-0 mt-3 text-sm font-medium text-[#B91C1C]">
+              <p className="m-0 mt-3 text-sm font-medium text-brick">
                 {t('photoLab.saveError')}
               </p>
             )}

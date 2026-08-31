@@ -36,7 +36,7 @@ export function TypeAnswerBar({
   return (
     <form
       data-photo-control
-      className="flex w-full flex-col gap-2 rounded-2xl border border-[color:var(--ob-ink)]/15 bg-[#F4EFE2]/95 p-3 shadow-lg backdrop-blur-md sm:p-4"
+      className="flex w-full flex-col gap-2 rounded-2xl border border-[color:var(--ob-ink)]/15 bg-paper/95 p-3 shadow-lg backdrop-blur-md sm:p-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (!solvedFeedback) onSubmit();

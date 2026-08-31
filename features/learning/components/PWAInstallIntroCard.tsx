@@ -19,14 +19,14 @@ interface PWAInstallIntroCardProps {
 }
 
 const PALETTE = {
-  bg: '#dcd1b9',
-  card: '#f1ebdc',
+  bg: 'var(--sand)',
+  card: 'var(--paper-dim)',
   cardAlt: '#e8e0ce',
   ink: '#1f1409',
   inkSoft: '#3a2a1c',
-  muted: '#7c6a55',
+  muted: 'var(--ink-250)',
   cta: '#241a10',
-  ctaText: '#f1ebdc',
+  ctaText: 'var(--paper-dim)',
   warnBg: '#f5d8a6',
 } as const;
 
@@ -232,7 +232,7 @@ function SkipInstallLink({ label, onClick }: { label: string; onClick: () => voi
           fontWeight: 600,
           textDecoration: 'underline',
           textUnderlineOffset: 3,
-          textDecorationColor: `${PALETTE.muted}80`,
+          textDecorationColor: `color-mix(in srgb, ${PALETTE.muted} 50%, transparent)`,
           textDecorationThickness: 1,
         }}
       >
@@ -459,7 +459,7 @@ function InstallScreen({
               padding: '14px 8px',
               border: `1.5px dashed ${PALETTE.ink}55`,
               borderRadius: 14,
-              background: `${PALETTE.card}80`,
+              background: `color-mix(in srgb, ${PALETTE.card} 50%, transparent)`,
             }}
           >
             {copy.desktopHint}

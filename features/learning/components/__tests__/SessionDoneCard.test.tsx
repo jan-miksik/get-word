@@ -91,7 +91,7 @@ describe('SessionDoneCard closing the day', () => {
     // Nothing to acknowledge: the only button is a way on, not a way out.
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(screen.getByRole('button', { name: /add words/i })).toBeInTheDocument();
-    expect(container.querySelector('section')).toHaveClass('max-w-none', 'rounded-[1.75rem]');
+    expect(container.querySelector('section')).toHaveClass('max-w-[500px]', 'rounded-[1.75rem]');
   });
 
   it('reports the day in both units', () => {
@@ -289,5 +289,12 @@ describe('SessionDoneCard closing the day', () => {
     fireEvent.click(screen.getByRole('button', { name: /add words/i }));
 
     expect(onOpenWordChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the shell full-width while capping the closing modal at 500px', () => {
+    const { container } = renderCard({ dayFlow: closedDay() });
+
+    expect(container.firstElementChild).toHaveClass('w-full');
+    expect(container.querySelector('section')).toHaveClass('w-full', 'max-w-[500px]');
   });
 });

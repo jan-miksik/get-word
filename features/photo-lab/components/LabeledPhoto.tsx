@@ -64,9 +64,9 @@ function LabelChip({
   // var-based opacity to color-mix(), which older iOS Safari drops entirely.
   const surface =
     state === 'solved'
-      ? 'bg-[#15803D]/90'
+      ? 'bg-green-alt/90'
       : state === 'revealed'
-        ? 'bg-[#1E6FA8]/90'
+        ? 'bg-sea/90'
         : 'bg-black/60';
   return (
     <div
@@ -278,7 +278,7 @@ export function LabeledPhoto({
               className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:text-sm ${
                 mode === option
                   ? 'bg-[var(--ob-ink)] text-[var(--ob-surface)]'
-                  : 'text-[color:var(--ob-ink-soft)] hover:bg-[#2A2218]/8'
+                  : 'text-[color:var(--ob-ink-soft)] hover:bg-ink/8'
               }`}
             >
               {option === 'reveal' ? t('photoLab.modeReveal') : t('photoLab.modeType')}
@@ -297,7 +297,7 @@ export function LabeledPhoto({
         <div
           ref={viewportRef}
           {...handlers}
-          className={`relative inline-grid max-w-full select-none overflow-hidden bg-black/5 shadow-lg [grid-area:1/1] sm:rounded-2xl sm:border-2 sm:border-[color:var(--ob-ink)] sm:shadow-xl sm:shadow-[#2A2218]/10 ${
+          className={`relative inline-grid max-w-full select-none overflow-hidden bg-black/5 shadow-lg [grid-area:1/1] sm:rounded-2xl sm:border-2 sm:border-[color:var(--ob-ink)] sm:shadow-xl sm:shadow-ink/10 ${
             transform.scale > 1 ? 'touch-none' : 'touch-pan-y'
           }`}
         >

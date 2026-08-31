@@ -66,12 +66,12 @@ export function TypingMemoryHook({
   return (
     <div className={`memory-hook-container mx-auto mt-1 mb-0 w-[calc(100%-2rem)] max-w-md self-center ${editing ? 'editing' : ''}`}>
       <div
-        className="memory-hook-display relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-[#2A2218] hover:!bg-[#2A2218]/5"
+        className="memory-hook-display relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-ink hover:!bg-ink/5"
         data-lang="memory-hook"
         onDoubleClick={startEditing}
         onClick={handleTap}
       >
-        <span className={`memory-hook-text relative inline-block min-h-[1.4em] !text-[#2A2218] ${!memoryHook ? 'opacity-60 italic' : ''}`}>
+        <span className={`memory-hook-text relative inline-block min-h-[1.4em] !text-ink ${!memoryHook ? 'opacity-60 italic' : ''}`}>
           {displayHook ?? (
             <>
               <span className="sm:hidden">💭 {t('card.memoryHookPlaceholderMobile')}</span>
@@ -83,7 +83,7 @@ export function TypingMemoryHook({
       <input
         ref={inputRef}
         type="text"
-        className="memory-hook-input !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none"
+        className="memory-hook-input !border-2 !border-ink !bg-paper !text-ink placeholder:!text-ink/50 focus:!border-sea focus:!shadow-none"
         placeholder={t('card.memoryHookPlaceholderMobile')}
         value={value}
         maxLength={MEMORY_HOOK_MAX_LENGTH}

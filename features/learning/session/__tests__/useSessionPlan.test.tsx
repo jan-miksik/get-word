@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { WordStream } from '@/features/learning/hooks/useWordStream';
 import { readSessionPlan } from '../storage';
-import { useSessionPlan } from '../useSessionPlan';
+import { extendTimeSessionPlan, useSessionPlan } from '../useSessionPlan';
 
 const scope = { dayKey: '2026-08-20', scopeKey: 'pair:cs:vi|categories:all', goalVersionId: 'goal-1' };
 const goal = {
@@ -83,5 +83,41 @@ describe('useSessionPlan persistence', () => {
     }));
 
     await waitFor(() => expect(second.result.current.dailyPlan?.blocks).toHaveLength(3));
+  });
+});
+
+describe('extendTimeSessionPlan', () => {
+  it('fills a missing new phase and its reinforcement without replacing completed work', () => {
+    const initial = {
+      enabled: true,
+      sessionItemCap: 5,
+      priorityIds: [],
+      dueIds: ['review'],
+      newIds: [],
+      deferredDueCount: 0,
+      shortfall: 4,
+      newShortfall: 2,
+      reason: 'normal' as const,
+      blocks: [{ key: 'review-0', kind: 'review' as const, ids: ['review'], phase: 0 }],
+      timePhaseShares: [1 / 3, 1 / 3, 1 / 3],
+      timePhaseKinds: ['review', 'new', 'review'] as Array<'review' | 'new'>,
+    };
+
+    const extended = extendTimeSessionPlan(initial, {
+      priorityWords: [],
+      newWords: [word('new-1'), word('new-2'), word('new-3')],
+    }, {});
+
+    expect(extended.newIds).toEqual(['new-1', 'new-2']);
+    expect(extended.blocks).toEqual([
+      { key: 'review-0', kind: 'review', ids: ['review'], phase: 0 },
+      { key: 'new-0', kind: 'new', ids: ['new-1', 'new-2'], phase: 1 },
+      {
+        key: 'review-1', kind: 'review', ids: ['new-1', 'new-2'],
+        pass: 2, phase: 2, reinforcement: true,
+      },
+    ]);
+    expect(extended).toMatchObject({ shortfall: 0, newShortfall: 0 });
+    expect(extended.answerBaseline).toEqual({ 'new-1': 0, 'new-2': 0 });
   });
 });

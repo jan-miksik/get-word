@@ -49,7 +49,7 @@ function UsageBadge({ usage }: { usage: NonNullable<ReturnType<typeof usePhotoLa
     <p
       className={`m-0 text-xs ${
         usage.remaining <= 0
-          ? 'font-medium text-[#B91C1C]'
+          ? 'font-medium text-brick'
           : 'text-[color:var(--ob-ink-soft)]'
       }`}
       aria-live="polite"
@@ -220,7 +220,7 @@ function PhotoLabContent({
 }
 
 const BACK_LINK_CLASS =
-  'shrink-0 rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-[#2A2218]/10 sm:text-base';
+  'shrink-0 rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-paper/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-ink/10 sm:text-base';
 
 /**
  * Back out of the lab.
@@ -299,7 +299,7 @@ function PhotoSourceTile({
       disabled={disabled}
       title={title}
       onClick={onClick}
-      className={`flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[color:var(--ob-ink)]/45 bg-[var(--ob-accent)]/8 px-3 text-center text-[color:var(--ob-ink)] transition hover:-translate-y-1 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-accent)]/15 hover:shadow-lg hover:shadow-[#2A2218]/15 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none ${className}`}
+      className={`flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[color:var(--ob-ink)]/45 bg-[var(--ob-accent)]/8 px-3 text-center text-[color:var(--ob-ink)] transition hover:-translate-y-1 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-accent)]/15 hover:shadow-lg hover:shadow-ink/15 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none ${className}`}
     >
       <span aria-hidden="true" className="text-4xl font-light leading-none text-[var(--ob-accent)]">
         {icon}
@@ -589,7 +589,7 @@ function PhotoLabStudio({
               ? // Mirror the LabeledPhoto viewport (full-bleed square on mobile,
                 // rounded and bordered on sm+) so corners don't jump when the
                 // analysis finishes.
-                'relative -mx-3 overflow-hidden bg-black/5 shadow-lg sm:mx-0 sm:max-w-3xl sm:rounded-2xl sm:border-2 sm:border-[color:var(--ob-ink)] sm:shadow-xl sm:shadow-[#2A2218]/10'
+                'relative -mx-3 overflow-hidden bg-black/5 shadow-lg sm:mx-0 sm:max-w-3xl sm:rounded-2xl sm:border-2 sm:border-[color:var(--ob-ink)] sm:shadow-xl sm:shadow-ink/10'
               : 'mx-auto w-full max-w-xl rounded-2xl border-2 border-[color:var(--ob-ink)]/60 bg-white/35 px-4 py-3'
           }
           aria-live="polite"
@@ -625,7 +625,7 @@ function PhotoLabStudio({
             <p className="m-0">{analysisStatusText}</p>
             <div
               className={`h-1.5 overflow-hidden rounded-full ${
-                pendingPhoto ? 'bg-white/25' : 'bg-[#2A2218]/10'
+                pendingPhoto ? 'bg-white/25' : 'bg-ink/10'
               }`}
               aria-hidden="true"
             >
@@ -644,7 +644,7 @@ function PhotoLabStudio({
       )}
 
       {errorCode && !analyzing && (
-        <div className="flex w-full max-w-xl flex-col items-center gap-2.5 rounded-2xl border-2 border-[color:var(--ob-ink)] bg-[#B91C1C]/5 p-4">
+        <div className="flex w-full max-w-xl flex-col items-center gap-2.5 rounded-2xl border-2 border-[color:var(--ob-ink)] bg-brick/5 p-4">
           <p className="m-0 text-center text-sm font-medium">{t(ERROR_MESSAGE_KEYS[errorCode])}</p>
           {pendingPhoto && errorCode !== 'limit' && errorCode !== 'tooLarge' && (
             <button
@@ -709,7 +709,7 @@ function PhotoLabStudio({
               <button
                 type="button"
                 onClick={() => void openSession(session)}
-                className="relative block w-full overflow-hidden rounded-xl border-2 border-[color:var(--ob-ink)]/25 transition group-hover:-translate-y-1 group-hover:border-[color:var(--ob-ink)] group-hover:shadow-lg group-hover:shadow-[#2A2218]/15"
+                className="relative block w-full overflow-hidden rounded-xl border-2 border-[color:var(--ob-ink)]/25 transition group-hover:-translate-y-1 group-hover:border-[color:var(--ob-ink)] group-hover:shadow-lg group-hover:shadow-ink/15"
               >
                 {thumbUrls.get(session.id) ? (
                   // eslint-disable-next-line @next/next/no-img-element -- local blob URL
@@ -719,7 +719,7 @@ function PhotoLabStudio({
                     className="block aspect-square w-full object-cover"
                   />
                 ) : (
-                  <span className="block aspect-square w-full bg-[#2A2218]/10" />
+                  <span className="block aspect-square w-full bg-ink/10" />
                 )}
                 <span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-black/65 to-transparent px-2 pb-1.5 pt-7 text-[11px] font-medium text-white">
                   <span aria-hidden="true">{getLanguageFlag(session.languageFrom)}</span>
@@ -740,7 +740,7 @@ function PhotoLabStudio({
           ))}
         </div>
         {limitReached && (
-          <span className="text-xs font-medium text-[#B91C1C] sm:text-sm">
+          <span className="text-xs font-medium text-brick sm:text-sm">
             {t('photoLab.limitReachedHint')}
           </span>
         )}

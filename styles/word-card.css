@@ -402,7 +402,7 @@
 }
 
 .srs-btn {
-  --srs-ink: #2A2218;
+  --srs-ink: var(--ink);
   min-width: 0;
   min-height: 72px;
   border: 2px solid var(--srs-ink);
@@ -457,17 +457,17 @@
 }
 
 .srs-btn--forgot {
-  background: #F4EFE2;
+  background: var(--paper);
   color: var(--srs-ink);
 }
 
 .srs-btn--okay {
-  background: #F4EFE2;
+  background: var(--paper);
   color: var(--srs-ink);
 }
 
 .srs-btn--easy {
-  background: #F4EFE2;
+  background: var(--paper);
   color: var(--srs-ink);
 }
 
@@ -501,16 +501,16 @@
   .srs-btn--forgot:hover,
   .srs-btn--okay:hover,
   .srs-btn--easy:hover {
-    background: #1E6FA8;
+    background: var(--sea);
     color: #fff;
     border-color: var(--srs-ink);
   }
 }
 
 .srs-btn:active {
-  background: #1E6FA8;
-  border-color: #1E6FA8;
-  color: #F4EFE2;
+  background: var(--sea);
+  border-color: var(--sea);
+  color: var(--paper);
 }
 
 @media (max-width: 430px) {
@@ -1015,11 +1015,11 @@
 
 /* Dark text on the beige background */
 .word-card--fullscreen .lang-text {
-  color: #1c1410;
+  color: var(--ink-850);
 }
 
 .word-card--fullscreen .cover-target.is-pressed .lang-text {
-  color: #1c1410;
+  color: var(--ink-850);
 }
 
 .word-card--fullscreen .memory-hook-display {

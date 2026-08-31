@@ -27,7 +27,7 @@
   position: fixed;
   inset: 0;
   z-index: -10;
-  background: #dcd1b9;
+  background: var(--sand);
 }
 
 /* Four border strips — thickness controlled by the S constant in SpeckledBackground.tsx */
@@ -80,7 +80,7 @@
    notch padding anyway. */
 .app[data-app-surface='chat'] .app-header-bar,
 .app[data-app-surface='photo'] .app-header-bar {
-  background: #f4efe2;
+  background: var(--paper);
 }
 
 .app[data-app-surface='chat'],
@@ -90,7 +90,7 @@
   /* Cream all the way out, so anything the sheet does not cover — the strip
      under a short step, the overscroll gutter — is the same colour as the
      sheet instead of the app's darker sand. */
-  background: #f4efe2;
+  background: var(--paper);
 }
 
 /* The speckled sand sheet is fixed to the viewport and `.app` isolates, so it

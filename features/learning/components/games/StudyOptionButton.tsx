@@ -46,27 +46,27 @@ const sizeClasses: Record<StudyOptionSize, string> = {
 
 const stateClasses: Record<StudyOptionState, string> = {
   idle:
-    'border-[#BBAE98] bg-[#FFF8E8] text-[#2A2218] shadow-[0_3px_0_#D8C9AF] ' +
-    'hover:-translate-y-0.5 hover:border-[#1E6FA8] hover:shadow-[0_5px_0_#C7B89E] ' +
+    'border-ink-faint bg-paper-hi text-ink shadow-[0_3px_0_#D8C9AF] ' +
+    'hover:-translate-y-0.5 hover:border-sea hover:shadow-[0_5px_0_#C7B89E] ' +
     'active:translate-y-[2px] active:shadow-none',
   // A picked half stays paper and lifts instead of filling with cold blue: the
   // board sits on warm sand, and a flat blue slab read as a foreign element.
   selected:
-    '-translate-y-0.5 border-[#1E6FA8] bg-[#FFF8E8] text-[#17608F] ' +
-    'shadow-[0_5px_0_#B9CFE0] ring-2 ring-[#1E6FA8]/15',
+    '-translate-y-0.5 border-sea bg-paper-hi text-sea-mid ' +
+    'shadow-[0_5px_0_#B9CFE0] ring-2 ring-sea/15',
   correct:
-    'scale-[1.025] border-[#187A43] bg-[#E3F3E7] text-[#145B33] shadow-[0_4px_0_#A9D3B6] ' +
+    'scale-[1.025] border-moss bg-wash-moss text-[#145B33] shadow-[0_4px_0_#A9D3B6] ' +
     'motion-safe:animate-[pulse_420ms_ease-out_1]',
   // A settled pair carries its own colour; what is left in play stays plain
   // cream, so the board reads as "collected vs still open" at a glance.
   // Everything colourful (wash, border, spine) is inline, keyed off the pair's
   // hue — the fixed green border used to fight whatever tint the pair drew.
   // The class values are the fallback for a settled button with no colour.
-  matched: 'border-[#C9BBA3] bg-[#F6EEDE] text-[#2A2218] shadow-[0_2px_0_#DCCFB6]',
+  matched: 'border-paper-edge bg-[#F6EEDE] text-ink shadow-[0_2px_0_#DCCFB6]',
   wrong:
-    'border-[#B91C1C] bg-[#FCE7E5] text-[#8F1515] shadow-[0_3px_0_#E4AAA6] ' +
+    'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6] ' +
     'motion-safe:animate-[game-shake_350ms_ease]',
-  reveal: 'border-[#187A43] bg-[#F1F7ED] text-[#187A43] shadow-none',
+  reveal: 'border-moss bg-[#F1F7ED] text-moss shadow-none',
 };
 
 export function StudyOptionButton({
@@ -105,7 +105,7 @@ export function StudyOptionButton({
   // show through, which turned every settled pair the same muddy grey.
   const matchTint = hue
     ? {
-        backgroundColor: '#FFF8E8',
+        backgroundColor: 'var(--paper-hi)',
         backgroundImage: `linear-gradient(rgb(${hue} / 0.19), rgb(${hue} / 0.19))`,
         borderColor: `rgb(${hue} / 0.45)`,
         boxShadow: `0 2px 0 rgb(${hue} / 0.26)`,

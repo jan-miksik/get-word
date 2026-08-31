@@ -947,7 +947,7 @@ describe('TypingStudyCard', () => {
     const activeSlot = document.querySelector('.game-typing-slot.is-active');
     expect(activeSlot).toHaveClass('after:!left-0');
     expect(activeSlot).toHaveClass('after:!translate-x-0');
-    expect(activeSlot).toHaveClass('after:!bg-[#2A2218]');
+    expect(activeSlot).toHaveClass('after:!bg-ink');
     expect(activeSlot?.className).not.toContain('before:');
     expect(input()).toHaveClass('selection:bg-transparent');
   });

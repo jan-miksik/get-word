@@ -1,10 +1,10 @@
 /* Neo-brutalist top-menu palette (cream + dark ink) */
 .top-menu {
-  --tm-surface: #F4EFE2;
-  --tm-surface-hover: #FFF8E8;
-  --tm-ink: #2A2218;
-  --tm-ink-soft: #6B5E48;
-  --tm-accent: #1E6FA8;
+  --tm-surface: var(--paper);
+  --tm-surface-hover: var(--paper-hi);
+  --tm-ink: var(--ink);
+  --tm-ink-soft: var(--ink-soft);
+  --tm-accent: var(--sea);
 }
 
 .mode-btn {
@@ -652,11 +652,11 @@
 }
 
 .list-select-modal {
-  --tm-surface: #F4EFE2;
-  --tm-surface-hover: #FFF8E8;
-  --tm-ink: #2A2218;
-  --tm-ink-soft: #6B5E48;
-  --tm-accent: #1E6FA8;
+  --tm-surface: var(--paper);
+  --tm-surface-hover: var(--paper-hi);
+  --tm-ink: var(--ink);
+  --tm-ink-soft: var(--ink-soft);
+  --tm-accent: var(--sea);
   width: min(420px, 100%);
   max-height: min(540px, 80vh);
   display: flex;
@@ -860,13 +860,13 @@
 
 /* ─── Account slot: force auth-button into tm-* palette ─── */
 .menu-dropdown-account .auth-button {
-  background: var(--tm-surface, #F4EFE2);
-  border-color: var(--tm-ink, #2A2218);
-  color: var(--tm-ink, #2A2218);
+  background: var(--tm-surface, var(--paper));
+  border-color: var(--tm-ink, var(--ink));
+  color: var(--tm-ink, var(--ink));
 }
 
 .menu-dropdown-account .auth-button.is-connected {
-  border-color: var(--tm-ink, #2A2218);
+  border-color: var(--tm-ink, var(--ink));
   flex: 1 1 auto;
   min-width: 0;
   justify-content: flex-start;
@@ -882,5 +882,5 @@
 }
 
 .menu-dropdown-account .auth-dot {
-  background: var(--tm-accent, #1E6FA8);
+  background: var(--tm-accent, var(--sea));
 }

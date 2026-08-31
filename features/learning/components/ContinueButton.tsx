@@ -18,11 +18,14 @@ import { useI18n } from '@/components/I18nProvider';
  *
  * The learning flow currently uses the `solid` variant.
  *
- * The palette is written out in literal hex rather than taken from `--accent` /
- * `--text` on purpose. Games and study cards re-map those tokens inside their
- * own scopes (`.game-card`, `.study-ink-scope`), so a token-driven button would
- * change colour from card to card — which is the inconsistency this ends. The
- * literals also keep every class statically visible to the Tailwind scanner.
+ * The colours come from the paper-palette utilities (`bg-sea`, `text-paper`,
+ * `border-ink`), never from `--accent` / `--text`. Games and study cards re-map
+ * those two inside their own scopes (`.game-card`, `.study-ink-scope`), so a
+ * button built on them would change colour from card to card — which is the
+ * inconsistency this component ends. The palette tokens are never re-pointed by
+ * a scope, so they hold on every surface; see CLAUDE.md → Styling → Design
+ * tokens. This used to be written out as literal hex for the same reason, back
+ * when those stable names did not exist.
  */
 
 export type ContinueButtonVariant = 'solid' | 'ink' | 'lift' | 'outline';
@@ -36,7 +39,7 @@ const SHAPE = [
   'text-[0.95rem] font-black uppercase leading-none tracking-[0.07em]',
   'cursor-pointer select-none touch-manipulation',
   'transition-[background-color,border-color,color,box-shadow,transform] duration-150',
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E6FA8]',
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sea',
   'disabled:cursor-default disabled:opacity-45 disabled:shadow-none disabled:translate-y-0',
 ].join(' ');
 
@@ -51,28 +54,28 @@ const SKINS: Record<ContinueButtonVariant, VariantSkin> = {
   // Flat accent fill — the same treatment as `.onboarding-option-highlight`.
   solid: {
     base: [
-      'border-[#1E6FA8] bg-[#1E6FA8] text-[#F4EFE2] shadow-none',
-      'hover:border-[#17608F] hover:bg-[#17608F]',
-      'active:translate-y-px active:border-[#14547F] active:bg-[#14547F]',
+      'border-sea bg-sea text-paper shadow-none',
+      'hover:border-sea-mid hover:bg-sea-mid',
+      'active:translate-y-px active:border-sea-deep active:bg-sea-deep',
     ].join(' '),
-    pressed: '!translate-y-px !border-[#14547F] !bg-[#14547F]',
+    pressed: '!translate-y-px !border-sea-deep !bg-sea-deep',
   },
   // Dark ink bar — matches the typing card's continue and the minigame overlay,
   // and reads as "advance the session" rather than "another answer".
   ink: {
     base: [
-      'border-[#2A2218] bg-[#2A2218] text-[#F4EFE2] shadow-none',
-      'hover:border-[#3D3226] hover:bg-[#3D3226]',
-      'active:translate-y-px active:border-[#171208] active:bg-[#171208]',
+      'border-ink bg-ink text-paper shadow-none',
+      'hover:border-ink-600 hover:bg-ink-600',
+      'active:translate-y-px active:border-ink-900 active:bg-ink-900',
     ].join(' '),
-    pressed: '!translate-y-px !border-[#171208] !bg-[#171208]',
+    pressed: '!translate-y-px !border-ink-900 !bg-ink-900',
   },
   // Hard bottom shadow that presses down — the same physical feel as the
   // multiple-choice options, so the continue belongs to the same toy.
   lift: {
     base: [
-      'border-[#1E6FA8] bg-[#1E6FA8] text-[#F4EFE2] shadow-[0_4px_0_#14547F]',
-      'hover:-translate-y-0.5 hover:shadow-[0_6px_0_#14547F]',
+      'border-sea bg-sea text-paper shadow-[0_4px_0_var(--sea-deep)]',
+      'hover:-translate-y-0.5 hover:shadow-[0_6px_0_var(--sea-deep)]',
       'active:translate-y-[3px] active:shadow-none',
     ].join(' '),
     pressed: '!translate-y-[3px] !shadow-none',
@@ -81,11 +84,11 @@ const SKINS: Record<ContinueButtonVariant, VariantSkin> = {
   // quiet enough to sit under a card that already shows a success mark.
   outline: {
     base: [
-      'border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-none',
-      'hover:border-[#1E6FA8] hover:bg-[#1E6FA8] hover:text-[#F4EFE2]',
-      'active:border-[#1E6FA8] active:bg-[#1E6FA8] active:text-[#F4EFE2]',
+      'border-ink bg-paper text-ink shadow-none',
+      'hover:border-sea hover:bg-sea hover:text-paper',
+      'active:border-sea active:bg-sea active:text-paper',
     ].join(' '),
-    pressed: '!border-[#1E6FA8] !bg-[#1E6FA8] !text-[#F4EFE2]',
+    pressed: '!border-sea !bg-sea !text-paper',
   },
 };
 

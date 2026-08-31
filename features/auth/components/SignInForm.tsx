@@ -341,25 +341,25 @@ export function SignInForm({
   }, [email, otp, nextPath, router, t]);
 
   return (
-    <div className="w-full max-w-md rounded-[28px] border-2 border-[#2A2218] bg-[#F4EFE2]/95 p-6 text-[#2A2218] backdrop-blur-sm sm:p-8">
+    <div className="w-full max-w-md rounded-[28px] border-2 border-ink bg-paper/95 p-6 text-ink backdrop-blur-sm sm:p-8">
       <div className="flex flex-col gap-6">
         <div className="flex flex-col items-center gap-4 text-center">
           <AppLogo size={72} />
           <div className="space-y-2">
-            <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#6B5E48]">
+            <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-ink-soft">
               {t('auth.brand')}
             </p>
-            <h1 className="m-0 text-3xl font-semibold tracking-[-0.02em] text-[#2A2218]">
+            <h1 className="m-0 text-3xl font-semibold tracking-[-0.02em] text-ink">
               {t('auth.signInTitle')}
             </h1>
-            <p className="m-0 text-sm leading-6 text-[#6B5E48]">
+            <p className="m-0 text-sm leading-6 text-ink-soft">
               {t('auth.signInSubtitle')}
             </p>
           </div>
         </div>
 
         {!configured ? (
-          <p className="m-0 rounded-2xl border border-[#B91C1C]/20 bg-[#B91C1C]/8 px-4 py-3 text-sm text-[#8A1C1C]">
+          <p className="m-0 rounded-2xl border border-brick/20 bg-brick/8 px-4 py-3 text-sm text-[#8A1C1C]">
             {t('auth.notConfigured')}
           </p>
         ) : (
@@ -370,16 +370,16 @@ export function SignInForm({
                   type="button"
                   onClick={() => void startGoogle()}
                   disabled={busy}
-                  className="inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl border-2 border-[#2A2218] bg-[#FFF8E8] px-5 py-3 text-base font-semibold text-[#2A2218] transition-colors hover:bg-[#FBEFD0] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl border-2 border-ink bg-paper-hi px-5 py-3 text-base font-semibold text-ink transition-colors hover:bg-[#FBEFD0] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <GoogleIcon />
                   {t('auth.continueWithGoogle')}
                 </button>
 
-                <div className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[#6B5E48]">
-                  <span className="h-px flex-1 bg-[#2A2218]/15" />
+                <div className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-ink-soft">
+                  <span className="h-px flex-1 bg-ink/15" />
                   {t('auth.or')}
-                  <span className="h-px flex-1 bg-[#2A2218]/15" />
+                  <span className="h-px flex-1 bg-ink/15" />
                 </div>
 
                 <form
@@ -401,7 +401,7 @@ export function SignInForm({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={busy}
-                    className="min-h-12 rounded-2xl border-2 border-[#2A2218]/30 bg-[#FFF8E8] px-4 py-3 text-base text-[#2A2218] outline-none focus:border-[#1E6FA8]"
+                    className="min-h-12 rounded-2xl border-2 border-ink/30 bg-paper-hi px-4 py-3 text-base text-ink outline-none focus:border-sea"
                   />
                   {passwordMode ? (
                     <input
@@ -411,7 +411,7 @@ export function SignInForm({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={busy}
-                      className="min-h-12 rounded-2xl border-2 border-[#2A2218]/30 bg-[#FFF8E8] px-4 py-3 text-base text-[#2A2218] outline-none focus:border-[#1E6FA8]"
+                      className="min-h-12 rounded-2xl border-2 border-ink/30 bg-paper-hi px-4 py-3 text-base text-ink outline-none focus:border-sea"
                     />
                   ) : null}
                   <button
@@ -421,7 +421,7 @@ export function SignInForm({
                         ? busy || !password.trim()
                         : busy || !email.trim()
                     }
-                    className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-5 py-3 text-base font-semibold text-[#F4EFE2] hover:bg-[#155987] hover:border-[#155987] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-sea bg-sea px-5 py-3 text-base font-semibold text-paper hover:bg-sea-600 hover:border-sea-600 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {passwordMode
                       ? phase === 'verifying' || phase === 'redirecting'
@@ -442,7 +442,7 @@ export function SignInForm({
                 className="flex flex-col gap-2"
               >
                 {email.trim() ? (
-                  <p className="m-0 text-sm text-[#6B5E48]">
+                  <p className="m-0 text-sm text-ink-soft">
                     {t('auth.enterCodeSentTo', { email: email.trim() })}
                   </p>
                 ) : null}
@@ -454,12 +454,12 @@ export function SignInForm({
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   disabled={phase === 'verifying' || phase === 'redirecting'}
-                  className="min-h-12 rounded-2xl border-2 border-[#2A2218]/30 bg-[#FFF8E8] px-4 py-3 text-center text-lg tracking-[0.4em] text-[#2A2218] outline-none focus:border-[#1E6FA8]"
+                  className="min-h-12 rounded-2xl border-2 border-ink/30 bg-paper-hi px-4 py-3 text-center text-lg tracking-[0.4em] text-ink outline-none focus:border-sea"
                 />
                 <button
                   type="submit"
                   disabled={busy || !otp.trim()}
-                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-5 py-3 text-base font-semibold text-[#F4EFE2] hover:bg-[#155987] hover:border-[#155987] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-sea bg-sea px-5 py-3 text-base font-semibold text-paper hover:bg-sea-600 hover:border-sea-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {phase === 'verifying'
                     ? t('auth.verifying')
@@ -480,7 +480,7 @@ export function SignInForm({
                     setError(null);
                     setPhase('idle');
                   }}
-                  className="text-sm text-[#6B5E48] underline underline-offset-2"
+                  className="text-sm text-ink-soft underline underline-offset-2"
                 >
                   {t('auth.useDifferentEmail')}
                 </button>
@@ -491,21 +491,21 @@ export function SignInForm({
 
         {displayError ? (
           <p
-            className="m-0 select-text whitespace-pre-wrap break-words rounded-2xl border border-[#B91C1C]/20 bg-[#B91C1C]/8 px-4 py-3 text-sm text-[#8A1C1C]"
+            className="m-0 select-text whitespace-pre-wrap break-words rounded-2xl border border-brick/20 bg-brick/8 px-4 py-3 text-sm text-[#8A1C1C]"
             role="alert"
           >
             {displayError}
           </p>
         ) : null}
 
-        <p className="m-0 text-center text-xs text-[#6B5E48]">
+        <p className="m-0 text-center text-xs text-ink-soft">
           {legalParts.map((part, i) => {
             if (part === '{terms}') {
               return (
                 <a
                   key={i}
                   href="/terms"
-                  className="underline underline-offset-2 hover:text-[#2A2218]"
+                  className="underline underline-offset-2 hover:text-ink"
                 >
                   {t('auth.termsOfService')}
                 </a>
@@ -516,7 +516,7 @@ export function SignInForm({
                 <a
                   key={i}
                   href="/privacy"
-                  className="underline underline-offset-2 hover:text-[#2A2218]"
+                  className="underline underline-offset-2 hover:text-ink"
                 >
                   {t('auth.privacyPolicy')}
                 </a>

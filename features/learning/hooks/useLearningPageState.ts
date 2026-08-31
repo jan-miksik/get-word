@@ -10,7 +10,7 @@ import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 import { useLearningStreamGroups } from './useLearningStreamGroups';
 import { useWordStream } from './useWordStream';
 import type { ViewMode } from '../app-state/types';
-import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
+import { hasIntroducedWord, type StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { useSessionPlan } from '@/features/learning/session/useSessionPlan';
 import { computeBlockProgress } from '@/features/learning/session/dayProgress';
 import {
@@ -20,6 +20,12 @@ import {
 } from '@/features/learning/session/blockGames';
 import type { SessionBlock, SessionBlockKind } from '@/features/learning/session/blocks';
 import type { LearningStreamBlock } from '@/features/learning/types';
+import { useTimePhase, type TimePhaseInput } from '@/features/learning/session/useTimePhase';
+import {
+  captureTimedReinforcement,
+  resolveTimedStream,
+  type TimedReinforcementSnapshot,
+} from '@/features/learning/session/timedStream';
 
 interface UseLearningPageStateOptions {
   filteredWords: NormalizedWord[];
@@ -63,7 +69,8 @@ interface UseLearningPageStateOptions {
    * simply still due — leaving them at the front of the deck would make the
    * clock advance the session on paper only.
    */
-  timePhase?: number;
+  /** The measured clock for a minutes goal; its phase split comes from the frozen plan. */
+  timeGoal?: Omit<TimePhaseInput, 'phaseShares'> | null;
   /** Immutable target claimed by the server for the current local day. */
   dayTargets?: { resolvedNewTarget: number | null; resolvedReviewTarget: number | null; resolvedItemBudget: number | null } | null;
 }
@@ -187,7 +194,7 @@ export function useLearningPageState({
   continueAnyway = false,
   pendingAnswers,
   completedGameIds,
-  timePhase,
+  timeGoal,
   dayTargets = null,
 }: UseLearningPageStateOptions) {
   const [sessionDay, setSessionDay] = useState<SessionDay>(readSessionDay);
@@ -249,6 +256,12 @@ export function useLearningPageState({
     continueAnyway,
     dayTargets,
   });
+  const timePhase = useTimePhase(
+    timeGoal
+      ? { ...timeGoal, phaseShares: session.dailyPlan?.timePhaseShares }
+      : null,
+  );
+  const timePhaseKinds = session.dailyPlan?.timePhaseKinds;
   const liveById = useMemo(() => {
     const words = new Map<string, NormalizedWord>();
     for (const word of [...priorityWords, ...dueWords, ...newWords]) words.set(word.id, word);
@@ -323,6 +336,126 @@ export function useLearningPageState({
         .map((block) => block.key),
     );
   }, [bonusSnapshot, liveById, progress, sessionDayKey, sessionTimezone, settlingById]);
+  const reinforcementPhase =
+    timePhase !== undefined &&
+    timePhaseKinds?.[timePhase] === 'review' &&
+    timePhase > 0 &&
+    timePhaseKinds[timePhase - 1] === 'new'
+      ? timePhase
+      : null;
+  const reinforcementScope = `${session.planIdentity ?? 'unplanned'}:${reinforcementPhase ?? '-'}`;
+  const candidateReinforcement = useMemo(
+    () => reinforcementPhase === null
+      ? null
+      : captureTimedReinforcement({
+          phase: reinforcementPhase,
+          dayKey: sessionDayKey,
+          timezone: sessionTimezone,
+          words: filteredWords,
+          progress,
+          pendingAnswers,
+        }),
+    [filteredWords, pendingAnswers, progress, reinforcementPhase, sessionDayKey, sessionTimezone],
+  );
+  const [heldReinforcement, setHeldReinforcement] = useState<{
+    scope: string;
+    snapshot: TimedReinforcementSnapshot;
+  } | null>(null);
+  const reinforcement = heldReinforcement?.scope === reinforcementScope
+    ? heldReinforcement.snapshot
+    : candidateReinforcement;
+  useEffect(() => {
+    if (!candidateReinforcement || heldReinforcement?.scope === reinforcementScope) return;
+    // The answer floor belongs to the instant the closing phase begins. Holding
+    // it is what makes every newly introduced word leave after exactly one more
+    // answer instead of reappearing for the rest of the clock stretch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHeldReinforcement({ scope: reinforcementScope, snapshot: candidateReinforcement });
+  }, [candidateReinforcement, heldReinforcement?.scope, reinforcementScope]);
+
+  const timedStream = useMemo(
+    () => resolveTimedStream({
+      phase: timePhase,
+      phaseKinds: timePhaseKinds,
+      priorityWords,
+      priorityDueCount,
+      dueWords,
+      newWords,
+      allWords: filteredWords,
+      progress,
+      pendingAnswers,
+      reinforcement,
+    }),
+    [dueWords, filteredWords, newWords, pendingAnswers, priorityDueCount, priorityWords, progress, reinforcement, timePhase, timePhaseKinds],
+  );
+
+  const timeKindOverrideScope = session.planIdentity ?? 'unplanned';
+  const [heldTimeKindOverrides, setHeldTimeKindOverrides] = useState<{
+    scope: string;
+    values: Partial<Record<number, 'new' | 'review'>>;
+  }>({ scope: timeKindOverrideScope, values: {} });
+  const timeKindOverrides = useMemo(
+    () => (heldTimeKindOverrides.scope === timeKindOverrideScope ? heldTimeKindOverrides.values : {}),
+    [heldTimeKindOverrides, timeKindOverrideScope],
+  );
+  useEffect(() => {
+    if (
+      timePhase === undefined ||
+      !timedStream.activeKind ||
+      timedStream.activeKind === timePhaseKinds?.[timePhase] ||
+      timeKindOverrides[timePhase] === timedStream.activeKind
+    ) return;
+    // Remember an early opening hand-off after the clock moves on. Otherwise
+    // the completed side segment would change colour back on the next phase.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHeldTimeKindOverrides((previous) => ({
+      scope: timeKindOverrideScope,
+      values: {
+        ...(previous.scope === timeKindOverrideScope ? previous.values : {}),
+        [timePhase]: timedStream.activeKind!,
+      },
+    }));
+  }, [timeKindOverrideScope, timeKindOverrides, timePhase, timePhaseKinds, timedStream.activeKind]);
+
+  // If the opening due queue is genuinely exhausted, the learner moves into
+  // new material immediately. Reflect that hand-off in the time rail as well as
+  // in the deck so its colours never claim the opposite kind of work.
+  const displayedTimePhaseKinds = useMemo(() => {
+    if (!timePhaseKinds) return timePhaseKinds;
+    const kinds = timePhaseKinds.map((kind, phase) => timeKindOverrides[phase] ?? kind);
+    if (timePhase !== undefined && timedStream.activeKind) kinds[timePhase] = timedStream.activeKind;
+    return kinds;
+  }, [timeKindOverrides, timePhase, timePhaseKinds, timedStream.activeKind]);
+
+  const transitionScope = `${session.planIdentity ?? 'unplanned'}:${timeGoal?.dayKey ?? '-'}`;
+  const [timeTransitionAck, setTimeTransitionAck] = useState<{ scope: string; phase: number }>({
+    scope: transitionScope,
+    phase: timePhase ?? -1,
+  });
+  const acknowledgedTimePhase = timeTransitionAck.scope === transitionScope
+    ? timeTransitionAck.phase
+    : timePhase ?? -1;
+  useEffect(() => {
+    if (timeTransitionAck.scope === transitionScope) return;
+    // A reload resumes the current phase; it must not manufacture a transition
+    // for a boundary the learner crossed in the previous page life.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTimeTransitionAck({ scope: transitionScope, phase: timePhase ?? -1 });
+  }, [timePhase, timeTransitionAck.scope, transitionScope]);
+  const hasNewToReviewTransition = Boolean(
+    timeGoal &&
+    timePhaseKinds &&
+    timePhase !== undefined &&
+    timePhase > acknowledgedTimePhase &&
+    timePhase > 0 &&
+    displayedTimePhaseKinds?.[timePhase - 1] === 'new' &&
+    displayedTimePhaseKinds?.[timePhase] === 'review',
+  );
+  const dismissTimeTransition = useCallback(() => {
+    if (timePhase === undefined) return;
+    setTimeTransitionAck({ scope: transitionScope, phase: timePhase });
+  }, [timePhase, transitionScope]);
+
   const streamBlocks = useMemo<LearningStreamBlock[]>(() => {
     if (continueAnyway && bonusSnapshot) {
       return bonusSnapshot.blocks
@@ -337,6 +470,9 @@ export function useLearningPageState({
             .filter((word): word is NormalizedWord => Boolean(word)),
         }))
         .filter((block) => block.words.length > 0);
+    }
+    if (timeGoal && timePhase !== undefined) {
+      return timedStream.block ? [timedStream.block] : [];
     }
     if (session.streamMode !== 'planned' || !session.dailyPlan) {
       return [
@@ -356,11 +492,23 @@ export function useLearningPageState({
         blockIndex,
         ...(block.reinforcement ? { reinforcement: true as const } : {}),
         words: block.ids
-          .map((id) => liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined))
+          .map((id) => {
+            const word = liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined);
+            // A clock boundary may arrive before the learner reaches every
+            // stocked new word. The reinforcement phase must only quiz words
+            // actually introduced, never smuggle untouched inventory in as a
+            // supposed repeat.
+            if (
+              block.phase !== undefined &&
+              block.reinforcement &&
+              !hasIntroducedWord(progress[id])
+            ) return undefined;
+            return word;
+          })
           .filter((word): word is NormalizedWord => Boolean(word)),
       }))
       .filter((block) => block.words.length > 0);
-  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, priorityWords, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timePhase]);
+  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, priorityWords, progress, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
   const plannedPriorityWords = session.dailyPlan
     ? priorityWords.filter((word) => session.dailyPlan!.priorityIds.includes(word.id))
     : priorityWords;
@@ -377,7 +525,12 @@ export function useLearningPageState({
   // panel lists — which is why the closing card quotes this number instead of
   // reading an emptied plan as "nothing due".
   const dueNowCount = priorityDueCount + dueWords.length;
-  const newNowCount = bonusNewWords.length;
+  const newNowCount = timeGoal
+    ? new Set([
+        ...priorityWords.filter((word) => !hasIntroducedWord(progress[word.id])).map((word) => word.id),
+        ...newWords.map((word) => word.id),
+      ]).size
+    : bonusNewWords.length;
 
   const learnedPool = useMemo(
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
@@ -390,10 +543,15 @@ export function useLearningPageState({
 
   const { streamGroups } = useLearningStreamGroups({
     blocks: streamBlocks,
-    retainedBlockKeys: bonusSnapshot?.blocks.map((block) => block.key) ??
-      session.dailyPlan?.blocks.map((block) => block.key) ??
-      streamBlocks.map((block) => block.key),
-    settlingWords,
+    retainedBlockKeys: timeGoal
+      ? streamBlocks.map((block) => block.key)
+      : bonusSnapshot?.blocks.map((block) => block.key) ??
+        session.dailyPlan?.blocks.map((block) => block.key) ??
+        streamBlocks.map((block) => block.key),
+    // An explicit closing reinforcement block owns the settling words in a
+    // minutes session. Appending the generic "not ready" group here could leak
+    // repeats into the clock's new-word phase.
+    settlingWords: timeGoal ? [] : settlingWords,
     showNotReady,
     learnedPool,
     isHydrated,
@@ -510,5 +668,11 @@ export function useLearningPageState({
     progressStats,
     sessionBlockProgress,
     bonusBlockProgress,
+    timePhase,
+    timePhaseKinds: displayedTimePhaseKinds,
+    timePhaseEmptyKind: hasNewToReviewTransition ? null : timedStream.emptyKind,
+    timeTransition: hasNewToReviewTransition
+      ? { from: 'new' as const, to: 'review' as const, dismiss: dismissTimeTransition }
+      : null,
   };
 }

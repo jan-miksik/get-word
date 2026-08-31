@@ -18,12 +18,12 @@ export default function AccountDeletionPage() {
         <header className="flex flex-col gap-3">
           <Link
             href="/"
-            className="text-sm text-[#9fb6cc] underline underline-offset-2 hover:text-white"
+            className="text-sm text-sea-200 underline underline-offset-2 hover:text-white"
           >
             &larr; Back to Get Word
           </Link>
           <div className="flex flex-col gap-2">
-            <p className="m-0 text-sm text-[#9aa6b8]">Last updated: July 23, 2026</p>
+            <p className="m-0 text-sm text-sea-250">Last updated: July 23, 2026</p>
             <h1 className="m-0 text-3xl font-semibold text-white">
               Account and data deletion for Get Word
             </h1>
@@ -43,7 +43,7 @@ export default function AccountDeletionPage() {
           </p>
           <p className="m-0">
             If you cannot sign in, email{' '}
-            <span className="select-text font-medium text-[#9fb6cc]">{SUPPORT_EMAIL}</span>{' '}
+            <span className="select-text font-medium text-sea-200">{SUPPORT_EMAIL}</span>{' '}
             from the email address connected to your Get Word account, or include
             enough information for us to verify that the account belongs to you.
             Use the subject line &quot;Get Word account deletion request&quot;.
@@ -59,7 +59,7 @@ export default function AccountDeletionPage() {
             can delete your own word lists, list items, Photo Lab photos stored on
             your device, and local learning cache. You can also request deletion
             of selected Get Word data by emailing{' '}
-            <span className="select-text font-medium text-[#9fb6cc]">{SUPPORT_EMAIL}</span>{' '}
+            <span className="select-text font-medium text-sea-200">{SUPPORT_EMAIL}</span>{' '}
             with the subject line &quot;Get Word data deletion request&quot;.
           </p>
           <p className="m-0">
@@ -117,9 +117,9 @@ export default function AccountDeletionPage() {
           </p>
         </section>
 
-        <footer className="border-t border-white/10 pt-5 text-sm text-[#9aa6b8]">
+        <footer className="border-t border-white/10 pt-5 text-sm text-sea-250">
           For more detail, see the{' '}
-          <Link href="/privacy" className="text-[#9fb6cc] underline underline-offset-2 hover:text-white">
+          <Link href="/privacy" className="text-sea-200 underline underline-offset-2 hover:text-white">
             Get Word Privacy Policy
           </Link>
           .

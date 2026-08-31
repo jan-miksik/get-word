@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { WordStream } from '@/features/learning/hooks/useWordStream';
 import type { ProgressData } from '@/features/sync/contracts';
 import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
+import { hasIntroducedWord } from '@/packages/domain/goals/goal';
 import { localDayKeyAt } from '@/lib/local-day';
 import { planSession, type SessionPlan } from './plan';
 import {
@@ -43,6 +44,64 @@ function planCacheIdentity(storageIdentity: string, plan: SessionPlan): string {
   return `${storageIdentity}|${blocks}`;
 }
 
+/**
+ * Add words committed from the mid-session top-up card to the still-frozen
+ * minutes plan. Completed blocks and their answer baselines stay intact; only
+ * the missing new-word slots and their closing reinforcement are filled.
+ */
+export function extendTimeSessionPlan(
+  plan: SessionPlan,
+  stream: Pick<WordStream, 'priorityWords' | 'newWords'>,
+  progress: Record<string, ProgressData>,
+): SessionPlan {
+  if (!plan.timePhaseKinds || plan.newShortfall <= 0) return plan;
+  const planned = new Set(plan.blocks.flatMap((block) => block.ids));
+  const candidates = [...stream.priorityWords, ...stream.newWords].filter(
+    (word, index, words) =>
+      !hasIntroducedWord(progress[word.id]) &&
+      !planned.has(word.id) &&
+      words.findIndex((candidate) => candidate.id === word.id) === index,
+  );
+  const added = candidates.slice(0, plan.newShortfall).map((word) => word.id);
+  if (added.length === 0) return plan;
+
+  const newPhase = plan.timePhaseKinds.indexOf('new');
+  const reinforcementPhase = plan.timePhaseKinds.lastIndexOf('review');
+  const newBlockIndex = plan.blocks.findIndex(
+    (block) => block.kind === 'new' && !block.reinforcement,
+  );
+  const reinforcementIndex = plan.blocks.findIndex((block) => block.reinforcement === true);
+  const blocks = plan.blocks.map((block) => ({ ...block, ids: [...block.ids] }));
+  if (newBlockIndex >= 0) blocks[newBlockIndex].ids.push(...added);
+  else blocks.push({ key: 'new-0', kind: 'new', ids: [...added], phase: newPhase });
+  if (reinforcementIndex >= 0) blocks[reinforcementIndex].ids.push(...added);
+  else {
+    const reviewIndex = blocks.filter((block) => block.kind === 'review').length;
+    blocks.push({
+      key: `review-${reviewIndex}`,
+      kind: 'review',
+      ids: [...added],
+      pass: 2,
+      phase: reinforcementPhase,
+      reinforcement: true,
+    });
+  }
+  blocks.sort((left, right) => (left.phase ?? 0) - (right.phase ?? 0));
+  const answerBaseline = { ...plan.answerBaseline };
+  for (const id of added) {
+    answerBaseline[id] = (progress[id]?.knownCount ?? 0) + (progress[id]?.unknownCount ?? 0);
+  }
+
+  return {
+    ...plan,
+    newIds: [...plan.newIds, ...added],
+    blocks,
+    answerBaseline,
+    newShortfall: Math.max(0, plan.newShortfall - added.length),
+    shortfall: Math.max(0, plan.shortfall - (2 * added.length)),
+  };
+}
+
 export function useSessionPlan(args: {
   stream: WordStream;
   progress: Record<string, ProgressData>;
@@ -72,29 +131,38 @@ export function useSessionPlan(args: {
   const identity = storageScope ? sessionPlanIdentity(storageScope) : null;
   const [resolved, setResolved] = useState<{ identity: string; plan: SessionPlan } | null>(null);
   const candidateCount = args.stream.priorityWords.length + args.stream.dueWords.length + args.stream.newWords.length;
+  const canFreezeEmptyPlan = args.goal?.mode === 'minutes';
 
+  /* eslint-disable react-hooks/set-state-in-effect -- The frozen plan mirrors localStorage and must settle before a first answer can change the live stream. */
   useEffect(() => {
     if (!storageScope || !args.isSessionDataReady) return;
     const nextIdentity = sessionPlanIdentity(storageScope);
-    if (resolved?.identity === nextIdentity) return;
+    if (resolved?.identity === nextIdentity) {
+      const extended = extendTimeSessionPlan(resolved.plan, args.stream, args.progress);
+      if (extended !== resolved.plan) {
+        storeSessionPlan(storageScope, extended);
+        setResolved({ identity: nextIdentity, plan: extended });
+      }
+      return;
+    }
     const stored = readSessionPlan(storageScope);
     // A completed session has no remaining words in the live stream. Keep (or
     // recover after a reload) the frozen plan so its final progress can still
     // resolve to the completion breather instead of collapsing to no session.
     if (stored) {
       pruneSessionPlans(storageScope.dayKey);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResolved({ identity: nextIdentity, plan: stored });
       return;
     }
-    if (candidateCount === 0) return;
+    if (candidateCount === 0 && !canFreezeEmptyPlan) return;
     const plan = stored ?? candidate;
-    if (plan.blocks.length > 0) storeSessionPlan(storageScope, plan);
+    if (plan.blocks.length > 0 || plan.timePhaseKinds) storeSessionPlan(storageScope, plan);
     pruneSessionPlans(storageScope.dayKey);
     // This state mirrors an external localStorage read; it intentionally settles
     // after the render that supplied the candidate fallback.
     setResolved({ identity: nextIdentity, plan });
-  }, [args.isSessionDataReady, candidate, candidateCount, resolved?.identity, storageScope]);
+  }, [args.isSessionDataReady, args.progress, args.stream, candidate, candidateCount, canFreezeEmptyPlan, resolved, storageScope]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!storageScope) return { dailyPlan: null, streamMode: 'unbounded', planIdentity: null };
   if (!args.isSessionDataReady) {
@@ -102,7 +170,7 @@ export function useSessionPlan(args: {
   }
   const dailyPlan = resolved?.identity === identity
     ? resolved.plan
-    : candidateCount > 0
+    : candidateCount > 0 || canFreezeEmptyPlan
       ? candidate
       : null;
   return {

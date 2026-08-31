@@ -75,7 +75,7 @@ function FrequencyBars({ frequency }: { frequency: 1 | 2 | 3 }) {
         <span
           key={i}
           className={`w-[3px] rounded-[1px] ${h} ${
-            i < frequency ? 'bg-[#2A2218]' : 'bg-[#2A2218]/25'
+            i < frequency ? 'bg-ink' : 'bg-ink/25'
           }`}
         />
       ))}
@@ -93,7 +93,7 @@ function MentionChip({ mention }: { mention: WordItemCommentMention }) {
         : t('card.studyNoteFrequencyRare');
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-[#2A2218]/30 bg-[#2A2218]/[0.04] px-2 py-0.5 text-[0.72rem] text-[#2A2218]"
+      className="inline-flex items-center gap-1.5 rounded-full border border-ink/30 bg-ink/[0.04] px-2 py-0.5 text-[0.72rem] text-ink"
       title={label}
       aria-label={`${mention.word}: ${label}`}
     >
@@ -145,7 +145,7 @@ export const CommentBlock = memo(function CommentBlock({
       <div className="study-note-shell study-note-shell--minimized mt-1 mb-1">
         <button
           type="button"
-          className="study-note-chip inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#2A2218]/70 bg-[#F4EFE2] text-[#2A2218] shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:bg-[#2A2218]/5"
+          className="study-note-chip inline-flex h-10 w-10 items-center justify-center rounded-full border border-ink/70 bg-paper text-ink shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:bg-ink/5"
           onClick={() => setMinimized(false)}
           aria-label={t('card.studyNoteExpand')}
           title={t('card.studyNoteExpand')}
@@ -160,12 +160,12 @@ export const CommentBlock = memo(function CommentBlock({
     <div className="study-note-shell mt-1 mb-1">
       <button
         type="button"
-        className="study-note rounded-lg border border-[#2A2218]/70 bg-[#F4EFE2] px-3 py-2 text-left text-[#2A2218] shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:bg-[#2A2218]/5"
+        className="study-note rounded-lg border border-ink/70 bg-paper px-3 py-2 text-left text-ink shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:bg-ink/5"
         onClick={() => setMinimized(true)}
         aria-label={t('card.studyNoteCollapse')}
         title={t('card.studyNoteCollapse')}
       >
-        <div className="study-note-copy flex items-start gap-2.5 text-[0.82rem] leading-snug text-[#2A2218]">
+        <div className="study-note-copy flex items-start gap-2.5 text-[0.82rem] leading-snug text-ink">
           <StudyNoteIcon size={22} className="study-note-copy-icon shrink-0" />
           <p className="m-0">
             {comment.text}

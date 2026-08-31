@@ -84,6 +84,12 @@ describe('PWARegister', () => {
     ).toBeInTheDocument();
     expect(document.body.textContent).toContain('Get Word cleared 2 caches');
     expect(register).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Dismiss stale service worker notice' }),
+    );
+
+    expect(screen.queryByText('Stale service worker detected in dev')).not.toBeInTheDocument();
   });
 
   it('stays invisible in development when no service worker controls the page', async () => {

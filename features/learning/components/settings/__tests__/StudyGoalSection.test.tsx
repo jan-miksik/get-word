@@ -81,6 +81,9 @@ describe('StudyGoalSection', () => {
 
     expect(goalSwitch()).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('slider', { name: /new words/i })).toBeInTheDocument();
+    expect(screen.queryByText(/last 12 weeks/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/week streak/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/this week:/i)).not.toBeInTheDocument();
   });
 
   // The switch is the only way to stop a goal, so it has to write `enabled:

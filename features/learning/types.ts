@@ -10,7 +10,7 @@ export interface LearningStreamBlock {
   key: string;
   kind: LearningStreamGroupKind;
   blockIndex: number;
-  /** Successful answers confirm the current stage instead of advancing it. */
+  /** Same-session check: uses the gentler reinforcement exercise presentation. */
   reinforcement?: true;
   words: NormalizedWord[];
 }

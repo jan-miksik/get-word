@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -55,28 +56,34 @@ function prefersReducedMotion(): boolean {
 /**
  * Slides every tile from wherever it was to wherever it now is.
  *
- * The tray and the bank are ordinary flow rows, so picking a tile, taking it
- * back or dragging it past a neighbour is a reflow the browser paints in one
- * frame. Recording each tile's box before that paint and animating the
- * difference away afterwards turns all of those jumps into movement, and none
- * of the layout has to know it is being animated.
- *
- * The tile under the finger is left alone — it is already following the
- * pointer. Its box is still recorded, which is what makes the release animate
- * from where the learner let go rather than snapping.
+ * The tray and the bank are ordinary flow rows, so picking a tile or taking it
+ * back is a reflow the browser paints in one frame. Recording each tile's box
+ * before that paint and animating the difference away afterwards turns those
+ * jumps into movement. Pointer reordering is deliberately frozen out of this
+ * hook; it owns a stable slot snapshot until release.
  */
-function useTileFlip(draggingId: { current: string | null }) {
+function useTileFlip(
+  freezeFlipRef: { current: boolean },
+  skipNextFlipRef: { current: boolean },
+) {
   const nodes = useRef(new Map<string, HTMLElement>());
   const boxes = useRef(new Map<string, DOMRect>());
 
   useLayoutEffect(() => {
+    // A drag owns every tray transform until release. Measuring or animating
+    // those transformed boxes would feed an in-flight offset back into the next
+    // pointer move, which is how the neighbouring tiles used to shoot away.
+    if (freezeFlipRef.current) return;
+
     const animated = !prefersReducedMotion();
+    const skipAnimation = skipNextFlipRef.current;
+    skipNextFlipRef.current = false;
     for (const [id, node] of nodes.current) {
       if (!node.isConnected) continue;
       const next = node.getBoundingClientRect();
       const previous = boxes.current.get(id);
       boxes.current.set(id, next);
-      if (!previous || !animated || id === draggingId.current) continue;
+      if (!previous || !animated || skipAnimation) continue;
       const dx = previous.left - next.left;
       const dy = previous.top - next.top;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
@@ -162,7 +169,13 @@ export function WordAssemblyGame({
   const { play } = useCardAudio();
   const [placed, setPlaced] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<AssemblyOutcome | null>(null);
-  const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [drag, setDrag] = useState<{
+    id: string;
+    x: number;
+    y: number;
+    landing: boolean;
+    neighbourOffsets: Record<string, { x: number; y: number }>;
+  } | null>(null);
 
   const isLetters = variant.startsWith('letters');
   const joiner = isLetters ? '' : ' ';
@@ -177,22 +190,43 @@ export function WordAssemblyGame({
   const isFull = placed.length === answerParts.length;
 
   const draggingId = useRef<string | null>(null);
+  const freezeFlipRef = useRef(false);
+  const skipNextFlipRef = useRef(false);
   const pointerStart = useRef({ x: 0, y: 0 });
   const pressedId = useRef<string | null>(null);
+  const activePointer = useRef<number | null>(null);
+  /**
+   * A drop fires a click on whatever the pointer was released over, which is
+   * rarely the tile that was dragged and never a tap the learner meant. It is
+   * swallowed once, and dropped again at the next press in case it never came.
+   */
   const suppressClick = useRef(false);
-  const { registerTile, nodes } = useTileFlip(draggingId);
+  const [pressed, setPressed] = useState<string | null>(null);
+  const { registerTile, nodes } = useTileFlip(freezeFlipRef, skipNextFlipRef);
+
+  // The gesture runs off window listeners, which outlive the render that armed
+  // them, so what they read has to come from refs rather than from a closure.
+  const placedRef = useRef(placed);
+  const outcomeRef = useRef(outcome);
 
   // The target phrase, which is what the learner was assembling — the same clip
   // the reveal and typing cards offer once their answer is out in the open.
   const answerAudioSrcs = getWordAudioSrcsBySide(word, learningSideForRole(role));
 
+  /** True for the one click a finished drag leaves behind. */
+  const isDragFallout = () => {
+    if (!suppressClick.current) return false;
+    suppressClick.current = false;
+    return true;
+  };
+
   const choose = (tile: Tile) => {
-    if (outcome || placed.includes(tile.id) || isFull) return;
+    if (isDragFallout() || outcome || placed.includes(tile.id) || isFull) return;
     setPlaced([...placed, tile.id]);
   };
 
   const takeBack = (id: string) => {
-    if (outcome) return;
+    if (isDragFallout() || outcome) return;
     setPlaced(placed.filter((placedId) => placedId !== id));
   };
 
@@ -222,13 +256,15 @@ export function WordAssemblyGame({
   const gesture = useRef<{
     id: string;
     fromIndex: number;
+    toIndex: number;
     order: string[];
     centres: { x: number; y: number }[];
     origin: { x: number; y: number };
+    held: { x: number; y: number };
   } | null>(null);
 
   const beginDrag = (id: string, pointer: { x: number; y: number }): boolean => {
-    const order = [...placed];
+    const order = [...placedRef.current];
     const fromIndex = order.indexOf(id);
     if (fromIndex < 0) return false;
     const centres: { x: number; y: number }[] = [];
@@ -242,29 +278,44 @@ export function WordAssemblyGame({
       const rect = node.getBoundingClientRect();
       centres.push({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
     }
-    gesture.current = { id, fromIndex, order, centres, origin: pointer };
+    gesture.current = {
+      id,
+      fromIndex,
+      toIndex: fromIndex,
+      order,
+      centres,
+      origin: pointer,
+      held: centres[fromIndex],
+    };
     draggingId.current = id;
-    suppressClick.current = true;
+    freezeFlipRef.current = true;
     return true;
   };
 
   const onTilePointerDown = (event: ReactPointerEvent<HTMLElement>, id: string) => {
     if (outcome || event.button !== 0) return;
+    // A press whose release never arrived — the browser can drop one when the
+    // tab is hidden mid-gesture — must not leave the tray unable to be touched
+    // again, so a new press always takes the gesture over.
+    if (draggingId.current) {
+      draggingId.current = null;
+      freezeFlipRef.current = false;
+      gesture.current = null;
+      setDrag(null);
+    }
     pointerStart.current = { x: event.clientX, y: event.clientY };
     pressedId.current = id;
+    activePointer.current = event.pointerId;
     suppressClick.current = false;
-    // Capture keeps the moves coming once the finger leaves the tile it
-    // started on, which it does immediately. It is an optimisation, not the
-    // gesture's state: a browser that refuses it still gets a working drag.
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      /* the pointer is already gone; the press simply becomes a tap */
-    }
+    // Arms the window listeners. The pointer immediately leaves the tile when
+    // it crosses a neighbour (or another flex row), so the rest of the gesture
+    // cannot depend on events targeted at the pressed element.
+    setPressed(id);
   };
 
-  const onTilePointerMove = (event: ReactPointerEvent<HTMLElement>, id: string) => {
-    if (outcome || pressedId.current !== id) return;
+  const onDragMove = (event: PointerEvent) => {
+    const id = pressedId.current;
+    if (!id || outcomeRef.current || event.pointerId !== activePointer.current) return;
     const pointer = { x: event.clientX, y: event.clientY };
     if (draggingId.current !== id) {
       const travelled = Math.hypot(
@@ -279,9 +330,8 @@ export function WordAssemblyGame({
     }
     const snapshot = gesture.current;
     if (!snapshot) return;
-    event.stopPropagation();
 
-    const { centres, fromIndex, order, origin } = snapshot;
+    const { centres, fromIndex, origin } = snapshot;
     // Where the tile is being held, in the coordinates the snapshot was taken in.
     const held = {
       x: centres[fromIndex].x + (pointer.x - origin.x),
@@ -298,28 +348,109 @@ export function WordAssemblyGame({
       }
     });
 
-    // Always derived from the snapshot's order rather than from the last render,
-    // so a burst of moves inside one React batch cannot compound into a shuffle.
-    const next = order.filter((placedId) => placedId !== id);
-    next.splice(toIndex, 0, id);
-    setPlaced(next);
-    setDrag({ id, x: held.x - centres[toIndex].x, y: held.y - centres[toIndex].y });
+    // Keep the DOM order fixed while the pointer is down. Reordering it on every
+    // move made React reflow the tray while FLIP animations were still running;
+    // their transient transforms then became the next move's starting boxes and
+    // the offsets compounded. The neighbours are shifted from the one immutable
+    // slot snapshot instead, and the order is committed once, on release.
+    snapshot.toIndex = toIndex;
+    snapshot.held = held;
+    const neighbourOffsets: Record<string, { x: number; y: number }> = {};
+    snapshot.order.forEach((placedId, originalIndex) => {
+      if (placedId === id) return;
+      let targetIndex = originalIndex;
+      if (
+        toIndex < fromIndex &&
+        originalIndex >= toIndex &&
+        originalIndex < fromIndex
+      ) {
+        targetIndex = originalIndex + 1;
+      } else if (
+        toIndex > fromIndex &&
+        originalIndex > fromIndex &&
+        originalIndex <= toIndex
+      ) {
+        targetIndex = originalIndex - 1;
+      }
+      if (targetIndex === originalIndex) return;
+      const from = centres[originalIndex];
+      const to = centres[targetIndex];
+      neighbourOffsets[placedId] = { x: to.x - from.x, y: to.y - from.y };
+    });
+    setDrag({
+      id,
+      x: held.x - centres[fromIndex].x,
+      y: held.y - centres[fromIndex].y,
+      landing: false,
+      neighbourOffsets,
+    });
   };
 
-  const endDrag = (event: ReactPointerEvent<HTMLElement>, id: string) => {
-    if (pressedId.current === id) pressedId.current = null;
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      /* never captured, or already released */
-    }
-    if (draggingId.current !== id) return;
-    // Cleared before the re-render so the flip effect adopts the tile again and
-    // animates it from where it was released down into its slot.
+  const endDrag = (event: PointerEvent) => {
+    if (event.pointerId !== activePointer.current) return;
+    pressedId.current = null;
+    activePointer.current = null;
+    setPressed(null);
+    if (!draggingId.current) return;
+    const snapshot = gesture.current;
+    if (!snapshot) return;
+    const next = snapshot.order.filter((placedId) => placedId !== snapshot.id);
+    next.splice(snapshot.toIndex, 0, snapshot.id);
+
+    // Before release, neighbour transforms already put them at these final
+    // slots. Commit the DOM order and remove those transforms in one render so
+    // they never jump. Only the held tile keeps its pointer offset for one paint
+    // and then eases into the slot beneath it.
+    skipNextFlipRef.current = true;
+    setPlaced(next);
+    setDrag({
+      id: snapshot.id,
+      x: snapshot.held.x - snapshot.centres[snapshot.toIndex].x,
+      y: snapshot.held.y - snapshot.centres[snapshot.toIndex].y,
+      landing: true,
+      neighbourOffsets: {},
+    });
     draggingId.current = null;
     gesture.current = null;
-    setDrag(null);
+    suppressClick.current = true;
   };
+
+  // Let the released tile paint once where the pointer left it; removing the
+  // transform on the next frame uses the tile's ordinary transition to settle
+  // it into the committed slot.
+  useEffect(() => {
+    if (!drag?.landing) return;
+    const frame = window.requestAnimationFrame(() => {
+      freezeFlipRef.current = false;
+      setDrag(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [drag]);
+
+  // Kept fresh every render so the listeners below, which are attached once per
+  // press, always run the current round's handlers.
+  const dragHandlers = useRef({ move: onDragMove, end: endDrag });
+  useEffect(() => {
+    placedRef.current = placed;
+    outcomeRef.current = outcome;
+    dragHandlers.current = { move: onDragMove, end: endDrag };
+  });
+
+  // A press listens on the window, not on the tile, so crossing a neighbour or
+  // another flex row keeps delivering the rest of the gesture.
+  useEffect(() => {
+    if (!pressed) return;
+    const move = (event: PointerEvent) => dragHandlers.current.move(event);
+    const end = (event: PointerEvent) => dragHandlers.current.end(event);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+  }, [pressed]);
 
   /** Arrow keys move a focused tile, so reordering is not drag-only. */
   const onTileKeyDown = (event: ReactKeyboardEvent<HTMLElement>, id: string) => {
@@ -360,15 +491,22 @@ export function WordAssemblyGame({
       <div
         className={`mx-auto flex min-h-[4.5rem] max-w-full flex-wrap items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-3 py-3 transition-colors duration-300 ${
           outcome === 'unknown'
-            ? 'border-[#B91C1C]/50 bg-[#FCE7E5]/40 motion-safe:animate-[game-shake_350ms_ease]'
+            ? 'border-brick/50 bg-wash-brick/40 motion-safe:animate-[game-shake_350ms_ease]'
             : outcome === 'known'
-              ? 'border-[#187A43]/50 bg-[#E3F3E7]/40'
-              : 'border-[#BBAE98]/60 bg-[#FFF8E8]/35'
+              ? 'border-moss/50 bg-wash-moss/40'
+              : 'border-ink-faint/60 bg-paper-hi/35'
         }`}
         aria-label={t('game.assembledAnswer')}
       >
         {placedTiles.map((tile, index) => {
           const dragging = drag?.id === tile.id;
+          let transform: string | undefined;
+          if (dragging) {
+            transform = `translate(${drag.x}px, ${drag.y}px) scale(1.06)`;
+          } else {
+            const offset = drag?.neighbourOffsets[tile.id];
+            if (offset) transform = `translate(${offset.x}px, ${offset.y}px)`;
+          }
           return (
             <button
               key={tile.id}
@@ -376,19 +514,10 @@ export function WordAssemblyGame({
               type="button"
               disabled={Boolean(outcome)}
               onPointerDown={(event) => onTilePointerDown(event, tile.id)}
-              onPointerMove={(event) => onTilePointerMove(event, tile.id)}
-              onPointerUp={(event) => endDrag(event, tile.id)}
-              onPointerCancel={(event) => endDrag(event, tile.id)}
               onKeyDown={(event) => onTileKeyDown(event, tile.id)}
-              onClick={() => {
-                if (suppressClick.current) {
-                  suppressClick.current = false;
-                  return;
-                }
-                takeBack(tile.id);
-              }}
+              onClick={() => takeBack(tile.id)}
               style={{
-                transform: dragging ? `translate(${drag.x}px, ${drag.y}px) scale(1.06)` : undefined,
+                transform,
                 // The lifted tile must not lag behind the pointer, and the
                 // graded tiles colour in one after another rather than all at
                 // once. Both written longhand: mixing `transition` with
@@ -403,12 +532,12 @@ export function WordAssemblyGame({
                   'touch-none disabled:cursor-default',
                   dragging ? 'z-30 cursor-grabbing shadow-[0_10px_18px_rgba(42,34,24,0.28)]' : 'cursor-grab',
                   outcome === 'known'
-                    ? 'border-[#187A43] bg-[#E3F3E7] text-[#145B33] shadow-[0_3px_0_#A9D3B6]'
+                    ? 'border-moss bg-wash-moss text-[#145B33] shadow-[0_3px_0_#A9D3B6]'
                     : outcome === 'unknown'
-                      ? 'border-[#B91C1C] bg-[#FCE7E5] text-[#8F1515] shadow-[0_3px_0_#E4AAA6]'
+                      ? 'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6]'
                       : dragging
-                        ? 'border-[#1E6FA8] bg-[#E4EEF6] text-[#17608F]'
-                        : 'border-[#1E6FA8] bg-[#E4EEF6] text-[#17608F] shadow-[0_3px_0_#B5CFE4]',
+                        ? 'border-sea bg-wash-sea text-sea-mid'
+                        : 'border-sea bg-wash-sea text-sea-mid shadow-[0_3px_0_#B5CFE4]',
                 ].join(' '),
               )}
             >
@@ -422,8 +551,8 @@ export function WordAssemblyGame({
             aria-hidden="true"
             className={`inline-flex h-12 items-center justify-center rounded-2xl border-2 border-dashed px-3 ${tileWidth} ${
               index === 0 && !outcome
-                ? 'border-[#1E6FA8]/45 motion-safe:animate-[assembly-slot-wait_1.9s_ease-in-out_infinite]'
-                : 'border-[#BBAE98]/55'
+                ? 'border-sea/45 motion-safe:animate-[assembly-slot-wait_1.9s_ease-in-out_infinite]'
+                : 'border-ink-faint/55'
             }`}
           >
             {/* Sized like a tile, so the slot a tile is going to land in is
@@ -441,13 +570,17 @@ export function WordAssemblyGame({
             type="button"
             disabled={Boolean(outcome) || isFull}
             style={{ animationDelay: `${index * 45}ms` }}
+            // A drag that ends over anything but a button leaves no click to
+            // swallow, so the suppression flag would still be armed here and
+            // would eat this tap. A fresh press is never drag fallout.
+            onPointerDown={() => { suppressClick.current = false; }}
             {...noTranslateProps(
               [
                 TILE_SHAPE,
                 tileWidth,
-                'border-[#BBAE98] bg-[#FFF8E8] text-[#2A2218] shadow-[0_3px_0_#D8C9AF]',
+                'border-ink-faint bg-paper-hi text-ink shadow-[0_3px_0_#D8C9AF]',
                 'motion-safe:animate-[deck-enter-rise_0.4s_ease-out_both]',
-                'enabled:hover:-translate-y-0.5 enabled:hover:border-[#1E6FA8] enabled:hover:shadow-[0_5px_0_#C7B89E]',
+                'enabled:hover:-translate-y-0.5 enabled:hover:border-sea enabled:hover:shadow-[0_5px_0_#C7B89E]',
                 'enabled:active:translate-y-[2px] enabled:active:shadow-none',
                 'disabled:cursor-default disabled:opacity-40 disabled:shadow-none',
               ].join(' '),

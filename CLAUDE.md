@@ -23,6 +23,39 @@ Run the complete suite before handing off a cross-cutting or high-risk change.
 
 Use Tailwind for all new styling. Do not refactor existing CSS in `styles/*.css` — that is a separate future task.
 
+### Design tokens
+
+Every colour the app draws is defined once, in the paper-palette block at the
+top of `styles/tokens.css`, and exposed as Tailwind utilities from the `@theme`
+block in `app/tailwind.css`. Write `bg-paper`, `text-ink`, `border-sea`,
+`text-ink-soft` — never a hex literal, and never `var(--paper)` where a utility
+exists.
+
+These names are deliberately never re-pointed by a scope. `.game-card` and
+`.study-ink-scope` remap `--accent` / `--text` / `--color-*`, which is why
+components used to hardcode hex to stay stable across cards; `--ink` and
+`--paper` mean the same thing on every surface, so they are safe anywhere. If a
+subtree needs a different colour, add a token — do not override one.
+
+The TypeScript side is `features/shared/theme/warm-palette.ts`, which hands out
+`var()` handles under the `--ob-*` and `--game-*` names that the hand-written
+CSS in `styles/panels.css` and `styles/minigames.css` reads. It holds no values
+of its own. Reach for it only when a utility cannot do the job — setting a DOM
+style from JavaScript, or providing those variables to a subtree.
+
+`pnpm run check:design-tokens` enforces this. A raw hex that already has a token
+fails outright; anything else is ratcheted per file against
+`config/design-token-baseline.json` (lower a file's entry with `--update` after
+you clean it; raising one is deliberate design debt). Files where a CSS variable
+genuinely cannot reach — a `<canvas>` context, a standalone SVG served as an
+image — are listed with their reason in `config/design-token-exempt.json`.
+
+The scales are an inventory, not a decision: the app currently draws four greens
+and a dozen creams, several of them one-digit drifts from each other.
+`pnpm run check:design-tokens --report` lists the near-duplicate clusters.
+Collapsing them is a design choice and is parked until the palette is settled —
+see the `/dev/design-system` playground.
+
 
 ## Architecture
 

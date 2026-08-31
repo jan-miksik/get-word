@@ -27,14 +27,14 @@ export function LearningSettingsPanel({
 
   return (
     <section
-      className={`settings-panel learning-settings-panel ${isOpen ? 'is-open fixed inset-0' : ''}`}
+      className={`settings-panel learning-settings-panel md:!w-[calc(100vw-2rem)] md:!max-w-[720px] ${isOpen ? 'is-open fixed inset-0' : ''}`}
       aria-label={t('top.learningSettings')}
       onClick={(e) => e.stopPropagation()}
     >
       {isOpen && onClose && (
         <div className="panel-backdrop" onClick={onClose} aria-hidden />
       )}
-      <div className="panel-content">
+      <div className="panel-content md:!max-h-[calc(100dvh-5rem)]">
         <div className="p-5 sm:p-6 flex flex-col gap-4">
 
           <div className="relative flex items-center min-h-8">
@@ -61,7 +61,7 @@ export function LearningSettingsPanel({
             onMinigameFrequencyChange={onMinigameFrequencyChange}
           />
 
-          <div className="mt-2 border-t-2 border-dashed border-[#2A2218]/30 pt-4">
+          <div className="mt-2 border-t-2 border-dashed border-ink/30 pt-4">
             <FrontierFeaturesSection />
           </div>
 

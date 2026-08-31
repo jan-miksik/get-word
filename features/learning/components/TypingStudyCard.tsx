@@ -26,6 +26,7 @@ import {
 import { CustomStagePopover } from './word-card/CustomStagePopover';
 import { FullyKnownOffer, TOP_STAGE_INDEX, isTopStage } from './word-card/FullyKnownOffer';
 import { formatNextReviewHint, getWordTextSize } from './word-card/helpers';
+import { gamePaletteVars } from '@/features/shared/theme/warm-palette';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
@@ -94,19 +95,6 @@ const slotState = (typed: string, expected: string): 'correct' | 'close' | 'bad'
   if (typed !== '' && areOrthographicVariants(typed, expected)) return 'close';
   return 'bad';
 };
-
-// The game-typing-* / game-input / game-hint-btn / game-feedback styles read
-// these vars, normally provided by .game-card. The typing study card reuses the
-// input mechanics without the game frame, so it supplies the palette itself.
-const GAME_PALETTE = {
-  '--game-surface': '#F4EFE2',
-  '--game-surface-hover': '#FFF8E8',
-  '--game-ink': '#2A2218',
-  '--game-ink-soft': '#6B5E48',
-  '--game-accent': '#1E6FA8',
-  '--game-correct': '#15803D',
-  '--game-wrong': '#B91C1C',
-} as React.CSSProperties;
 
 export function TypingStudyCard({
   word,
@@ -682,7 +670,7 @@ export function TypingStudyCard({
           isFixed && !isSpace && result === null ? 'opacity-60' : '',
           state ? `game-typing-slot--${state}` : '',
           isActive
-            ? 'is-active after:!left-0 after:!w-[2px] after:!translate-x-0 after:!rounded-none after:!bg-[#2A2218]'
+            ? 'is-active after:!left-0 after:!w-[2px] after:!translate-x-0 after:!rounded-none after:!bg-ink'
             : '',
           reservesCorrectionRow ? 'flex-col items-center' : '',
         ].filter(Boolean).join(' ')}
@@ -738,14 +726,14 @@ export function TypingStudyCard({
     result?.presentation === 'close' || result?.presentation === 'typo'
       ? '!border-[#C28A24] !bg-[#FFF0BD] !text-[#5B3A00] shadow-[0_2px_0_rgba(91,58,0,0.12)]'
       : result?.presentation === 'wrong'
-        ? '!border-[#B91C1C]/30 !bg-[#B91C1C]/10 !text-[#8F1515]'
-        : '!border-transparent !bg-transparent !text-[#187A43] !shadow-none';
+        ? '!border-brick/30 !bg-brick/10 !text-brick-deep'
+        : '!border-transparent !bg-transparent !text-moss !shadow-none';
 
   return (
     <article
       ref={articleRef}
       className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''} ${isMemoryHookEditing ? 'word-card--editing-hook' : ''}`}
-      style={GAME_PALETTE}
+      style={gamePaletteVars}
       data-word-id={word.id}
       data-stage-group={stageGroup}
     >
@@ -772,7 +760,7 @@ export function TypingStudyCard({
             <button
               ref={audioButtonRef}
               type="button"
-              className="!h-16 !min-h-16 !w-16 !min-w-16 flex items-center justify-center !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#1E6FA8] hover:!border-[#1E6FA8] hover:!text-[#F4EFE2] active:!bg-[#1E6FA8] active:!border-[#1E6FA8] active:!text-[#F4EFE2] cursor-pointer"
+              className="!h-16 !min-h-16 !w-16 !min-w-16 flex items-center justify-center !rounded-full !border-2 !border-ink !bg-paper !text-ink !shadow-none hover:!bg-sea hover:!border-sea hover:!text-paper active:!bg-sea active:!border-sea active:!text-paper cursor-pointer"
               onClick={handleAudioClick}
               onPointerDown={startAudioWithoutDroppingTypingFocus}
               aria-label={t('game.replayPromptAudio')}
@@ -780,7 +768,7 @@ export function TypingStudyCard({
               <SpeakerIcon size={23} />
             </button>
             {knownMeaningText && (
-              <div {...noTranslateProps('text-center text-lg font-medium text-[#6B5E48]')}>
+              <div {...noTranslateProps('text-center text-lg font-medium text-ink-soft')}>
                 {knownMeaningText}
               </div>
             )}
@@ -789,7 +777,7 @@ export function TypingStudyCard({
           <div className="flex items-center justify-center">
             <div
               {...noTranslateProps(
-                `text-center font-bold leading-tight text-[#2A2218] md:[@media(max-height:800px)]:!text-[2rem] ${getWordTextSize(promptText.length)}`,
+                `text-center font-bold leading-tight text-ink md:[@media(max-height:800px)]:!text-[2rem] ${getWordTextSize(promptText.length)}`,
               )}
             >
               {promptText}
@@ -841,7 +829,7 @@ export function TypingStudyCard({
           <button
             ref={audioButtonRef}
             type="button"
-            className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!border-[#1E6FA8] hover:!bg-[#1E6FA8] hover:!text-[#F4EFE2] active:!border-[#1E6FA8] active:!bg-[#1E6FA8] active:!text-[#F4EFE2] max-md:!top-[-90px] md:[@media(max-height:800px)]:!top-[-82px]"
+            className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-ink !bg-paper !text-ink !shadow-none hover:!border-sea hover:!bg-sea hover:!text-paper active:!border-sea active:!bg-sea active:!text-paper max-md:!top-[-90px] md:[@media(max-height:800px)]:!top-[-82px]"
             onClick={handleAudioClick}
             onPointerDown={startAudioWithoutDroppingTypingFocus}
             aria-label={t('card.playAudio')}
@@ -854,7 +842,7 @@ export function TypingStudyCard({
             <button
               ref={compactContinueRef}
               type="button"
-              className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-[#2A2218] !bg-[#2A2218] px-3 !text-[#F4EFE2] shadow-none hover:!border-[#3D3226] hover:!bg-[#3D3226] hover:!text-[#F4EFE2] focus-visible:!border-[#3D3226] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2A2218] md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
+              className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-ink !bg-ink px-3 !text-paper shadow-none hover:!border-ink-600 hover:!bg-ink-600 hover:!text-paper focus-visible:!border-ink-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
               onClick={handleContinue}
             >
               <span className="srs-btn-copy">
@@ -912,7 +900,7 @@ export function TypingStudyCard({
       {result && (
         <button
           type="button"
-          className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-[#2A2218] bg-[#2A2218] px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-[#F4EFE2] shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"
+          className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-ink bg-ink px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-paper shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"
           onClick={handleContinue}
         >
           <span className="srs-btn-copy gap-1">

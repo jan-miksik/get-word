@@ -179,9 +179,9 @@ export function CustomStagePopover({
           ref={customPopoverRef}
           role="listbox"
           style={popoverStyle}
-          className="custom-stage-popover z-50 max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
+          className="custom-stage-popover z-50 max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-ink bg-paper text-ink shadow-lg overflow-hidden flex flex-col"
         >
-          <div className="bg-[#F4EFE2] px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
+          <div className="bg-paper px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-ink/70 border-b border-ink/20">
             {t('card.repeatAfter')}
           </div>
           <div className="custom-stage-popover-options overflow-y-auto">
@@ -198,11 +198,11 @@ export function CustomStagePopover({
                     setCustomOpen(false);
                     onCustomStage?.(idx);
                   }}
-                  className={`relative flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug [touch-action:manipulation] transition-colors hover:bg-[#2A2218]/15 active:bg-[#2A2218]/25 ${
+                  className={`relative flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug [touch-action:manipulation] transition-colors hover:bg-ink/15 active:bg-ink/25 ${
                     isCurrent
-                      ? 'bg-[#2A2218]/12 font-semibold before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-[#2A2218]'
+                      ? 'bg-ink/12 font-semibold before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-ink'
                       : stripe
-                        ? 'bg-[#2A2218]/[0.045]'
+                        ? 'bg-ink/[0.045]'
                         : ''
                   }`}
                 >
@@ -222,7 +222,7 @@ export function CustomStagePopover({
                   onReallyKnown?.();
                 }
               }}
-              className="flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug font-medium text-[#12750f] bg-[#12750f]/[0.08] [touch-action:manipulation] transition-colors hover:bg-[#12750f]/20 active:bg-[#12750f]/30 border-t border-[#2A2218]/20"
+              className="flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug font-medium text-green-bright bg-green-bright/[0.08] [touch-action:manipulation] transition-colors hover:bg-green-bright/20 active:bg-green-bright/30 border-t border-ink/20"
             >
               {t('card.fullyKnownNoRepeat')}
             </TapOptionButton>

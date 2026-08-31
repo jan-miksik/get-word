@@ -41,9 +41,9 @@ export function LanguagePairSummary({ from, to, onOpen, className = '' }: Props)
   const target = describe(to, t('photoLab.targetLanguage'));
 
   const shell = [
-    'flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] sm:gap-2',
+    'flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-paper/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] sm:gap-2',
     onOpen
-      ? 'transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-[#2A2218]/10'
+      ? 'transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-ink/10'
       : '',
     className,
   ]

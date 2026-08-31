@@ -331,12 +331,24 @@ export function PWARegister() {
     setPreviewDismissed(true);
   };
 
+  const handleDismissDevStatus = () => {
+    setDevStatus(null);
+  };
+
   if (
     process.env.NODE_ENV !== 'production' &&
     devStatus?.controlled
   ) {
     return (
-      <div className="fixed left-1/2 top-3 z-[400] w-[min(calc(100vw-1rem),42rem)] -translate-x-1/2 rounded-xl border border-amber-400/35 bg-amber-100/95 px-3 py-2 text-xs text-amber-950 shadow-lg backdrop-blur">
+      <div className="fixed left-1/2 top-3 z-[400] w-[min(calc(100vw-1rem),42rem)] -translate-x-1/2 rounded-xl border border-amber-400/35 bg-amber-100/95 py-2 pl-3 pr-10 text-xs text-amber-950 shadow-lg backdrop-blur">
+        <button
+          type="button"
+          onClick={handleDismissDevStatus}
+          aria-label="Dismiss stale service worker notice"
+          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg text-lg leading-none text-amber-950/70 transition-colors hover:bg-amber-950/10 hover:text-amber-950"
+        >
+          ×
+        </button>
         <div className="font-semibold">Stale service worker detected in dev</div>
         <div className="mt-0.5">
           Get Word cleared {devStatus.cachesCleared} cache

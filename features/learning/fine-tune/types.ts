@@ -193,7 +193,7 @@ export interface StageConfig {
 }
 
 export interface FineTuneConfig {
-  version: 4;
+  version: 5;
   /** Exactly 8 entries, indexed by `STAGES[i].id`. */
   stages: StageConfig[];
 }

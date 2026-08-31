@@ -58,6 +58,8 @@ type Props = {
   languageFrom: string;
   languageTo: string;
   messages: WordChatMessage[];
+  /** Reports that a reply has finished typing itself out, so it is not replayed. */
+  onReplyRevealed?: (id: string | undefined) => void;
   suggestions: string[];
   addressRegister: WordChatAddressRegister | null;
   salutationGender: WordChatSalutationGender | null;
@@ -131,6 +133,7 @@ export function ChatStep({
   busy,
   history,
   onSend,
+  onReplyRevealed,
   onStartManualEntry,
   keyboardOpen = false,
   active = true,
@@ -306,7 +309,8 @@ export function ChatStep({
   // typing animation having lost track of where the turn was.
   const replyStartedWriting = Boolean(
     lastAssistantIndex >= 0 &&
-      messages[lastAssistantIndex]?.incomplete &&
+      (messages[lastAssistantIndex]?.incomplete ||
+        messages[lastAssistantIndex]?.awaitingReveal) &&
       messages[lastAssistantIndex]?.content,
   );
   const showWorkingIndicator = Boolean(busy) && !replyStartedWriting;
@@ -692,7 +696,7 @@ export function ChatStep({
                     className={[
                       'max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
                       message.role === 'assistant' &&
-                      message.incomplete &&
+                      (message.incomplete || message.awaitingReveal) &&
                       index === lastAssistantIndex
                         ? 'motion-safe:animate-[word-chat-message-in_180ms_ease-out_both]'
                         : '',
@@ -704,12 +708,13 @@ export function ChatStep({
                     {message.role === 'assistant' ? (
                       <StreamedText
                         text={message.content}
-                        // Only a reply that is still being streamed when its
-                        // bubble appears types itself out; anything already
-                        // finished (an earlier turn, a restored draft) is text
-                        // the learner has seen and must not replay.
-                        animate={message.incomplete === true}
+                        // Only a reply the learner has not been shown yet types
+                        // itself out; anything already revealed (an earlier
+                        // turn, a restored draft) is text they have seen and
+                        // must not replay.
+                        animate={message.awaitingReveal === true}
                         onReveal={followRevealedText}
+                        onRevealed={() => onReplyRevealed?.(message.id)}
                       />
                     ) : (
                       message.content

@@ -10,17 +10,16 @@ beforeEach(() => {
 });
 
 describe('migrateLegacyTypingMode', () => {
-  it('turns the old global typing mode into typing from the one-day stage up', () => {
+  it('turns the old global typing mode into typing from the five-minute stage up', () => {
     window.localStorage.setItem(LEARNING_LOCAL_PREFERENCE_KEYS.typingMode, 'true');
 
     const migrated = migrateLegacyTypingMode(false);
     expect(migrated).not.toBeNull();
 
-    // Nothing new at "now" and "5 minutes" — typing a word you met a moment ago
-    // is not what the old setting was for.
+    // Stage zero still teaches by reveal. The five-minute return now starts
+    // with heavily scaffolded typing, then later stages keep reducing help.
     expect(activeMethods(migrated!.stages[0])).not.toContain('typing');
-    expect(activeMethods(migrated!.stages[1])).not.toContain('typing');
-    for (let stage = 2; stage < migrated!.stages.length; stage += 1) {
+    for (let stage = 1; stage < migrated!.stages.length; stage += 1) {
       expect(activeMethods(migrated!.stages[stage])).toContain('typing');
     }
   });

@@ -108,11 +108,11 @@ describe('resolveSessionFlow on a minutes day', () => {
     expect(flow.dayDone).toBe(0);
   });
 
-  it('falls forward early when a stretch runs out of material', () => {
+  it('does not leak a future block into an exhausted clock stretch', () => {
     const blocks = day();
     blocks[0] = block({ key: 'review-0', phase: 0, total: 6, done: 6, liveRemaining: 0 });
 
-    expect(resolveSessionFlow(blocks, 0).block?.key).toBe('new-0');
+    expect(resolveSessionFlow(blocks, 0).block).toBeNull();
   });
 
   it('stays open without material until the time budget itself is spent', () => {
@@ -142,5 +142,15 @@ describe('resolveSessionFlow on a minutes day', () => {
       key: 'review-1', phase: 2, total: 8, done: 4, pending: 0, liveRemaining: 4,
     });
     expect(resolveSessionFlow(blocks, 3)).toMatchObject({ complete: true, settled: true });
+  });
+
+  it('ends a two-stretch first day at phase two', () => {
+    const firstDay = [
+      block({ key: 'new-0', kind: 'new', phase: 0, total: 2 }),
+      block({ key: 'review-0', phase: 1, total: 2 }),
+    ];
+
+    expect(resolveSessionFlow(firstDay, 1, 2).complete).toBe(false);
+    expect(resolveSessionFlow(firstDay, 2, 2).complete).toBe(true);
   });
 });

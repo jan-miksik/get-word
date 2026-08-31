@@ -16,7 +16,11 @@ import {
   writeStreakVariant,
 } from '@/features/learning/components/goals/streakVariant';
 import type { StreakChipData, StreakDay } from '@/features/learning/goals/streakWeek';
-import { SessionTimeStrip } from '@/features/learning/components/SessionTimeStrip';
+import {
+  SESSION_TIME_STRIP_VARIANTS,
+  SessionTimeStrip,
+} from '@/features/learning/components/SessionTimeStrip';
+import type { ActivityClockState } from '@/lib/activity/runtime';
 import { currentIanaTimezone } from '@/lib/local-day';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import type { SessionFlowState } from '@/features/learning/session/flow';
@@ -152,13 +156,13 @@ function StreakView() {
           {STREAK_VARIANTS.map((option) => (
             <button
               key={option} type="button" onClick={() => writeStreakVariant(option)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold ${variant === option ? 'bg-[#a95e2a] text-white' : 'bg-[#eadfc8]'}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold ${variant === option ? 'bg-brown text-white' : 'bg-paper-deeper'}`}
             >
               {option}
             </button>
           ))}
         </div>
-        <p className="m-0 mt-2 text-xs text-[#735d43]">
+        <p className="m-0 mt-2 text-xs text-ink-300">
           Všechny varianty čtou stejnou sémantiku (kolik z dne, jaká barva,
           dnešek) — liší se jen forma, ne co je pravda.
         </p>
@@ -167,8 +171,8 @@ function StreakView() {
       <Card title="Všechny varianty vedle sebe">
         <div className="flex flex-col gap-4">
           {STREAK_VARIANTS.map((option) => (
-            <div key={option} className="flex items-center gap-4 rounded-xl bg-[#f6f1e6] p-4">
-              <span className="w-14 shrink-0 text-xs font-black uppercase tracking-wide text-[#735d43]">{option}</span>
+            <div key={option} className="flex items-center gap-4 rounded-xl bg-paper-tint p-4">
+              <span className="w-14 shrink-0 text-xs font-black uppercase tracking-wide text-ink-300">{option}</span>
               <StreakDays days={week} weeks={history} size="full" variant={option} value={1} />
               <span className="ml-auto flex items-center gap-2">
                 <span className="stat-chip">
@@ -185,14 +189,14 @@ function StreakView() {
           the real deck imposes — the 800px viewport cap and the phone gutter —
           because escaping those is the whole point of the card's full-bleed. */}
       <div className="-mx-6 sm:mx-0">
-        <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide text-[#735d43]">
+        <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide text-ink-300">
           Karta konce dne (uvnitř skutečného guttteru decku, sloupec bez capu)
         </p>
         <div className="px-3 sm:px-0">
           <div className="relative mx-auto flex w-full max-w-none flex-col">
             <SessionCardShell celebratory>
-              <h2 className="m-0 text-2xl font-black text-[#1f1a12]">Pro dnešek hotovo!</h2>
-              <p className="m-0 mt-2 text-sm text-[#4a4032]">Další várka čeká zítra.</p>
+              <h2 className="m-0 text-2xl font-black text-ink-800">Pro dnešek hotovo!</h2>
+              <p className="m-0 mt-2 text-sm text-ink-500">Další várka čeká zítra.</p>
               <StreakSummary streak={streak} />
             </SessionCardShell>
           </div>
@@ -202,9 +206,9 @@ function StreakView() {
       <Card title="Všechny stavy dne">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {STREAK_CASES.map((entry) => (
-            <div key={entry.label} className="flex flex-col items-center gap-2 rounded-xl bg-[#f6f1e6] p-3 text-center">
+            <div key={entry.label} className="flex flex-col items-center gap-2 rounded-xl bg-paper-tint p-3 text-center">
               <StreakDays days={[streakDay(0, entry.day)]} size="full" />
-              <span className="text-[0.6875rem] font-bold leading-tight text-[#735d43]">{entry.label}</span>
+              <span className="text-[0.6875rem] font-bold leading-tight text-ink-300">{entry.label}</span>
             </div>
           ))}
         </div>
@@ -231,7 +235,7 @@ function Slider({ label, value, max, onChange }: {
       <input
         type="range" min={0} max={max} value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="mt-1 block w-full accent-[#a95e2a]"
+        className="mt-1 block w-full accent-brown"
       />
     </label>
   );
@@ -242,11 +246,11 @@ function SetupView() {
   const [saved, setSaved] = useState<GoalPickerValue | null>(null);
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="rounded-2xl bg-background py-6 lg:bg-[#f4efe2]">
+      <div className="rounded-2xl bg-background py-6 lg:bg-paper">
         <StudyGoalSetupCard pacing={pacing} onSave={setSaved} />
       </div>
       <Card title="Co by se uložilo">
-        <pre className="m-0 overflow-x-auto rounded-xl bg-[#f6f1e6] p-3 text-xs">
+        <pre className="m-0 overflow-x-auto rounded-xl bg-paper-tint p-3 text-xs">
           {saved === null ? 'zatím nic' : JSON.stringify(saved, null, 2)}
         </pre>
       </Card>
@@ -261,12 +265,18 @@ function SetupView() {
  * clock slider really does drive the displayed time — the same path the real
  * app takes when the goal summary arrives.
  */
+/** Every state the strip has to be able to draw, in the order it meets them. */
+const DEV_CLOCK_STATES: readonly ActivityClockState[] = [
+  'counting', 'idle', 'paused', 'elsewhere', 'unmeasured',
+];
+
 function CountdownView() {
   const [mode, setMode] = useState<'words' | 'minutes'>('words');
   const [activeSeconds, setActiveSeconds] = useState(180);
   const [introduced, setIntroduced] = useState(4);
   const [reviewed, setReviewed] = useState(7);
   const [nothingDue, setNothingDue] = useState(false);
+  const [clockState, setClockState] = useState<ActivityClockState>('counting');
   const variant = useGoalStripVariant();
 
   const day: GoalDay = {
@@ -294,7 +304,7 @@ function CountdownView() {
             {(['words', 'minutes'] as const).map((option) => (
               <button
                 key={option} type="button" onClick={() => setMode(option)}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold ${mode === option ? 'bg-[#2a2218] text-white' : 'bg-[#eadfc8]'}`}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold ${mode === option ? 'bg-ink text-white' : 'bg-paper-deeper'}`}
               >
                 {option}
               </button>
@@ -308,19 +318,36 @@ function CountdownView() {
             Stav „nothing_due“
           </label>
           <div>
+            <p className="m-0 mb-1 text-xs font-bold">Co dělají hodiny</p>
+            <div className="flex flex-wrap gap-2">
+              {DEV_CLOCK_STATES.map((option) => (
+                <button
+                  key={option} type="button" onClick={() => setClockState(option)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${clockState === option ? 'bg-brown text-white' : 'bg-paper-deeper'}`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            <p className="m-0 mt-1 text-xs text-ink-300">
+              Tady se měří jen naoko — v preview žádný tracker neběží, takže by
+              odpočet jinak pořád hlásil „neměří se“.
+            </p>
+          </div>
+          <div>
             <p className="m-0 mb-1 text-xs font-bold">Varianta pruhu (sdílená s běžící appkou)</p>
             <div className="flex gap-2">
               {GOAL_STRIP_VARIANTS.map((option) => (
                 <button
                   key={option} type="button" onClick={() => writeGoalStripVariant(option)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${variant === option ? 'bg-[#a95e2a] text-white' : 'bg-[#eadfc8]'}`}
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${variant === option ? 'bg-brown text-white' : 'bg-paper-deeper'}`}
                 >
                   {option}
                 </button>
               ))}
             </div>
           </div>
-          <p className="m-0 text-xs text-[#735d43]">
+          <p className="m-0 text-xs text-ink-300">
             Hodiny nezčervenají podle spotřebovaného času, ale podle{' '}
             <em>odhadu dokončení</em>: jakmile aktuální tempo × zbývající karty
             přeteče rozpočet. Zpomal to přidáním času bez přidání odpovědí.
@@ -329,30 +356,52 @@ function CountdownView() {
       </Card>
       <div className="flex flex-col gap-6">
         <Card title="Pruh">
-          <div className="rounded-xl bg-[#f6f1e6] p-4">
+          <div className="rounded-xl bg-paper-tint p-4">
             <StudyCountdown day={day} goal={goal} enabled />
           </div>
         </Card>
         <Card title={mode === 'minutes' ? 'Odpočet nad kartami' : 'Raily u okrajů'}>
-          <p className="m-0 mb-3 text-xs text-[#735d43]">
+          <p className="m-0 mb-3 text-xs text-ink-300">
             U časového cíle nejsou raily žádné — zbývá jen odpočet nad balíčkem,
             s vlastním miniprogresem a s ryskami tam, kde se den láme na
             opakování → nová slova → doběh. U slov zůstávají raily beze změny.
             Posuvník „Aktivní čas“ je tu jen náhled — v aplikaci ho hýbe jen
             měřený čas, takže odloženou kartu nic neodpočítá.
           </p>
+          {mode === 'minutes' ? (
+            <p className="m-0 mb-3 text-xs text-ink-300">
+              Obě varianty běží současně nad stejnými hodinami.{' '}
+              <strong>Tichá</strong> je ta, kterou kreslí appka: celé minuty
+              místo sekund, žádná pilulka, pruh skáče místo plynulé animace a
+              celý pruh po pár vteřinách zeslábne — zesílí zpátky jen když se
+              zlomí fáze dne, zastaví se hodiny, nebo začne poslední minuta
+              (posuň „Aktivní čas“ na 541 s a výš). <strong>Hlasitá</strong> je
+              původní podoba, je tu jen na porovnání.
+            </p>
+          ) : null}
           {/* The real study area sits on the fixed warm ground, not on the theme
               background — the rail track is a dark translucency tuned for it. */}
-          <div className="relative h-72 overflow-hidden rounded-xl bg-[#dcd1b9] text-[#2a2218]">
+          <div className="relative h-72 overflow-hidden rounded-xl bg-sand text-ink">
             {mode === 'minutes' ? (
-              <SessionTimeStrip
-                goal={{
-                  dayKey: DEV_DAY_KEY,
-                  timezone: currentIanaTimezone(),
-                  budgetMs: 10 * 60_000,
-                  serverActiveMs: activeSeconds * 1000,
-                }}
-              />
+              <div className="flex flex-col gap-6 pt-1">
+                {SESSION_TIME_STRIP_VARIANTS.map((option) => (
+                  <div key={option}>
+                    <p className="m-0 px-4 text-[0.6rem] font-black uppercase tracking-[0.12em] text-ink/35">
+                      {option === 'quiet' ? 'tichá — v appce' : 'hlasitá — původní'}
+                    </p>
+                    <SessionTimeStrip
+                      variant={option}
+                      clock={clockState}
+                      goal={{
+                        dayKey: DEV_DAY_KEY,
+                        timezone: currentIanaTimezone(),
+                        budgetMs: 10 * 60_000,
+                        serverActiveMs: activeSeconds * 1000,
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             ) : (
               <SessionRail flow={DEV_FLOW} />
             )}
@@ -385,7 +434,7 @@ function ForecastView() {
 
       <div className="flex flex-col gap-6">
         <Card title="Kdo si ten cíl nastaví">
-          <p className="m-0 mb-3 text-xs text-[#735d43]">
+          <p className="m-0 mb-3 text-xs text-ink-300">
             Stejný cíl, pět různých návyků. Podíly jsou odhad, ne měření — jsou tu proto,
             aby se okrajový případ nepletl s normou. Průměry se čtou z posledních 14 dnů
             před řezem, jen ze dnů, kdy se ten člověk skutečně učil.
@@ -432,13 +481,13 @@ function ForecastView() {
                   className="flex min-w-0 flex-1 flex-col justify-end"
                 >
                   <div
-                    className={day.studied ? 'rounded-t bg-[#a95e2a]' : 'rounded-t bg-[#ddd0b6]'}
+                    className={day.studied ? 'rounded-t bg-brown' : 'rounded-t bg-[#ddd0b6]'}
                     style={{ height: `${(day.answerEvents / peak) * 100}%` }}
                   />
                 </div>
               ))}
             </div>
-            <p className="m-0 mt-2 text-xs text-[#735d43]">
+            <p className="m-0 mt-2 text-xs text-ink-300">
               Sloupce jsou skutečné odpovědi včetně pětiminutových návratů; světlé dny
               jsou ty, kdy appka zůstala zavřená. Vrchol backlogu:{' '}
               <strong className="tabular-nums">{Math.round(entry.slices.at(-1)?.peakBacklog ?? 0)}</strong>
@@ -468,9 +517,9 @@ export function StudyGoalDevPreview() {
 
   return (
     <I18nProvider language="cs">
-      <main className="mx-auto min-h-screen max-w-6xl bg-[#fffdf7] px-5 py-10 text-[#2a2218]">
+      <main className="mx-auto min-h-screen max-w-6xl bg-[#fffdf7] px-5 py-10 text-ink">
         <h1 className="mb-2 text-3xl font-black">Studijní cíl · dev preview</h1>
-        <p className="mb-5 max-w-2xl text-sm text-[#735d43]">
+        <p className="mb-5 max-w-2xl text-sm text-ink-300">
           Úvodní karta, snapshotový countdown a odhad zátěže opakování. Vše běží na
           ručně sestavených datech — bez přihlášení, bez databáze.
         </p>
@@ -478,7 +527,7 @@ export function StudyGoalDevPreview() {
           {VIEWS.map((option) => (
             <button
               key={option} type="button" onClick={() => choose(option)}
-              className={`rounded-full px-4 py-2 text-sm font-bold ${view === option ? 'bg-[#2a2218] text-white' : 'bg-[#eadfc8]'}`}
+              className={`rounded-full px-4 py-2 text-sm font-bold ${view === option ? 'bg-ink text-white' : 'bg-paper-deeper'}`}
             >
               {option}
             </button>

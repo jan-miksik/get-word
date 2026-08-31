@@ -1,5 +1,3 @@
-import { TIME_PHASE_SHARES } from './timeCountdown';
-
 export type SessionBlockKind = 'review' | 'new';
 
 export interface SessionBlock {
@@ -17,8 +15,8 @@ export interface SessionBlock {
   pass?: number;
   /**
    * A same-session check of words introduced by the preceding new block.
-   * It uses the word's current (normally five-minute) exercise configuration,
-   * but a successful answer reinforces that stage instead of advancing it.
+   * It uses the word's current (normally five-minute) exercise configuration;
+   * a successful answer is a normal SRS review and advances to the next stage.
    */
   reinforcement?: true;
   /**
@@ -109,24 +107,17 @@ export interface TimeSessionBlockPlanInput {
   /** Every repeat the day selected, in the order it should be met. */
   reviewIds: readonly string[];
   newIds: readonly string[];
-  /** How many items the budget was estimated to hold; sizes the stretches. */
-  itemBudget: number;
-  /** Close on same-day repeats when the day has no real repeats of its own. */
-  fillWithRepeats?: boolean;
-  /** Coming back after a long absence: open on new ground, not on the backlog. */
-  openOnNew?: boolean;
 }
 
 /**
- * Shapes a minutes day into its three time stretches.
+ * Shapes a minutes day into its clock-owned stretches.
  *
  * The clock, not a card count, decides when one stretch ends — see
  * `timePhaseIndex` — so a block here is not a quota to finish but the material
  * that stretch is allowed to draw on:
  *
- *   0–30%   repeats, or new words when there is nothing to repeat
- *   30–60%  the day's new ground
- *   60–100% the rest of the repeats, then any new words still unmet
+ * A first day is `new → reinforce those new words`. Once a learner has a
+ * review backlog it is `review → new → reinforce those new words`.
  *
  * Each stretch is stocked with its own share of the day's estimated items, so a
  * learner moving at the expected pace arrives at each boundary having just
@@ -138,32 +129,14 @@ export function planTimeSessionBlocks(input: TimeSessionBlockPlanInput): Session
   const fresh = [...input.newIds];
   if (review.length === 0 && fresh.length === 0) return [];
 
-  const budget = Math.max(input.itemBudget, review.length + fresh.length);
-  const share = (index: number) => Math.max(1, Math.round(budget * TIME_PHASE_SHARES[index]));
-
   const blocks: SessionBlock[] = [];
-  // A day with nothing to repeat opens on new ground rather than on an empty
-  // warm-up the learner would only see as a skipped stretch. So does a return
-  // after a long absence, where the backlog is the worst possible welcome.
-  const openOnNew = fresh.length > 0 && (review.length === 0 || input.openOnNew === true);
-  const openingKind: SessionBlockKind = openOnNew ? 'new' : 'review';
-  const opening = openOnNew ? fresh.splice(0, share(0)) : review.splice(0, share(0));
-  push(blocks, openingKind, opening, { phase: 0 });
-
-  push(blocks, 'new', fresh.splice(0, share(1)), { phase: 1 });
-
-  // The tail: repeats first, because closing on consolidation is the point of
-  // the shape, and only then whatever new words the earlier stretches could not
-  // hold — the "if there is still time" part of the plan.
-  push(blocks, 'review', review.splice(0), { phase: 2 });
-  push(blocks, 'new', fresh.splice(0), { phase: 2 });
-
-  // Not enough real repeats to fill the closing stretch: the words met today
-  // come back for a second pass, so the day still ends on consolidation rather
-  // than on unknown words — or, worse, on an empty stretch that would close the
-  // day at sixty per cent of its own budget.
-  if (input.fillWithRepeats) {
-    push(blocks, 'review', [...input.newIds], { pass: 2, phase: 2, reinforcement: true });
+  let phase = 0;
+  push(blocks, 'review', review, { phase });
+  if (review.length > 0) phase += 1;
+  push(blocks, 'new', fresh, { phase });
+  if (fresh.length > 0) {
+    phase += 1;
+    push(blocks, 'review', fresh, { pass: 2, phase, reinforcement: true });
   }
   return blocks;
 }

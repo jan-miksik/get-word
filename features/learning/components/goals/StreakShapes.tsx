@@ -167,7 +167,7 @@ export function RingShape({ days, compact = false, value }: ShapeProps) {
         })}
       </svg>
       {!compact && value !== undefined ? (
-        <span className="absolute text-2xl font-black tabular-nums text-[#1f1a12]">{value}</span>
+        <span className="absolute text-2xl font-black tabular-nums text-ink-800">{value}</span>
       ) : null}
     </span>
   );

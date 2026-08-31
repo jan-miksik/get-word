@@ -35,7 +35,7 @@ const stage = (overrides: Partial<StageConfig>): StageConfig => ({
 const configWithStage = (stageIndex: number, value: StageConfig): FineTuneConfig => {
   const stages = DEFAULT_FINE_TUNE_CONFIG.stages.map((entry) => entry);
   stages[stageIndex] = value;
-  return { version: 4, stages };
+  return { version: 5, stages };
 };
 
 const distribution = (

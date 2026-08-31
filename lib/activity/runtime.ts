@@ -999,7 +999,18 @@ export function startActivityTracking(): () => void {
   document.addEventListener('freeze', onFreeze);
   document.addEventListener('resume', onResume);
 
-  const interactionEvents = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+  // Movement is intent too: returning to a study tab and moving the cursor over
+  // it (or dragging a finger across it) should wake the clock before the next
+  // answer is clicked. `noteInteraction` throttles this hot path, so continuous
+  // pointer movement does not produce continuous persistence work.
+  const interactionEvents = [
+    'pointerdown',
+    'pointermove',
+    'keydown',
+    'wheel',
+    'touchstart',
+    'touchmove',
+  ] as const;
   for (const type of interactionEvents) {
     window.addEventListener(type, onInteraction, { passive: true, capture: true });
   }

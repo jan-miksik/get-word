@@ -55,7 +55,7 @@ function railFrame(side: 'left' | 'right'): string {
  * more cards" at a glance, where a bar only says "most of the way". Short rails
  * get one tick per item; longer ones are summarised so the marks stay legible.
  */
-function BlockRail({ done, total, color }: { done: number; total: number; color: string }) {
+export function BlockRail({ done, total, color }: { done: number; total: number; color: string }) {
   const { ticks, filled } = railGeometry(done, total);
   return (
     <div aria-hidden className={railFrame('left')}>

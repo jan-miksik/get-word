@@ -9,6 +9,7 @@ import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { SimilarityBand } from '@/features/learning/minigames/similarity';
 import { getWordAudioSrcsBySide, getWordTextBySide, knownSideForRole, learningSideForRole } from './types';
 import { CardTopControls } from '../CardTopControls';
+import { SuccessMark } from './SuccessMark';
 import { useCardAudio } from '../card-audio/useCardAudio';
 import {
   createBubbleBodies,
@@ -347,22 +348,38 @@ export function BubbleChoiceGame({
             </div>
           );
         })}
+
+        {/* Cleared. The badge lands in the emptied field rather than under it,
+            because the strip below is gone by now and the tap-to-continue bar
+            takes that edge — a finish line printed down there would have been
+            read through the button sitting on top of it. */}
+        {complete && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <SuccessMark label="" />
+            <p className="m-0 text-xl font-extrabold text-ink-800">{t('game.bubblesDone')}</p>
+          </div>
+        )}
       </div>
 
-      <div className="shrink-0 px-4 pb-2 text-center">
-        <div className="bubble-progress" role="img" aria-label={`${remaining}/${roundOrder.length}`}>
-          {roundOrder.map((word, index) => (
-            <span key={word.id} className={`bubble-pip ${index < roundIndex ? 'is-done' : ''}`} />
-          ))}
-          <span className="bubble-progress-count">{remaining}</span>
+      {/* The prompt is the question, so it leaves with the last bubble: what is
+          left to find, and which word to find it for, both stop being true the
+          moment the field is empty. */}
+      {!complete && (
+        <div className="shrink-0 px-4 pb-2 text-center">
+          <div className="bubble-progress" role="img" aria-label={`${remaining}/${roundOrder.length}`}>
+            {roundOrder.map((word, index) => (
+              <span key={word.id} className={`bubble-pip ${index < roundIndex ? 'is-done' : ''}`} />
+            ))}
+            <span className="bubble-progress-count">{remaining}</span>
+          </div>
+          <p className="m-0 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-ink-500">
+            {t('game.bubblePrompt')}
+          </p>
+          <p {...noTranslateProps('mb-0 mt-1 text-2xl font-extrabold text-ink-800')}>
+            {promptWord ? getWordTextBySide(promptWord, knownSideForRole(role)) : ''}
+          </p>
         </div>
-        <p className="m-0 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-[#4a4032]">
-          {t('game.bubblePrompt')}
-        </p>
-        <p {...noTranslateProps('mb-0 mt-1 text-2xl font-extrabold text-[#1f1a12]')}>
-          {promptWord ? getWordTextBySide(promptWord, knownSideForRole(role)) : ''}
-        </p>
-      </div>
+      )}
     </article>
   );
 }

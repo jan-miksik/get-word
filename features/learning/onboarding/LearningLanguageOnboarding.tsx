@@ -236,7 +236,16 @@ export function LearningLanguageOnboarding({
   return (
     <OnboardingScreen
       width="wide"
-      step={showProgress ? (wordChatOpen ? 'words' : 'language') : null}
+      // The rail belongs to the setup questions, and to the moment the chat
+      // opens — it says where the learner is in the flow. Once the conversation
+      // hands over to picking, reviewing and saving the words, the position no
+      // longer changes and the rail is only a header the learner has to scroll
+      // past, so the last step drops it after its first stage.
+      step={
+        showProgress && (!wordChatOpen || wordChatStep === 'chat')
+          ? (wordChatOpen ? 'words' : 'language')
+          : null
+      }
       // While the chat is open it carries its own back control, one that knows
       // how to step through the conversation. Two Backs on one screen would
       // disagree about what "the previous step" means.

@@ -39,7 +39,7 @@ export function StageBadge({
 
   return (
     <span
-      className={`pointer-events-none inline-flex items-center rounded-full border border-[#2A2218]/10 bg-[#FFF8E8]/45 px-2.5 py-1 text-[0.65rem] font-bold tracking-wide text-[#2A2218]/55 ${className}`}
+      className={`pointer-events-none inline-flex items-center rounded-full border border-ink/10 bg-paper-hi/45 px-2.5 py-1 text-[0.65rem] font-bold tracking-wide text-ink/55 ${className}`}
       role="img"
       aria-label={label}
     >

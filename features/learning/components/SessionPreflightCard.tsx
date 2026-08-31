@@ -25,11 +25,11 @@ export function SessionPreflightCard({ preflight, onAddWords, onStartAnyway }: P
       {/* Renders inside the study surface, not `.onboarding-screen`, so the
           `--ob-*` variables are undefined here — use the warm ink palette
           directly, like the sibling interstitial cards. */}
-      <section className="w-full max-w-xl rounded-2xl p-6 text-center text-[#1f1a12] sm:p-8">
-        <h2 className="m-0 text-2xl font-black leading-tight text-[#1f1a12]">
+      <section className="w-full max-w-xl rounded-2xl p-6 text-center text-ink-800 sm:p-8">
+        <h2 className="m-0 text-2xl font-black leading-tight text-ink-800">
           {t('goal.preflightTitle')}
         </h2>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#4a4032]">
+        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-500">
           {t('goal.preflightBody', {
             planned: preflight.plannedItems,
             available: preflight.availableItems,

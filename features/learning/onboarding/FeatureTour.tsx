@@ -164,19 +164,19 @@ export function FeatureTour({ onFinish }: Props) {
       <div className="absolute inset-0" onClick={finish} aria-hidden />
 
       <section
-        className="absolute rounded-2xl bg-[#f1ebdc] p-4 text-left text-[#1f1a12] shadow-xl"
+        className="absolute rounded-2xl bg-paper-dim p-4 text-left text-ink-800 shadow-xl"
         style={tooltipStyle}
       >
-        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-[#7c6a55]">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-ink-250">
           {t('tour.progress', { current: stepIndex + 1, total: steps.length })}
         </p>
         <h2 className="m-0 mt-1 text-lg font-black leading-tight">{t(step.titleKey)}</h2>
-        <p className="m-0 mt-2 text-sm leading-relaxed text-[#4a4032]">{t(step.bodyKey)}</p>
+        <p className="m-0 mt-2 text-sm leading-relaxed text-ink-500">{t(step.bodyKey)}</p>
         <div className="mt-4 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={finish}
-            className="border-none bg-transparent p-0 text-xs font-bold text-[#7c6a55] underline"
+            className="border-none bg-transparent p-0 text-xs font-bold text-ink-250 underline"
           >
             {t('tour.skip')}
           </button>

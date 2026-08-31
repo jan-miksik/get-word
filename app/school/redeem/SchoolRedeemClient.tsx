@@ -158,26 +158,26 @@ function SchoolRedeemContent() {
   }, [router]);
 
   return (
-    <main className="min-h-dvh bg-[#F4EFE2] px-5 py-10 text-[#2A2218]">
+    <main className="min-h-dvh bg-paper px-5 py-10 text-ink">
       <div className="mx-auto flex min-h-[70dvh] w-full max-w-md flex-col items-center justify-center text-center">
         <AppLogo size={76} />
-        <div className="mt-7 w-full rounded-2xl border border-[#2A2218]/15 bg-white/70 p-6 shadow-[0_18px_50px_rgba(42,34,24,0.12)]">
+        <div className="mt-7 w-full rounded-2xl border border-ink/15 bg-white/70 p-6 shadow-[0_18px_50px_rgba(42,34,24,0.12)]">
           {state.status === 'loading' && (
             <>
               <h1 className="m-0 text-xl font-semibold">{t('school.activatingTitle')}</h1>
-              <p className="mt-3 text-sm text-[#6B5E48]">{t('school.activatingBody')}</p>
+              <p className="mt-3 text-sm text-ink-soft">{t('school.activatingBody')}</p>
             </>
           )}
           {state.status === 'missing' && (
             <>
               <h1 className="m-0 text-xl font-semibold">{t('school.missingTitle')}</h1>
-              <p className="mt-3 text-sm text-[#6B5E48]">{t('school.missingBody')}</p>
+              <p className="mt-3 text-sm text-ink-soft">{t('school.missingBody')}</p>
             </>
           )}
           {state.status === 'success' && (
             <>
               <h1 className="m-0 text-xl font-semibold">{t('school.successTitle')}</h1>
-              <p className="mt-3 text-sm text-[#6B5E48]">
+              <p className="mt-3 text-sm text-ink-soft">
                 {t(
                   state.role === 'teacher' ? 'school.successTeacher' : 'school.successStudent',
                   { school: state.schoolName },
@@ -185,7 +185,7 @@ function SchoolRedeemContent() {
               </p>
               <button
                 type="button"
-                className="mt-5 rounded-xl bg-[#1E6FA8] px-4 py-2 text-sm font-semibold text-white"
+                className="mt-5 rounded-xl bg-sea px-4 py-2 text-sm font-semibold text-white"
                 // Both roles land in the app itself. A student has nothing to
                 // edit, and a teacher who wants the list editor can reach it
                 // from the menu — arriving in an editor makes the product look
@@ -199,10 +199,10 @@ function SchoolRedeemContent() {
           {state.status === 'signInRequired' && (
             <>
               <h1 className="m-0 text-xl font-semibold">{t('school.signInTitle')}</h1>
-              <p className="mt-3 text-sm text-[#6B5E48]">{t('school.signInBody')}</p>
+              <p className="mt-3 text-sm text-ink-soft">{t('school.signInBody')}</p>
               <button
                 type="button"
-                className="mt-5 rounded-xl bg-[#1E6FA8] px-4 py-2 text-sm font-semibold text-white"
+                className="mt-5 rounded-xl bg-sea px-4 py-2 text-sm font-semibold text-white"
                 onClick={() =>
                   router.push(`/login?next=${encodeURIComponent('/school/redeem')}`)
                 }
@@ -214,7 +214,7 @@ function SchoolRedeemContent() {
           {state.status === 'error' && (
             <>
               <h1 className="m-0 text-xl font-semibold">{t('school.errorTitle')}</h1>
-              <p className="mt-3 text-sm text-[#6B5E48]">
+              <p className="mt-3 text-sm text-ink-soft">
                 {t(state.messageKey ?? 'school.errorBody')}
               </p>
             </>

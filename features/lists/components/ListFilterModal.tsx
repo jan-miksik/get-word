@@ -88,7 +88,7 @@ export function ListFilterModal({
                 type="checkbox"
                 checked={recommendedOnly}
                 onChange={(e) => onRecommendedOnlyChange(e.target.checked)}
-                className="h-4 w-4 accent-[var(--ob-accent,#1E6FA8)]"
+                className="h-4 w-4 accent-[var(--ob-accent,var(--sea))]"
               />
               {t('lists.filterRecommendedOnly')}
             </label>

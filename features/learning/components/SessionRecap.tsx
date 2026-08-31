@@ -45,7 +45,7 @@ export function SessionRecap({
 
   return (
     <ul
-      className={`m-0 mt-4 flex list-none flex-wrap items-center justify-center gap-2 p-0 text-sm font-bold text-[#4a4032] ${className}`.trim()}
+      className={`m-0 mt-4 flex list-none flex-wrap items-center justify-center gap-2 p-0 text-sm font-bold text-ink-500 ${className}`.trim()}
       style={style}
     >
       {reviewed > 0 ? (

@@ -76,12 +76,12 @@ const SEAL_SHOWN = 96;
 
 /** Where the burst lands, in pixels from the middle of the seal. */
 const SEAL_BITS = [
-  { x: -72, y: -22, r: -24, w: 'w-1.5', h: 'h-3', round: 'rounded-full', color: '#f0a11a' },
-  { x: -44, y: -64, r: 14, w: 'w-2', h: 'h-2', round: 'rounded-sm', color: '#3f8f4d' },
+  { x: -72, y: -22, r: -24, w: 'w-1.5', h: 'h-3', round: 'rounded-full', color: 'var(--amber)' },
+  { x: -44, y: -64, r: 14, w: 'w-2', h: 'h-2', round: 'rounded-sm', color: 'var(--green-rail)' },
   { x: 15, y: -77, r: -12, w: 'w-1.5', h: 'h-3.5', round: 'rounded-full', color: '#d85b5b' },
-  { x: 68, y: -46, r: 32, w: 'w-2', h: 'h-2', round: 'rounded-sm', color: '#1e6fa8' },
-  { x: 75, y: 18, r: -28, w: 'w-3', h: 'h-1.5', round: 'rounded-full', color: '#f0a11a' },
-  { x: -63, y: 40, r: 22, w: 'w-3', h: 'h-1.5', round: 'rounded-full', color: '#3f8f4d' },
+  { x: 68, y: -46, r: 32, w: 'w-2', h: 'h-2', round: 'rounded-sm', color: 'var(--sea)' },
+  { x: 75, y: 18, r: -28, w: 'w-3', h: 'h-1.5', round: 'rounded-full', color: 'var(--amber)' },
+  { x: -63, y: 40, r: 22, w: 'w-3', h: 'h-1.5', round: 'rounded-full', color: 'var(--green-rail)' },
 ];
 
 /**
@@ -170,7 +170,7 @@ function DaySeal({
             cy="60"
             r={SURPLUS_RADIUS}
             fill="none"
-            stroke="#f0a11a"
+            stroke="var(--amber)"
             strokeWidth="3.5"
             strokeLinecap="round"
             transform="rotate(-90 60 60)"
@@ -418,7 +418,7 @@ export function SessionDoneCard({
 
       {surplus > 0 ? (
         <p
-          className="session-close-pop m-0 mx-auto -mt-1 w-fit rounded-full bg-[#f0a11a]/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#8a5a06]"
+          className="session-close-pop m-0 mx-auto -mt-1 w-fit rounded-full bg-amber/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#8a5a06]"
           style={{ animationDelay: '1180ms' }}
         >
           {t('learning.sessionDayOverGoal', { count: surplus })}
@@ -426,14 +426,14 @@ export function SessionDoneCard({
       ) : null}
 
       <h2
-        className="session-close-in m-0 mt-2 text-2xl font-black leading-tight tracking-[-0.025em] text-[#1f1a12] sm:text-[1.8rem]"
+        className="session-close-in m-0 mt-2 text-2xl font-black leading-tight tracking-[-0.025em] text-ink-800 sm:text-[1.8rem]"
         style={{ animationDelay: '260ms' }}
       >
         {headline}
       </h2>
       {body ? (
         <p
-          className="session-close-in mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-[#4a4032] sm:text-base"
+          className="session-close-in mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-ink-500 sm:text-base"
           style={{ animationDelay: '340ms' }}
         >
           {body}

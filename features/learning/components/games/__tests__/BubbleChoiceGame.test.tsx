@@ -108,6 +108,23 @@ describe('BubbleChoiceGame field stability', () => {
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
+  it('swaps the prompt strip for a finish mark once the field is cleared', () => {
+    vi.useFakeTimers();
+    render(
+      <BubbleChoiceGame words={words} role="knownLanguage" onScore={vi.fn()} onComplete={vi.fn()} />,
+    );
+
+    for (let index = 0; index < words.length; index += 1) {
+      fireEvent.click(screen.getByRole('button', { name: promptWord().vi }));
+      act(() => vi.advanceTimersByTime(800));
+    }
+
+    // The counter and the word to find both belong to a question that no longer
+    // exists — and the tap-to-continue bar lands exactly where they were.
+    expect(screen.queryByRole('img', { name: `0/${words.length}` })).toBeNull();
+    expect(document.querySelector('[data-success-mark]')).not.toBeNull();
+  });
+
   it('counts down the bubbles still to clear', () => {
     vi.useFakeTimers();
     render(

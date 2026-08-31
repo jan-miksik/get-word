@@ -4,9 +4,7 @@ import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from
 import { useI18n } from '@/components/I18nProvider';
 import { resolveGoalTargets } from '@/packages/domain/goals/calibration';
 import {
-  MAX_GOAL_MINUTES,
   MAX_NEW_WORD_GOAL,
-  clampGoalMinutes,
   clampGoalWords,
   defaultGoalWeekdays,
   normalizeGoalWeekdays,
@@ -32,24 +30,6 @@ export type GoalPickerValue = {
   minutesPerDay: number;
   newWordsPerDay: number;
 };
-
-function WordsIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none">
-      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v15h4.5a2.5 2.5 0 0 1 2.5 2.5v-15Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function TimeIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none">
-      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" />
-      <path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function PencilIcon() {
   return (
@@ -134,7 +114,7 @@ function CircularGoalDial({
   // under. Touch is unaffected — phones are tall.
   return (
     <div className="flex flex-col items-center">
-      <p className="m-0 text-lg font-black text-[color:var(--ob-ink,#2A2218)]">{label}</p>
+      <p className="m-0 text-lg font-black text-[color:var(--ob-ink,var(--ink))]">{label}</p>
       <div
         ref={ringRef}
         role="slider"
@@ -152,7 +132,7 @@ function CircularGoalDial({
         onPointerMove={(event) => {
           if (event.currentTarget.hasPointerCapture(event.pointerId)) updateFromPointer(event);
         }}
-        className="relative mt-3 aspect-square w-full max-w-[min(17rem,34vh)] touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,#1E6FA8)_28%,transparent)] sm:max-w-[min(19rem,38vh)]"
+        className="relative mt-3 aspect-square w-full max-w-[min(17rem,34vh)] touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] sm:max-w-[min(19rem,38vh)]"
       >
         <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
           {/* The outline is the same arc drawn wider underneath, so the track
@@ -163,7 +143,7 @@ function CircularGoalDial({
             cy="100"
             r={RING_RADIUS}
             fill="none"
-            stroke="var(--ob-ink, #2A2218)"
+            stroke="var(--ob-ink, var(--ink))"
             strokeWidth="18"
             strokeLinecap="round"
             strokeDasharray={`${RING_ARC_LENGTH} ${RING_CIRCUMFERENCE - RING_ARC_LENGTH}`}
@@ -174,7 +154,7 @@ function CircularGoalDial({
             cy="100"
             r={RING_RADIUS}
             fill="none"
-            stroke="var(--ob-surface, #F4EFE2)"
+            stroke="var(--ob-surface, var(--paper))"
             strokeWidth="14"
             strokeLinecap="round"
             strokeDasharray={`${RING_ARC_LENGTH} ${RING_CIRCUMFERENCE - RING_ARC_LENGTH}`}
@@ -185,7 +165,7 @@ function CircularGoalDial({
             cy="100"
             r={RING_RADIUS}
             fill="none"
-            stroke="var(--ob-accent, #1E6FA8)"
+            stroke="var(--ob-accent, var(--sea))"
             strokeWidth="14"
             strokeLinecap="round"
             strokeDasharray={`${progressLength} ${RING_CIRCUMFERENCE - progressLength}`}
@@ -195,8 +175,8 @@ function CircularGoalDial({
             cx={handleX}
             cy={handleY}
             r="10"
-            fill="var(--ob-surface-hover, #FFF8E8)"
-            stroke="var(--ob-ink, #2A2218)"
+            fill="var(--ob-surface-hover, var(--paper-hi))"
+            stroke="var(--ob-ink, var(--ink))"
             strokeWidth="3"
           />
         </svg>
@@ -207,7 +187,7 @@ function CircularGoalDial({
         <div
           onPointerDown={(event) => event.stopPropagation()}
           onPointerMove={(event) => event.stopPropagation()}
-          className="absolute inset-[17%] flex touch-auto flex-col items-center justify-center rounded-full border-2 border-[color:var(--ob-ink,#2A2218)] bg-[color:var(--ob-surface-hover,#FFF8E8)]"
+          className="absolute inset-[17%] flex touch-auto flex-col items-center justify-center rounded-full border-2 border-[color:var(--ob-ink,var(--ink))] bg-[color:var(--ob-surface-hover,var(--paper-hi))]"
         >
           <input
             ref={inputRef}
@@ -226,9 +206,9 @@ function CircularGoalDial({
             onFocus={() => onRawValueChange('')}
             onBlur={onRawValueCommit}
             onChange={(event) => onRawValueChange(event.target.value)}
-            className="w-[78%] select-none border-0 bg-transparent p-0 text-center text-5xl font-black tabular-nums text-[color:var(--ob-ink,#2A2218)] outline-none placeholder:text-[color:var(--ob-ink,#2A2218)] sm:text-6xl"
+            className="w-[78%] select-none border-0 bg-transparent p-0 text-center text-5xl font-black tabular-nums text-[color:var(--ob-ink,var(--ink))] outline-none placeholder:text-[color:var(--ob-ink,var(--ink))] sm:text-6xl"
           />
-          <span className="mt-1 text-xs font-extrabold uppercase tracking-[0.13em] text-[color:var(--ob-ink-soft,#6B5E48)]">
+          <span className="mt-1 text-xs font-extrabold uppercase tracking-[0.13em] text-[color:var(--ob-ink-soft,var(--ink-soft))]">
             {unit}
           </span>
           <button
@@ -236,19 +216,19 @@ function CircularGoalDial({
             aria-label={editLabel}
             title={editLabel}
             onClick={() => inputRef.current?.focus()}
-            className="mt-2 flex h-8 w-8 items-center justify-center rounded-lg border-2 border-[color:var(--ob-ink,#2A2218)] bg-[color:var(--ob-surface,#F4EFE2)] text-[color:var(--ob-ink,#2A2218)] transition-colors hover:bg-[color:var(--ob-accent,#1E6FA8)] hover:text-[color:var(--ob-surface,#F4EFE2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)]"
+            className="mt-2 flex h-8 w-8 items-center justify-center rounded-lg border-2 border-[color:var(--ob-ink,var(--ink))] bg-[color:var(--ob-surface,var(--paper))] text-[color:var(--ob-ink,var(--ink))] transition-colors hover:bg-[color:var(--ob-accent,var(--sea))] hover:text-[color:var(--ob-surface,var(--paper))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,var(--sea))]"
           >
             <PencilIcon />
           </button>
         </div>
       </div>
       {value > DIAL_MAX ? (
-        <span className="mt-3 rounded-lg border-2 border-[color:var(--ob-accent,#1E6FA8)] px-3 py-1 text-[0.65rem] font-black uppercase tracking-wide text-[color:var(--ob-accent,#1E6FA8)]">
+        <span className="mt-3 rounded-lg border-2 border-[color:var(--ob-accent,var(--sea))] px-3 py-1 text-[0.65rem] font-black uppercase tracking-wide text-[color:var(--ob-accent,var(--sea))]">
           {customLabel}
         </span>
       ) : null}
       {invalid ? (
-        <p id="goal-value-error" role="alert" className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-wrong,#B91C1C)]">
+        <p id="goal-value-error" role="alert" className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-wrong,var(--brick))]">
           {validationMessage}
         </p>
       ) : null}
@@ -276,23 +256,19 @@ export function StudyGoalPicker({
   submitLabel?: string;
 }) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<GoalMode>(initial?.mode ?? 'words');
+  // Time goals remain supported in storage and sessions, but setup/editing is
+  // words-only until the time-goal experience is ready.
+  const mode = 'words';
   const initialWeekdays = normalizeGoalWeekdays(initial?.weekdays)
     ?? defaultGoalWeekdays(initial?.daysPerWeek ?? 7);
   const [weekdays, setWeekdays] = useState<GoalWeekday[]>(initialWeekdays);
-  const [minutesPerDay, setMinutesPerDay] = useState(initial?.minutesPerDay ?? 10);
+  const [minutesPerDay] = useState(initial?.minutesPerDay ?? 10);
   const [newWordsPerDay, setNewWordsPerDay] = useState(initial?.newWordsPerDay ?? 5);
-  const [rawByMode, setRawByMode] = useState<Record<GoalMode, string | null>>({
-    words: null,
-    minutes: null,
-  });
+  const [rawValue, setRawValue] = useState<string | null>(null);
   /** What "every day" toggles back to, so the shortcut is reversible. */
   const weekdaysBeforeAllRef = useRef<GoalWeekday[]>(initialWeekdays);
 
-  const isWords = mode === 'words';
-  const value = isWords ? newWordsPerDay : minutesPerDay;
-  const rawValue = rawByMode[mode];
-  const customLimit = isWords ? MAX_NEW_WORD_GOAL : MAX_GOAL_MINUTES;
+  const customLimit = MAX_NEW_WORD_GOAL;
   const parsedRawValue = rawValue === null ? null : Number(rawValue);
   // An empty field is someone mid-edit, not a mistake: it appears on every
   // focus. Only a typed value that cannot become a goal is an error.
@@ -310,29 +286,27 @@ export function StudyGoalPicker({
   const estimate = useMemo(() => resolveGoalTargets({
     mode,
     minutesPerDay,
-    wordsPerDay: isWords ? newWordsPerDay : 0,
-    newWordsPerDay: isWords ? newWordsPerDay : null,
+    wordsPerDay: newWordsPerDay,
+    newWordsPerDay,
     pacing,
-  }), [isWords, minutesPerDay, mode, newWordsPerDay, pacing]);
+  }), [minutesPerDay, newWordsPerDay, pacing]);
   const monthly = Math.round(newWordsPerDay * weekdays.length * 52 / 12);
 
   const setValue = (next: number) => {
-    setRawByMode((current) => ({ ...current, [mode]: null }));
-    if (isWords) setNewWordsPerDay(clampGoalWords(next));
-    else setMinutesPerDay(clampGoalMinutes(next));
+    setRawValue(null);
+    setNewWordsPerDay(clampGoalWords(next));
   };
   const updateRawValue = (next: string) => {
-    setRawByMode((current) => ({ ...current, [mode]: next }));
+    setRawValue(next);
     const parsed = Number(next);
     if (!next || !Number.isInteger(parsed) || parsed < 1 || parsed > customLimit) return;
-    if (isWords) setNewWordsPerDay(parsed);
-    else setMinutesPerDay(parsed);
+    setNewWordsPerDay(parsed);
   };
   /** Leaving the field empty keeps the goal it had, rather than blanking it. */
   const commitRawValue = () => {
-    setRawByMode((current) => (
-      current[mode] !== null && current[mode]?.trim() === ''
-        ? { ...current, [mode]: null }
+    setRawValue((current) => (
+      current !== null && current.trim() === ''
+        ? null
         : current
     ));
   };
@@ -376,38 +350,13 @@ export function StudyGoalPicker({
         framed ? 'onboarding-card max-w-2xl p-4 sm:p-7' : '',
       ].join(' ')}
     >
-      <div
-        role="radiogroup"
-        aria-label={t('goal.pickerLegend')}
-        className="grid grid-cols-2 gap-1.5 rounded-2xl border-2 border-[color:var(--ob-ink,#2A2218)] p-1.5"
-      >
-        {(['words', 'minutes'] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={mode === option}
-            onClick={() => setMode(option)}
-            className={[
-              'flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)]',
-              mode === option
-                ? 'bg-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-surface,#F4EFE2)]'
-                : 'text-[color:var(--ob-ink,#2A2218)] hover:bg-[color:var(--ob-surface-hover,#FFF8E8)]',
-            ].join(' ')}
-          >
-            {option === 'words' ? <WordsIcon /> : <TimeIcon />}
-            {t(option === 'words' ? 'goal.modeWords' : 'goal.modeMinutes')}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-6 grid gap-6 @2xl:grid-cols-[17rem_minmax(0,1fr)] @2xl:items-stretch @2xl:gap-8">
+      <div className="grid gap-6 @2xl:grid-cols-[17rem_minmax(0,1fr)] @2xl:items-stretch @2xl:gap-8">
         <CircularGoalDial
-          label={t(isWords ? 'goal.newWordsPerDay' : 'goal.minutesPerDay')}
-          unit={t(isWords ? 'goal.wordsUnit' : 'goal.minutesUnit')}
+          label={t('goal.newWordsPerDay')}
+          unit={t('goal.wordsUnit')}
           customLabel={t('goal.customValueBadge')}
           editLabel={t('goal.editValue')}
-          value={value}
+          value={newWordsPerDay}
           rawValue={rawValue}
           invalid={invalid}
           validationMessage={validationMessage}
@@ -425,10 +374,10 @@ export function StudyGoalPicker({
                 aria-pressed={everyDay}
                 onClick={toggleEveryDay}
                 className={[
-                  'rounded-lg border-2 border-[color:var(--ob-ink,#2A2218)] px-3 py-1.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)]',
+                  'rounded-lg border-2 border-[color:var(--ob-ink,var(--ink))] px-3 py-1.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,var(--sea))]',
                   everyDay
-                    ? 'bg-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-surface,#F4EFE2)]'
-                    : 'bg-[color:var(--ob-surface,#F4EFE2)] text-[color:var(--ob-ink,#2A2218)] hover:bg-[color:var(--ob-surface-hover,#FFF8E8)]',
+                    ? 'bg-[color:var(--ob-accent,var(--sea))] text-[color:var(--ob-surface,var(--paper))]'
+                    : 'bg-[color:var(--ob-surface,var(--paper))] text-[color:var(--ob-ink,var(--ink))] hover:bg-[color:var(--ob-surface-hover,var(--paper-hi))]',
                 ].join(' ')}
               >
                 {t('goal.everyDay')}
@@ -446,10 +395,10 @@ export function StudyGoalPicker({
                     aria-label={label}
                     onClick={() => toggleWeekday(day)}
                     className={[
-                      'aspect-square rounded-xl border-2 border-[color:var(--ob-ink,#2A2218)] text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,#1E6FA8)] sm:text-sm',
+                      'aspect-square rounded-xl border-2 border-[color:var(--ob-ink,var(--ink))] text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ob-accent,var(--sea))] sm:text-sm',
                       selected
-                        ? 'bg-[color:var(--ob-accent,#1E6FA8)] text-[color:var(--ob-surface,#F4EFE2)]'
-                        : 'bg-[color:var(--ob-surface,#F4EFE2)] text-[color:var(--ob-ink-soft,#6B5E48)] hover:bg-[color:var(--ob-surface-hover,#FFF8E8)]',
+                        ? 'bg-[color:var(--ob-accent,var(--sea))] text-[color:var(--ob-surface,var(--paper))]'
+                        : 'bg-[color:var(--ob-surface,var(--paper))] text-[color:var(--ob-ink-soft,var(--ink-soft))] hover:bg-[color:var(--ob-surface-hover,var(--paper-hi))]',
                     ].join(' ')}
                   >
                     {label}
@@ -457,22 +406,17 @@ export function StudyGoalPicker({
                 );
               })}
             </div>
-            <p className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-ink-soft,#6B5E48)]">
+            <p className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-ink-soft,var(--ink-soft))]">
               {t('goal.daysSelected', { count: weekdays.length })}
             </p>
           </fieldset>
 
-          {/* Words mode alone gets an estimate. The minutes estimate said how many
-              items fit in the time the learner just chose, which is the one thing
-              they already know. */}
-          {isWords ? (
-            <p className="mb-0 mt-6 text-sm font-semibold leading-relaxed text-[color:var(--ob-ink-soft,#6B5E48)]">
-              {`${t('goal.estimateWords', {
-                fresh: newWordsPerDay,
-                review: estimate.desiredReviewTarget,
-              })} · ${t('goal.estimateMonthly', { count: monthly })}`}
-            </p>
-          ) : null}
+          <p className="mb-0 mt-6 text-sm font-semibold leading-relaxed text-[color:var(--ob-ink-soft,var(--ink-soft))]">
+            {`${t('goal.estimateWords', {
+              fresh: newWordsPerDay,
+              review: estimate.desiredReviewTarget,
+            })} · ${t('goal.estimateMonthly', { count: monthly })}`}
+          </p>
 
           <button
             type="button"
@@ -484,7 +428,7 @@ export function StudyGoalPicker({
               minutesPerDay,
               newWordsPerDay,
             })}
-            className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,#1E6FA8)_28%,transparent)] active:translate-y-0 disabled:cursor-wait disabled:opacity-50"
+            className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] active:translate-y-0 disabled:cursor-wait disabled:opacity-50"
           >
             {submitLabel ?? t('settings.studyGoalSave')}
           </button>

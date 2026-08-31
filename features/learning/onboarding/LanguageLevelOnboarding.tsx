@@ -5,12 +5,35 @@ import { useI18n } from '@/components/I18nProvider';
 import { getLanguageQuestionForm } from '@/lib/i18n/language-in-question';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import {
-  WORD_CHAT_LANGUAGE_LEVELS,
-  splitWordChatLevelLabel,
-  wordChatLevelLabelKey,
   type WordChatLanguageLevel,
 } from '@/features/word-chat/public.client';
 import { OnboardingScreen, OnboardingTitle } from './OnboardingScreen';
+
+const LEVEL_RANGES = [
+  {
+    value: 'A0',
+    levels: ['A0', 'A1'],
+    range: 'A1',
+    labelKey: 'onboarding.level.beginner',
+  },
+  {
+    value: 'A2',
+    levels: ['A2', 'B1'],
+    range: 'A2–B1',
+    labelKey: 'onboarding.level.intermediate',
+  },
+  {
+    value: 'B2',
+    levels: ['B2', 'C1'],
+    range: 'B2–C1',
+    labelKey: 'onboarding.level.advanced',
+  },
+] as const satisfies readonly {
+  value: WordChatLanguageLevel;
+  levels: readonly WordChatLanguageLevel[];
+  range: string;
+  labelKey: 'onboarding.level.beginner' | 'onboarding.level.intermediate' | 'onboarding.level.advanced';
+}[];
 
 function LevelIcon() {
   return (
@@ -19,13 +42,13 @@ function LevelIcon() {
         cx="32"
         cy="32"
         r="29"
-        fill="var(--ob-surface-hover, #FFF8E8)"
-        stroke="var(--ob-ink, #2A2218)"
+        fill="var(--ob-surface-hover, var(--paper-hi))"
+        stroke="var(--ob-ink, var(--ink))"
         strokeWidth="2"
       />
-      <rect x="16" y="36" width="8" height="12" rx="2" fill="var(--ob-surface, #F4EFE2)" stroke="var(--ob-ink, #2A2218)" strokeWidth="2.5" />
-      <rect x="28" y="28" width="8" height="20" rx="2" fill="var(--ob-accent, #1E6FA8)" stroke="var(--ob-ink, #2A2218)" strokeWidth="2.5" />
-      <rect x="40" y="18" width="8" height="30" rx="2" fill="var(--ob-surface, #F4EFE2)" stroke="var(--ob-ink, #2A2218)" strokeWidth="2.5" />
+      <rect x="16" y="36" width="8" height="12" rx="2" fill="var(--ob-surface, var(--paper))" stroke="var(--ob-ink, var(--ink))" strokeWidth="2.5" />
+      <rect x="28" y="28" width="8" height="20" rx="2" fill="var(--ob-accent, var(--sea))" stroke="var(--ob-ink, var(--ink))" strokeWidth="2.5" />
+      <rect x="40" y="18" width="8" height="30" rx="2" fill="var(--ob-surface, var(--paper))" stroke="var(--ob-ink, var(--ink))" strokeWidth="2.5" />
     </svg>
   );
 }
@@ -51,10 +74,10 @@ export function LanguageLevelOnboarding({
   onSubmit: (level: WordChatLanguageLevel) => void | Promise<void>;
 }) {
   const { t, language: uiLanguage } = useI18n();
-  // Nothing is chosen until the learner chooses it. Landing on this screen with
-  // A0 already filled in makes the lowest level the path of least resistance,
-  // and the answer decides how hard every generated word will be.
+  // Nothing is chosen for a fresh learner. A saved exact CEFR point still
+  // highlights the broad range that contains it when someone revisits the step.
   const [level, setLevel] = useState<WordChatLanguageLevel | null>(initialLevel);
+  const [submitted, setSubmitted] = useState(false);
   const questionLanguage = getLanguageQuestionForm(targetLanguage, uiLanguage);
   const targetLanguageName = targetLanguage
     ? getLocalizedLanguageName(targetLanguage, uiLanguage) ?? targetLanguage.toUpperCase()
@@ -79,24 +102,35 @@ export function LanguageLevelOnboarding({
           : t('wordChat.levelTitle')}
       </OnboardingTitle>
 
-      {/* The chat's own level question, which this screen took over: the
-          description is the answer and carries the weight, and the CEFR code
-          sits under it as a footnote for the people who read in those. */}
+      {/* Three broad choices are easier to self-assess than six adjacent CEFR
+          points. They save their conservative lower bound for new answers;
+          revisiting an older exact answer keeps that value within its range. */}
       <div role="radiogroup" aria-label={t('wordChat.levelSettingLabel')} className="grid gap-2 text-left">
-        {WORD_CHAT_LANGUAGE_LEVELS.map((option, index) => {
-          const label = t(wordChatLevelLabelKey(option));
-          const { code, description } = splitWordChatLevelLabel(option, label);
-          const selected = level === option;
+        {LEVEL_RANGES.map((option, index) => {
+          const description = t(option.labelKey);
+          const selected = option.levels.some((candidate) => candidate === level);
+          const disabled = pending || submitted;
           return (
             <button
-              key={option}
+              key={option.value}
               type="button"
               role="radio"
               aria-checked={selected}
-              aria-label={label}
-              onClick={() => setLevel(option)}
+              aria-label={`${description}, ${option.range}`}
+              disabled={disabled}
+              onClick={() => {
+                if (disabled) return;
+                const nextLevel = initialLevel && option.levels.some(
+                  (candidate) => candidate === initialLevel,
+                )
+                  ? initialLevel
+                  : option.value;
+                setLevel(nextLevel);
+                setSubmitted(true);
+                void onSubmit(nextLevel);
+              }}
               className={[
-                'onboarding-option group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
+                'onboarding-option group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60 motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
                 selected ? 'onboarding-option-highlight' : '',
               ].join(' ')}
               style={{ animationDelay: `${60 + index * 45}ms` }}
@@ -106,7 +140,7 @@ export function LanguageLevelOnboarding({
                   {description}
                 </span>
                 <span className="mt-0.5 block text-[11px] font-bold uppercase tracking-wide onboarding-text-soft">
-                  {code}
+                  {option.range}
                 </span>
               </span>
               <span
@@ -119,17 +153,6 @@ export function LanguageLevelOnboarding({
           );
         })}
       </div>
-
-      <button
-        type="button"
-        disabled={pending || level === null}
-        onClick={() => {
-          if (level) void onSubmit(level);
-        }}
-        className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {t('onboarding.continue')}
-      </button>
     </OnboardingScreen>
   );
 }

@@ -16,26 +16,26 @@ export function StudyGoalIcon() {
         cx="32"
         cy="32"
         r="29"
-        fill="var(--ob-surface-hover, #FFF8E8)"
-        stroke="var(--ob-ink, #2A2218)"
+        fill="var(--ob-surface-hover, var(--paper-hi))"
+        stroke="var(--ob-ink, var(--ink))"
         strokeWidth="2"
       />
       <path
         d="M24 47V17"
-        stroke="var(--ob-ink, #2A2218)"
+        stroke="var(--ob-ink, var(--ink))"
         strokeWidth="3.5"
         strokeLinecap="round"
       />
       <path
         d="M24 18h19l-5 6.5 5 6.5H24z"
-        fill="var(--ob-accent, #1E6FA8)"
-        stroke="var(--ob-ink, #2A2218)"
+        fill="var(--ob-accent, var(--sea))"
+        stroke="var(--ob-ink, var(--ink))"
         strokeWidth="2.5"
         strokeLinejoin="round"
       />
       <path
         d="M15 47h27"
-        stroke="var(--ob-ink, #2A2218)"
+        stroke="var(--ob-ink, var(--ink))"
         strokeWidth="3.5"
         strokeLinecap="round"
       />

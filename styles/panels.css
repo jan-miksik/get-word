@@ -168,7 +168,7 @@
    Single source of truth — see also the .memory-hooks-learn-more / scoped
    token overrides further down the file. */
 .memory-hooks-panel {
-  --tm-accent: #1E6FA8;
+  --tm-accent: var(--sea);
   display: none;
 }
 
@@ -197,9 +197,9 @@
   max-height: calc(100dvh - 2 * clamp(12px, 5dvh, 54px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  background: #f4ecda;
-  color: #1f1a12;
-  border: 2px solid #1f1a12;
+  background: var(--paper-shade);
+  color: var(--ink-800);
+  border: 2px solid var(--ink-800);
   border-radius: 26px;
   box-shadow: none;
 }
@@ -700,18 +700,18 @@
 .category-panel,
 .upcoming-panel,
 .panel-token-scope {
-  --panel-surface: #F4EFE2;
-  --panel-ink: #2A2218;
-  --panel-ink-soft: #6B5E48;
+  --panel-surface: var(--paper);
+  --panel-ink: var(--ink);
+  --panel-ink-soft: var(--ink-soft);
 
-  --bg: #F4EFE2;
-  --bg-elevated: #FFF8E8;
-  --text: #2A2218;
-  --text-soft: #6B5E48;
-  --border-subtle: #2A2218;
-  --accent: #1E6FA8;
+  --bg: var(--paper);
+  --bg-elevated: var(--paper-hi);
+  --text: var(--ink);
+  --text-soft: var(--ink-soft);
+  --border-subtle: var(--ink);
+  --accent: var(--sea);
   --accent-soft: rgba(30, 111, 168, 0.12);
-  --accent-strong: #1E6FA8;
+  --accent-strong: var(--sea);
 
   /* Tailwind v4 resolves `--color-*` where `@theme` declares them, i.e. at
      `:root`, so redefining `--accent` above re-skins hand-written CSS but not
@@ -740,9 +740,9 @@
 .settings-panel.is-open .panel-content,
 .category-panel.is-open .panel-content,
 .upcoming-panel.is-open .panel-content {
-  background: var(--panel-surface, #F4EFE2);
-  border: 2px solid var(--panel-ink, #2A2218);
-  color: var(--panel-ink, #2A2218);
+  background: var(--panel-surface, var(--paper));
+  border: 2px solid var(--panel-ink, var(--ink));
+  color: var(--panel-ink, var(--ink));
   border-radius: 16px;
   box-shadow: none;
 }
@@ -758,8 +758,8 @@
   .settings-panel.is-open .panel-content,
   .category-panel.is-open .panel-content,
   .upcoming-panel.is-open .panel-content {
-    background: var(--panel-surface, #F4EFE2);
-    border: 2px solid var(--panel-ink, #2A2218);
+    background: var(--panel-surface, var(--paper));
+    border: 2px solid var(--panel-ink, var(--ink));
     border-radius: 16px;
   }
 }
@@ -768,22 +768,22 @@
 .settings-panel .panel-content,
 .category-panel .panel-content,
 .upcoming-panel .panel-content {
-  color: var(--panel-ink, #2A2218);
+  color: var(--panel-ink, var(--ink));
 }
 
 /* Category list — brutalist overrides for hardcoded dark colors */
 .category-panel .category-clear-btn {
-  border: 2px solid var(--panel-ink, #2A2218);
-  background: var(--panel-surface, #F4EFE2);
-  color: var(--panel-ink, #2A2218);
+  border: 2px solid var(--panel-ink, var(--ink));
+  background: var(--panel-surface, var(--paper));
+  color: var(--panel-ink, var(--ink));
   border-radius: 10px;
   font-weight: 700;
 }
 
 .category-panel .category-clear-btn:hover:not(:disabled) {
-  background: var(--accent, #1E6FA8);
-  border-color: var(--accent, #1E6FA8);
-  color: var(--panel-surface, #F4EFE2);
+  background: var(--accent, var(--sea));
+  border-color: var(--accent, var(--sea));
+  color: var(--panel-surface, var(--paper));
   transform: none;
 }
 
@@ -792,77 +792,77 @@
 }
 
 .category-panel .category-order-item {
-  border: 2px solid var(--panel-ink, #2A2218);
-  background: var(--panel-surface, #F4EFE2);
-  color: var(--panel-ink, #2A2218);
+  border: 2px solid var(--panel-ink, var(--ink));
+  background: var(--panel-surface, var(--paper));
+  color: var(--panel-ink, var(--ink));
   border-radius: 12px;
   box-shadow: none;
 }
 
 .category-panel .category-order-item.is-selected {
-  border-color: var(--panel-ink, #2A2218);
-  background: #FFF8E8;
+  border-color: var(--panel-ink, var(--ink));
+  background: var(--paper-hi);
 }
 
 .category-panel .category-order-item.is-over {
-  border-color: var(--panel-ink, #2A2218);
-  background: #FFF8E8;
+  border-color: var(--panel-ink, var(--ink));
+  background: var(--paper-hi);
   transform: none;
 }
 
 .category-panel .category-drag-handle {
-  border: 2px solid var(--panel-ink, #2A2218);
-  background: var(--panel-surface, #F4EFE2);
-  color: var(--panel-ink, #2A2218);
+  border: 2px solid var(--panel-ink, var(--ink));
+  background: var(--panel-surface, var(--paper));
+  color: var(--panel-ink, var(--ink));
   border-radius: 8px;
 }
 
 .category-panel .category-drag-handle:hover {
-  background: var(--accent, #1E6FA8);
-  color: var(--panel-surface, #F4EFE2);
-  border-color: var(--accent, #1E6FA8);
+  background: var(--accent, var(--sea));
+  color: var(--panel-surface, var(--paper));
+  border-color: var(--accent, var(--sea));
 }
 
 .category-panel .category-order-name {
-  color: var(--panel-ink, #2A2218);
+  color: var(--panel-ink, var(--ink));
 }
 
 .category-panel .category-order-count {
-  color: var(--panel-ink, #2A2218);
+  color: var(--panel-ink, var(--ink));
   background: transparent;
-  border: 2px solid var(--panel-ink, #2A2218);
+  border: 2px solid var(--panel-ink, var(--ink));
   font-weight: 700;
 }
 
 .category-panel .category-order-btn {
-  border: 2px solid var(--panel-ink, #2A2218);
-  background: var(--panel-surface, #F4EFE2);
-  color: var(--panel-ink, #2A2218);
+  border: 2px solid var(--panel-ink, var(--ink));
+  background: var(--panel-surface, var(--paper));
+  color: var(--panel-ink, var(--ink));
   border-radius: 8px;
 }
 
 .category-panel .category-order-btn:hover:enabled {
-  background: var(--accent, #1E6FA8);
-  color: var(--panel-surface, #F4EFE2);
-  border-color: var(--accent, #1E6FA8);
+  background: var(--accent, var(--sea));
+  color: var(--panel-surface, var(--paper));
+  border-color: var(--accent, var(--sea));
   transform: none;
 }
 
 .category-panel .category-order-label input[type="checkbox"] {
-  accent-color: var(--accent, #1E6FA8);
+  accent-color: var(--accent, var(--sea));
 }
 
 /* Category chips (if used) */
 .category-panel .category-chip {
-  border: 2px solid var(--panel-ink, #2A2218);
-  background: var(--panel-surface, #F4EFE2);
-  color: var(--panel-ink, #2A2218);
+  border: 2px solid var(--panel-ink, var(--ink));
+  background: var(--panel-surface, var(--paper));
+  color: var(--panel-ink, var(--ink));
 }
 
 .category-panel .category-chip:hover {
-  background: var(--accent, #1E6FA8);
-  color: var(--panel-surface, #F4EFE2);
-  border-color: var(--accent, #1E6FA8);
+  background: var(--accent, var(--sea));
+  color: var(--panel-surface, var(--paper));
+  border-color: var(--accent, var(--sea));
   transform: none;
 }
 
@@ -871,15 +871,15 @@
 .settings-panel input[type="search"],
 .settings-panel select,
 .settings-panel textarea {
-  background: var(--panel-surface, #F4EFE2);
-  border: 2px solid var(--panel-ink, #2A2218);
-  color: var(--panel-ink, #2A2218);
+  background: var(--panel-surface, var(--paper));
+  border: 2px solid var(--panel-ink, var(--ink));
+  color: var(--panel-ink, var(--ink));
   border-radius: 10px;
 }
 
 .settings-panel input::placeholder,
 .settings-panel textarea::placeholder {
-  color: var(--panel-ink-soft, #6B5E48);
+  color: var(--panel-ink-soft, var(--ink-soft));
   opacity: 0.75;
 }
 
@@ -892,7 +892,7 @@
 .upcoming-panel .bg-background,
 .memory-hooks-panel .bg-background,
 .category-panel .bg-background {
-  background-color: #F4EFE2;
+  background-color: var(--paper);
 }
 
 .settings-panel .bg-background-elevated,
@@ -903,14 +903,14 @@
 .upcoming-panel [class*="bg-background-elevated/"],
 .memory-hooks-panel [class*="bg-background-elevated/"],
 .category-panel [class*="bg-background-elevated/"] {
-  background-color: #FFF8E8;
+  background-color: var(--paper-hi);
 }
 
 .settings-panel .text-text,
 .upcoming-panel .text-text,
 .memory-hooks-panel .text-text,
 .category-panel .text-text {
-  color: #2A2218;
+  color: var(--ink);
 }
 
 .settings-panel .text-text-soft,
@@ -921,14 +921,14 @@
 .upcoming-panel [class*="text-text-soft/"],
 .memory-hooks-panel [class*="text-text-soft/"],
 .category-panel [class*="text-text-soft/"] {
-  color: #6B5E48;
+  color: var(--ink-soft);
 }
 
 .settings-panel .text-accent,
 .upcoming-panel .text-accent,
 .memory-hooks-panel .text-accent,
 .category-panel .text-accent {
-  color: #1E6FA8;
+  color: var(--sea);
 }
 
 .settings-panel .text-fresh,
@@ -942,14 +942,14 @@
 .upcoming-panel .text-done,
 .memory-hooks-panel .text-done,
 .category-panel .text-done {
-  color: #15803D;
+  color: var(--green-alt);
 }
 
 .settings-panel .text-danger,
 .upcoming-panel .text-danger,
 .memory-hooks-panel .text-danger,
 .category-panel .text-danger {
-  color: #B91C1C;
+  color: var(--brick);
 }
 
 .settings-panel .border-border-subtle,
@@ -960,14 +960,14 @@
 .upcoming-panel [class*="border-border-subtle/"],
 .memory-hooks-panel [class*="border-border-subtle/"],
 .category-panel [class*="border-border-subtle/"] {
-  border-color: #2A2218;
+  border-color: var(--ink);
 }
 
 .settings-panel .border-accent-strong,
 .upcoming-panel .border-accent-strong,
 .memory-hooks-panel .border-accent-strong,
 .category-panel .border-accent-strong {
-  border-color: #1E6FA8;
+  border-color: var(--sea);
 }
 
 .settings-panel .bg-border-subtle,
@@ -981,14 +981,14 @@
 .upcoming-panel .bg-accent,
 .memory-hooks-panel .bg-accent,
 .category-panel .bg-accent {
-  background-color: #1E6FA8;
+  background-color: var(--sea);
 }
 
 .settings-panel .bg-done,
 .upcoming-panel .bg-done,
 .memory-hooks-panel .bg-done,
 .category-panel .bg-done {
-  background-color: #15803D;
+  background-color: var(--green-alt);
 }
 
 .settings-panel .bg-fresh,
@@ -1001,7 +1001,7 @@
 /* Sections in Settings use bg-background-elevated/50 — match it on cream */
 .settings-panel [class*="bg-background-elevated/50"] {
   background-color: rgba(255, 248, 232, 0.6);
-  border-color: #2A2218;
+  border-color: var(--ink);
 }
 
 /* Toggle off-state: white/20 is invisible on cream — use accent tint instead */
@@ -1031,23 +1031,23 @@
 
 /* Learn-more inner colors — sits inside .panel-content. */
 .memory-hooks-panel .memory-hooks-learn-more {
-  background: #f4ecda;
-  color: #1f1a12;
+  background: var(--paper-shade);
+  color: var(--ink-800);
 }
 
 /* ─── Onboarding screen (neo-brutalist) ──────────────────── */
 .onboarding-screen {
-  --ob-surface: #F4EFE2;
-  --ob-surface-hover: #FFF8E8;
-  --ob-ink: #2A2218;
-  --ob-ink-soft: #6B5E48;
-  --ob-accent: #1E6FA8;
-  --ob-danger: #B91C1C;
+  --ob-surface: var(--paper);
+  --ob-surface-hover: var(--paper-hi);
+  --ob-ink: var(--ink);
+  --ob-ink-soft: var(--ink-soft);
+  --ob-accent: var(--sea);
+  --ob-danger: var(--brick);
   /* The ground the loading screen paints its scratch field on, not the warm
      surface the sheets are drawn in: onboarding shares that backdrop now, and
      a different colour under the same motif made the hand-off from the loader
      read as a flash. */
-  background: #fefff5;
+  background: var(--paper-glow);
   color: var(--ob-ink);
   /* The onboarding screen renders outside `.app`, and in standalone/PWA mode
      `html, body` are locked to `overflow: hidden` (see tokens.css). Give this
@@ -1055,20 +1055,24 @@
      of matches, advanced options) stays reachable on iOS. */
   height: 100dvh;
   overflow-y: auto;
+  /* Explicit, because `overflow-y: auto` alone turns the other axis into
+     `auto` as well — and the sheet slides in sideways between steps, which
+     would flash a horizontal scrollbar for the length of the animation. */
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
 
 .onboarding-overlay {
   background: rgba(30, 111, 168, 0.55);
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
 }
 
 .onboarding-card {
-  background: var(--ob-surface, #F4EFE2);
-  border: 2px solid var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border: 2px solid var(--ob-ink, var(--ink));
   border-radius: 16px;
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   box-shadow: none;
 }
 
@@ -1076,10 +1080,10 @@
    steps cannot drift apart: softer than `.onboarding-card` because it floats
    over the rising-letters background instead of sitting on a flat surface. */
 .onboarding-page-card {
-  background: var(--ob-surface-hover, #FFF8E8);
+  background: var(--ob-surface-hover, var(--paper-hi));
   border: 2px solid #DED2BD;
   border-radius: 16px;
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   box-shadow: 0 20px 60px rgba(73, 58, 37, 0.13);
 }
 
@@ -1103,63 +1107,63 @@
 /* Back, on every step that has one. Quiet enough not to compete with the
    step's own primary action, but a full 44px target on touch. */
 .onboarding-back {
-  color: var(--ob-ink-soft, #6B5E48);
+  color: var(--ob-ink-soft, var(--ink-soft));
   border-radius: 12px;
   transition: background 0.14s ease, color 0.14s ease;
 }
 
 @media (hover: hover) {
   .onboarding-back:hover {
-    background: var(--ob-surface, #F4EFE2);
-    color: var(--ob-ink, #2A2218);
+    background: var(--ob-surface, var(--paper));
+    color: var(--ob-ink, var(--ink));
   }
 }
 
 .onboarding-spinner {
-  border: 3px solid var(--ob-ink, #2A2218);
-  border-top-color: var(--ob-accent, #1E6FA8);
+  border: 3px solid var(--ob-ink, var(--ink));
+  border-top-color: var(--ob-accent, var(--sea));
 }
 
 .onboarding-text-soft {
-  color: var(--ob-ink-soft, #6B5E48);
+  color: var(--ob-ink-soft, var(--ink-soft));
 }
 
 .onboarding-error {
-  color: var(--ob-danger, #B91C1C);
+  color: var(--ob-danger, var(--brick));
   font-weight: 700;
 }
 
 .onboarding-notice {
-  background: var(--ob-surface, #F4EFE2);
-  border: 2px solid var(--ob-ink, #2A2218);
-  color: var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border: 2px solid var(--ob-ink, var(--ink));
+  color: var(--ob-ink, var(--ink));
   border-radius: 10px;
 }
 
 .onboarding-divider {
-  border-top: 2px solid var(--ob-ink, #2A2218);
+  border-top: 2px solid var(--ob-ink, var(--ink));
 }
 
 .onboarding-combobox {
-  background: var(--ob-surface, #F4EFE2);
-  border: 2px solid var(--ob-ink, #2A2218);
-  color: var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border: 2px solid var(--ob-ink, var(--ink));
+  color: var(--ob-ink, var(--ink));
   border-radius: 12px;
   transition: background 0.14s ease;
   min-height: 56px;
 }
 
 .onboarding-combobox:focus-within {
-  background: var(--ob-surface-hover, #FFF8E8);
+  background: var(--ob-surface-hover, var(--paper-hi));
 }
 
 .onboarding-combobox-highlight {
-  border-color: var(--ob-accent, #1E6FA8);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ob-accent, #1E6FA8) 22%, transparent);
+  border-color: var(--ob-accent, var(--sea));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ob-accent, var(--sea)) 22%, transparent);
 }
 
 .onboarding-combobox-input {
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   /* macOS Safari renders `type="search"` with its own inset gray field,
      ignoring `bg-transparent` and washing out the placeholder. Strip the
      native appearance so the input inherits the combobox surface. */
@@ -1181,15 +1185,15 @@
 }
 
 .onboarding-combobox-input::placeholder {
-  color: var(--ob-ink-soft, #6B5E48);
+  color: var(--ob-ink-soft, var(--ink-soft));
   opacity: 0.7;
 }
 
 .onboarding-combobox-list {
-  background: var(--ob-surface, #F4EFE2);
-  border: 2px solid var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border: 2px solid var(--ob-ink, var(--ink));
   border-radius: 12px;
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   box-shadow: none;
 }
 
@@ -1204,7 +1208,7 @@
      pair modal that opened it (z-index 220), otherwise the backdrop and its
      options end up behind the modal on touch devices. */
   z-index: 600;
-  background: color-mix(in srgb, var(--ob-ink, #2A2218) 32%, transparent);
+  background: color-mix(in srgb, var(--ob-ink, var(--ink)) 32%, transparent);
   display: flex;
   align-items: flex-end;
 }
@@ -1216,8 +1220,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--ob-surface, #F4EFE2);
-  border-top: 2px solid var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border-top: 2px solid var(--ob-ink, var(--ink));
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
   box-shadow: 0 -12px 32px -20px rgba(33, 26, 15, 0.6);
@@ -1226,7 +1230,7 @@
 .onboarding-combobox-sheet-search {
   flex: none;
   padding: 12px 14px;
-  border-bottom: 2px solid color-mix(in srgb, var(--ob-ink, #2A2218) 18%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--ob-ink, var(--ink)) 18%, transparent);
 }
 
 .onboarding-combobox-sheet-list {
@@ -1238,18 +1242,18 @@
 
 .onboarding-combobox-option {
   background: transparent;
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   border-radius: 8px;
   transition: background 0.14s ease, color 0.14s ease;
 }
 
 .onboarding-combobox-option[aria-selected="true"] {
-  background: var(--ob-accent, #1E6FA8);
-  color: var(--ob-surface, #F4EFE2);
+  background: var(--ob-accent, var(--sea));
+  color: var(--ob-surface, var(--paper));
 }
 
 .onboarding-combobox-option[aria-selected="true"] .onboarding-text-soft {
-  color: var(--ob-surface, #F4EFE2);
+  color: var(--ob-surface, var(--paper));
   opacity: 0.8;
 }
 
@@ -1257,33 +1261,33 @@
    last-touched option, so it stays highlighted while scrolling the list. */
 @media (hover: hover) {
   .onboarding-combobox-option:hover {
-    background: var(--ob-accent, #1E6FA8);
-    color: var(--ob-surface, #F4EFE2);
+    background: var(--ob-accent, var(--sea));
+    color: var(--ob-surface, var(--paper));
   }
 
   .onboarding-combobox-option:hover .onboarding-text-soft {
-    color: var(--ob-surface, #F4EFE2);
+    color: var(--ob-surface, var(--paper));
     opacity: 0.8;
   }
 }
 
 .onboarding-option {
-  background: var(--ob-surface, #F4EFE2);
-  border: 2px solid var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border: 2px solid var(--ob-ink, var(--ink));
   border-radius: 12px;
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   transition: background 0.14s ease, color 0.14s ease;
   cursor: pointer;
 }
 
 .onboarding-option-highlight {
-  background: var(--ob-accent, #1E6FA8);
-  border-color: var(--ob-accent, #1E6FA8);
-  color: var(--ob-surface, #F4EFE2);
+  background: var(--ob-accent, var(--sea));
+  border-color: var(--ob-accent, var(--sea));
+  color: var(--ob-surface, var(--paper));
 }
 
 .onboarding-option-highlight .onboarding-text-soft {
-  color: var(--ob-surface, #F4EFE2);
+  color: var(--ob-surface, var(--paper));
   opacity: 0.82;
 }
 
@@ -1291,17 +1295,17 @@
    reads as "selected" rather than "hovered". Hover still fills with accent so
    the affordance is preserved. */
 .onboarding-option-recommended {
-  background: color-mix(in srgb, var(--ob-accent, #1E6FA8) 12%, var(--ob-surface, #F4EFE2));
-  border-color: var(--ob-accent, #1E6FA8);
-  box-shadow: inset 4px 0 0 0 var(--ob-accent, #1E6FA8);
-  color: var(--ob-ink, #2A2218);
+  background: color-mix(in srgb, var(--ob-accent, var(--sea)) 12%, var(--ob-surface, var(--paper)));
+  border-color: var(--ob-accent, var(--sea));
+  box-shadow: inset 4px 0 0 0 var(--ob-accent, var(--sea));
+  color: var(--ob-ink, var(--ink));
 }
 
 .onboarding-option-secondary {
-  background: var(--ob-surface, #F4EFE2);
-  border: 2px solid var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border: 2px solid var(--ob-ink, var(--ink));
   border-radius: 10px;
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   transition: background 0.14s ease, color 0.14s ease;
   cursor: pointer;
 }
@@ -1311,36 +1315,36 @@
    from filled with the accent as if it were hovered (or focused). */
 @media (hover: hover) {
   .onboarding-option:hover:not(:disabled) {
-    background: var(--ob-accent, #1E6FA8);
-    color: var(--ob-surface, #F4EFE2);
+    background: var(--ob-accent, var(--sea));
+    color: var(--ob-surface, var(--paper));
   }
 
   .onboarding-option:hover:not(:disabled) .onboarding-text-soft {
-    color: var(--ob-surface, #F4EFE2);
+    color: var(--ob-surface, var(--paper));
     opacity: 0.8;
   }
 
   .onboarding-option-highlight:hover:not(:disabled) {
-    background: var(--ob-accent, #1E6FA8);
-    border-color: var(--ob-accent, #1E6FA8);
-    color: var(--ob-surface, #F4EFE2);
+    background: var(--ob-accent, var(--sea));
+    border-color: var(--ob-accent, var(--sea));
+    color: var(--ob-surface, var(--paper));
   }
 
   .onboarding-option-highlight:hover:not(:disabled) .onboarding-text-soft {
-    color: var(--ob-surface, #F4EFE2);
+    color: var(--ob-surface, var(--paper));
     opacity: 0.82;
   }
 
   .onboarding-option-recommended:hover:not(:disabled) {
-    background: var(--ob-accent, #1E6FA8);
-    border-color: var(--ob-accent, #1E6FA8);
+    background: var(--ob-accent, var(--sea));
+    border-color: var(--ob-accent, var(--sea));
     box-shadow: none;
-    color: var(--ob-surface, #F4EFE2);
+    color: var(--ob-surface, var(--paper));
   }
 
   .onboarding-option-secondary:hover:not(:disabled) {
-    background: var(--ob-accent, #1E6FA8);
-    color: var(--ob-surface, #F4EFE2);
+    background: var(--ob-accent, var(--sea));
+    color: var(--ob-surface, var(--paper));
   }
 }
 
@@ -1349,29 +1353,29 @@
    more tappable option — a lighter, inset well with a soft border, and a clear
    focus ring. */
 .word-chat-input {
-  background: color-mix(in srgb, var(--ob-ink, #2A2218) 5%, var(--ob-surface, #F4EFE2));
-  border: 1px solid color-mix(in srgb, var(--ob-ink, #2A2218) 30%, transparent);
+  background: color-mix(in srgb, var(--ob-ink, var(--ink)) 5%, var(--ob-surface, var(--paper)));
+  border: 1px solid color-mix(in srgb, var(--ob-ink, var(--ink)) 30%, transparent);
   border-radius: 12px;
-  color: var(--ob-ink, #2A2218);
+  color: var(--ob-ink, var(--ink));
   transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
 }
 
 .word-chat-input::placeholder {
-  color: var(--ob-ink-soft, #6B5E48);
+  color: var(--ob-ink-soft, var(--ink-soft));
   opacity: 0.7;
 }
 
 .word-chat-input:focus {
-  background: var(--ob-surface, #F4EFE2);
-  border-color: var(--ob-accent, #1E6FA8);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ob-accent, #1E6FA8) 22%, transparent);
+  background: var(--ob-surface, var(--paper));
+  border-color: var(--ob-accent, var(--sea));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ob-accent, var(--sea)) 22%, transparent);
   outline: none;
 }
 
 .word-chat-assistant-message {
-  background: var(--ob-surface, #F4EFE2);
-  border: 2px solid var(--ob-ink, #2A2218);
-  color: var(--ob-ink, #2A2218);
+  background: var(--ob-surface, var(--paper));
+  border: 2px solid var(--ob-ink, var(--ink));
+  color: var(--ob-ink, var(--ink));
 }
 
 /* Word chat: the tick on a proposed item.
@@ -1387,15 +1391,15 @@
   height: 1.25rem;
   border: 2px solid currentColor;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--ob-surface, #F4EFE2) 55%, transparent);
+  background: color-mix(in srgb, var(--ob-surface, var(--paper)) 55%, transparent);
   font-size: 0.8rem;
   font-weight: 900;
   line-height: 1;
 }
 
 .word-chat-checkbox-checked {
-  background: var(--ob-surface, #F4EFE2);
-  color: var(--ob-accent, #1E6FA8);
+  background: var(--ob-surface, var(--paper));
+  color: var(--ob-accent, var(--sea));
 }
 
 /* Word chat: working indicator shown while a model call is in flight. */

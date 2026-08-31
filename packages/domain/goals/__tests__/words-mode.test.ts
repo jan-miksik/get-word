@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { adjustNewTargetForBacklog, resolveGoalTargets } from '../calibration';
+import { adjustNewTargetForBacklog, resolveGoalTargets, resolveWordsDayTargets } from '../calibration';
 import { simulateReviewLoad } from '../forecast';
 import type { StudyPacing } from '../goal';
 
@@ -28,5 +28,14 @@ describe('words goal policy', () => {
       goal: wordsGoal, days: 1, wordPoolSize: 10, successRate: 0.7, initialDueReviews: 99,
     });
     expect(backlogged).toMatchObject({ newIntroduced: 6, reviewsDone: 27, plannedSlots: 33 });
+  });
+
+  it('keeps the new-word promise when only repeats are available', () => {
+    const targets = resolveGoalTargets({ ...wordsGoal, newWordsPerDay: 7, wordsPerDay: 7 });
+
+    expect(resolveWordsDayTargets(targets, 3)).toEqual({
+      newTarget: 7,
+      reviewTarget: 3,
+    });
   });
 });

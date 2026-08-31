@@ -11,7 +11,7 @@ import {
 
 export function LoadingScreen() {
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-[#fefff5fa]">
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-paper-glow/98">
       {/* Same experiment as the landing page: the loader is a scratch field.
           Bottom to top: reveal tint → second motif → cover → logo, with the
           rising letters either side of the cover per the chosen config. */}
@@ -62,7 +62,7 @@ function LoaderB() {
             size={88}
             showLabel
             className="flex-col gap-5"
-            labelClassName="text-[#4f2f24]/55 text-[0.65rem] tracking-[0.45em]"
+            labelClassName="text-brown-deep/55 text-[0.65rem] tracking-[0.45em]"
           />
         </div>
       </div>

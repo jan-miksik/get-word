@@ -4,6 +4,7 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';
 import { LanguageLevelOnboarding } from '@/features/learning/onboarding/LanguageLevelOnboarding';
 import { StudyReminderOnboarding } from '@/features/learning/onboarding/StudyReminderOnboarding';
+import { OnboardingBackdropHost } from '@/features/learning/onboarding/OnboardingScreen';
 import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
 import type { LearningOnboardingStep } from '@/features/learning/onboarding/flow';
 import type { GoalPickerValue } from '@/features/learning/components/goals/StudyGoalPicker';
@@ -52,8 +53,25 @@ interface LearningOnboardingContentProps {
   onCompleteReminder: (value: { enabled: boolean; localMinutes: number }) => Promise<boolean>;
 }
 
-/** Render-only half of the resumable learning onboarding flow. */
-export function LearningOnboardingContent({
+/**
+ * Render-only half of the resumable learning onboarding flow.
+ *
+ * Owns two things the individual steps cannot own: the backdrop, hosted once
+ * here so the ground stays put while the steps change over it, and the step
+ * key, which makes each step a fresh mount even where two steps happen to be
+ * the same component (languages and words) — without it that one pair would
+ * swap contents in place, with no entrance to play.
+ */
+export function LearningOnboardingContent(props: LearningOnboardingContentProps) {
+  if (props.step === 'loading') return <LoadingScreen />;
+  return (
+    <OnboardingBackdropHost>
+      <LearningOnboardingStep key={props.step} {...props} />
+    </OnboardingBackdropHost>
+  );
+}
+
+function LearningOnboardingStep({
   step,
   isSettingUp,
   initialFrom,
@@ -79,8 +97,6 @@ export function LearningOnboardingContent({
   onSaveGoal,
   onCompleteReminder,
 }: LearningOnboardingContentProps) {
-  if (step === 'loading') return <LoadingScreen />;
-
   if (step === 'language') {
     return (
       <LearningLanguageOnboarding

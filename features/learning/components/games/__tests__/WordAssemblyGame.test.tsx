@@ -169,6 +169,116 @@ describe('WordAssemblyGame', () => {
     }
   });
 
+  it('keeps dragging while the pointer crosses multiple neighbours', () => {
+    // A pointer stops targeting the pressed tile as it crosses the row. The
+    // drag has to survive that, so every move here arrives on the window
+    // instead of on the tile.
+    const layout = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function box(this: HTMLElement) {
+        const index = this.parentElement
+          ? [...this.parentElement.children].indexOf(this)
+          : 0;
+        const left = index * 60;
+        return {
+          x: left, y: 0, left, top: 0, right: left + 50, bottom: 40,
+          width: 50, height: 40, toJSON: () => ({}),
+        } as DOMRect;
+      });
+
+    try {
+      render(
+        <WordAssemblyGame
+          word={WORD}
+          role="knownLanguage"
+          variant="words"
+          answerParts={['con', 'chó', 'mèo']}
+          distractorParts={[]}
+          onOutcome={vi.fn()}
+        />,
+      );
+
+      // Placed backwards, so 'con' has to travel the whole tray, past two
+      // neighbours — exactly the drag that used to stop after one step.
+      for (const part of ['chó', 'mèo', 'con']) {
+        fireEvent.click(screen.getByRole('button', { name: part }));
+      }
+      const dragged = screen.getByRole('button', { name: 'con' });
+      const tray = dragged.parentElement as HTMLElement;
+      fireEvent.pointerDown(dragged, { pointerId: 1, button: 0, clientX: 145, clientY: 20 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 120, clientY: 20 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 60, clientY: 20 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 25, clientY: 20 });
+
+      // While held, the tray's flow order is deliberately frozen. The visual
+      // gap is made with one-slot transforms; repeatedly reflowing this DOM was
+      // what compounded the siblings' in-flight FLIP offsets and flung them out
+      // of the tray.
+      expect([...tray.querySelectorAll('button')]).toEqual([
+        screen.getByRole('button', { name: 'chó' }),
+        screen.getByRole('button', { name: 'mèo' }),
+        dragged,
+      ]);
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 25, clientY: 20 });
+
+      expect([...tray.querySelectorAll('button')]).toEqual([
+        dragged,
+        screen.getByRole('button', { name: 'chó' }),
+        screen.getByRole('button', { name: 'mèo' }),
+      ]);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Check' }));
+
+      expect(screen.getByRole('img', { name: 'Correct!' })).toBeInTheDocument();
+    } finally {
+      layout.mockRestore();
+    }
+  });
+
+  it('ignores the click a finished drag leaves behind on another tile', () => {
+    const layout = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function box(this: HTMLElement) {
+        const index = this.parentElement
+          ? [...this.parentElement.children].indexOf(this)
+          : 0;
+        const left = index * 60;
+        return {
+          x: left, y: 0, left, top: 0, right: left + 50, bottom: 40,
+          width: 50, height: 40, toJSON: () => ({}),
+        } as DOMRect;
+      });
+
+    try {
+      render(
+        <WordAssemblyGame
+          word={WORD}
+          role="knownLanguage"
+          variant="words"
+          answerParts={['con', 'chó']}
+          distractorParts={['mèo']}
+          onOutcome={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'chó' }));
+      fireEvent.click(screen.getByRole('button', { name: 'con' }));
+      const dragged = screen.getByRole('button', { name: 'con' });
+      fireEvent.pointerDown(dragged, { pointerId: 1, button: 0, clientX: 85, clientY: 20 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 25, clientY: 20 });
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 25, clientY: 20 });
+
+      // The release lands over the neighbour, whose click must not pull it back
+      // out of the tray.
+      fireEvent.click(screen.getByRole('button', { name: 'chó' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Check' }));
+
+      expect(screen.getByRole('img', { name: 'Correct!' })).toBeInTheDocument();
+    } finally {
+      layout.mockRestore();
+    }
+  });
+
   it('accepts a repeated letter placed from either of its tiles', () => {
     render(
       <WordAssemblyGame

@@ -79,13 +79,24 @@ function AnimatedTypingText({
 }
 
 /**
- * How long the reveal is allowed to lag behind the text it has been handed.
- * Everything outstanding is paced to land inside this window, so a burst of a
- * hundred characters and a burst of five both take about the same time to draw.
+ * Steady reveal speed — fast typing, not a paint.
+ *
+ * This used to be a catch-up window instead: everything outstanding was drained
+ * inside a fixed 300ms no matter how much of it there was. That reads as typing
+ * only while text trickles in a few characters at a time, and the server does
+ * not work that way — it withholds the reply until the whole JSON result passes
+ * its metadata checks and then emits it as a single delta. So `remaining` was
+ * the entire answer on the first frame, the window divided it into a rate of
+ * hundreds of characters per second, and the bubble filled itself in a third of
+ * a second: indistinguishable from the text simply appearing. Pace by a rate
+ * instead, so the reveal takes as long as the reply is long.
  */
-const STREAM_CATCH_UP_MS = 300;
-/** Floor for the reveal rate, so the last few characters still look typed. */
-const STREAM_MIN_CHARS_PER_SECOND = 55;
+const STREAM_CHARS_PER_SECOND = 190;
+/**
+ * Ceiling on how long one reveal may take. An unusually long answer types
+ * faster rather than making the learner watch it arrive.
+ */
+const STREAM_MAX_REVEAL_MS = 2_200;
 /**
  * Longest gap a single frame may be paced from. A backgrounded tab or a stalled
  * main thread hands the loop a gap of seconds, and charging the reveal for all
@@ -100,8 +111,8 @@ const STREAM_MAX_FRAME_MS = 100;
  * bursts, a proxy can hold a chunk back, and the turn ends by replacing the
  * message with the parsed reply in one go. Painting each arrival directly is
  * what makes the answer stutter and then jump. So arrival only moves the
- * target, and a frame loop walks the visible text toward it, draining whatever
- * is outstanding over a fixed window.
+ * target, and a frame loop walks the visible text toward it at a steady typing
+ * speed, whatever pace the text itself showed up at.
  *
  * The loop deliberately outlives the arrivals. It used to be restarted by every
  * delta, and since a restarted loop has no previous frame to measure against,
@@ -115,6 +126,7 @@ export function StreamedText({
   text,
   animate,
   onReveal,
+  onRevealed,
 }: {
   text: string;
   /**
@@ -124,6 +136,8 @@ export function StreamedText({
   animate: boolean;
   /** Called as characters appear, so a scroll container can follow along. */
   onReveal?: () => void;
+  /** Called once the visible text has caught up with everything handed over. */
+  onRevealed?: () => void;
 }) {
   const canAnimate = animate && typeof requestAnimationFrame === 'function';
   const [shown, setShown] = useState(() => (canAnimate ? '' : text));
@@ -136,11 +150,13 @@ export function StreamedText({
   // finish drawing rather than snap.
   const animateRef = useRef(canAnimate);
   const onRevealRef = useRef(onReveal);
+  const onRevealedRef = useRef(onRevealed);
   const loopRef = useRef<{ frame: number; lastAt: number }>({ frame: 0, lastAt: 0 });
 
   useEffect(() => {
     onRevealRef.current = onReveal;
-  }, [onReveal]);
+    onRevealedRef.current = onRevealed;
+  }, [onReveal, onRevealed]);
 
   useEffect(() => {
     targetRef.current = text;
@@ -169,11 +185,13 @@ export function StreamedText({
       loop.lastAt = 0;
       shownRef.current = text;
       setShown(text);
+      onRevealedRef.current?.();
       return;
     }
     if (!animateRef.current) {
       shownRef.current = text;
       setShown(text);
+      onRevealedRef.current?.();
       return;
     }
     if (shownRef.current === text || loop.frame) return;
@@ -189,11 +207,12 @@ export function StreamedText({
         // effect above restarts it when more text arrives.
         loop.frame = 0;
         loop.lastAt = 0;
+        onRevealedRef.current?.();
         return;
       }
       const charsPerSecond = Math.max(
-        STREAM_MIN_CHARS_PER_SECOND,
-        (remaining / STREAM_CATCH_UP_MS) * 1000,
+        STREAM_CHARS_PER_SECOND,
+        (remaining / STREAM_MAX_REVEAL_MS) * 1000,
       );
       const chars = Math.max(1, Math.round((charsPerSecond * elapsed) / 1000));
       const next = target.slice(0, shownRef.current.length + chars);

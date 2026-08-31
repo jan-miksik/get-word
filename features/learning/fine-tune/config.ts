@@ -28,7 +28,7 @@ const STAGE_COUNT = STAGES.length;
  * express. Each bump upgrades that one method wholesale (see
  * `normalizeFineTuneConfig`) and leaves the learner's other choices alone.
  */
-const CONFIG_VERSION = 4;
+const CONFIG_VERSION = 5;
 
 export const PRESET_IDS = ['calm', 'balanced', 'demanding'] as const;
 export type PresetId = (typeof PRESET_IDS)[number];
@@ -79,7 +79,7 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
   {
     reveal: method<RevealVariant>(2, ['foreign']),
     choice: method<ChoiceVariant>(2, ['2:II:foreign', '3:II:foreign']),
-    typing: NO_TYPING,
+    typing: method<TypingVariant>(1, ['90:90']),
     assembly: method<AssemblyVariant>(1, ['letters:I', 'words:I']),
     match: { variants: ['2:I', '3:I', '4:I'] },
   },
@@ -258,6 +258,7 @@ function normalizeStage(
   upgradeTyping: boolean,
   upgradeAssembly: boolean,
   upgradeChoice: boolean,
+  upgradeFiveMinuteTyping: boolean,
 ): StageConfig {
   if (!value || typeof value !== 'object') return cloneStage(fallback);
   const raw = value as Record<string, unknown>;
@@ -291,6 +292,12 @@ function normalizeStage(
   // How often choice comes up is still the learner's decision, so only the
   // variants are rebuilt.
   if (upgradeChoice) stage.choice = { ...stage.choice, variants: [...fallback.choice.variants] };
+  // Version 5 adds the gentlest writing rung to the five-minute return. Older
+  // stored defaults explicitly contain an empty typing method there, so it has
+  // to be upgraded rather than merely changed in the fallback table.
+  if (upgradeFiveMinuteTyping) {
+    stage.typing = { ...fallback.typing, variants: [...fallback.typing.variants] };
+  }
 
   // A stage with no active review method has nothing to render. Rather than
   // failing later inside the card, fall back to the gentlest exercise there is.
@@ -316,6 +323,7 @@ export function normalizeFineTuneConfig(value: unknown): FineTuneConfig {
   const upgradeTyping = version < 2;
   const upgradeAssembly = version < 3;
   const upgradeChoice = version < 4;
+  const upgradeFiveMinuteTyping = version < 5;
 
   return {
     version: CONFIG_VERSION,
@@ -326,6 +334,7 @@ export function normalizeFineTuneConfig(value: unknown): FineTuneConfig {
         upgradeTyping,
         upgradeAssembly,
         upgradeChoice,
+        upgradeFiveMinuteTyping && index === 1,
       ),
     ),
   };

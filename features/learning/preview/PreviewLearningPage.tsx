@@ -16,8 +16,10 @@ import { BubbleChoiceGame } from '@/features/learning/components/games/BubbleCho
 import { MultipleChoiceGame } from '@/features/learning/components/games/MultipleChoiceGame';
 import { SessionRail } from '@/features/learning/components/SessionRail';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
+import { SessionTimeTransitionCard } from '@/features/learning/components/SessionTimeTransitionCard';
 import { SessionDoneCard } from '@/features/learning/components/SessionDoneCard';
 import { QuickPracticeRun } from '@/features/learning/quick-practice/QuickPracticeRun';
+import { QuickPracticeRail } from '@/features/learning/quick-practice/QuickPracticeRail';
 import { useQuickPractice } from '@/features/learning/quick-practice/useQuickPractice';
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
@@ -399,10 +401,33 @@ function PreviewStudy({
         categories={categories}
         progressStats={progressStats}
       >
-        <main className="learning-card-main flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" aria-live="polite">
-          <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
-            <SessionRail flow={previewFlow} />
-            {previewSurface === 'session-short' ? (
+        <main
+          className={`learning-card-main flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto ${
+            previewSurface === 'session-done' || previewSurface === 'session-clear'
+              ? 'sm:!pb-4'
+              : ''
+          }`}
+          aria-live="polite"
+        >
+          {/* Match the real card-view column: study cards apply their own
+              800px reading width, while the closing modal applies its own
+              compact cap. */}
+          <div className="learning-card-viewport relative mx-auto flex h-full w-full flex-col">
+            {/* The bonus block paces itself on the same edge, so the preview
+                shows one rail or the other, never both. */}
+            {previewSurface === 'session-transition' ? null : quickPractice.rounds ? (
+              <QuickPracticeRail
+                done={quickPractice.index}
+                total={quickPractice.rounds.length}
+              />
+            ) : (
+              <SessionRail flow={previewFlow} />
+            )}
+            {previewSurface === 'session-transition' ? (
+              <div className="relative h-full">
+                <SessionTimeTransitionCard onContinue={() => undefined} />
+              </div>
+            ) : previewSurface === 'session-short' ? (
               <div className="flex h-full justify-center overflow-y-auto">
                 <SessionDoneCard
                   settlingCount={0}
@@ -438,7 +463,9 @@ function PreviewStudy({
                 {quickPractice.rounds ? (
                   <QuickPracticeRun
                     rounds={quickPractice.rounds}
+                    index={quickPractice.index}
                     role="knownLanguage"
+                    onAdvance={quickPractice.advance}
                     onFinish={quickPractice.finish}
                   />
                 ) : (
@@ -464,7 +491,6 @@ function PreviewStudy({
                     flow: previewFlow,
                     words: PREVIEW_WORDS.slice(0, previewBlocks[breatherStep].total),
                   }}
-                  role={role}
                   onContinue={() => setBreatherStep((step) => (step + 1) % 2)}
                 />
               </div>
@@ -532,7 +558,7 @@ function PreviewStudy({
                 />
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center text-[#2A2218]">
+              <div className="flex h-full items-center justify-center text-ink">
                 Ve vybraných kategoriích nejsou žádná slova.
               </div>
             )}

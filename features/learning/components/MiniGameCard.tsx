@@ -33,7 +33,7 @@ function SoundToggle({ soundEnabled, onToggle }: { soundEnabled: boolean; onTogg
       onClick={(e) => { e.stopPropagation(); onToggle(); }}
       aria-label={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
       title={soundEnabled ? t('game.disableAudio') : t('game.enableAudio')}
-      className="inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] transition-colors duration-150 hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] active:bg-[#1E6FA8] active:border-[#1E6FA8] active:text-[#F4EFE2]"
+      className="inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-ink bg-paper text-ink transition-colors duration-150 hover:bg-sea hover:border-sea hover:text-paper active:bg-sea active:border-sea active:text-paper"
     >
       {soundEnabled ? (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -75,6 +75,16 @@ interface Props {
     onSaved?: () => void | Promise<void>;
   };
   isActive?: boolean;
+  /**
+   * Draw the round on the bare surface instead of on a framed card.
+   *
+   * A round dealt into a session is a visitor inside it, so it arrives framed
+   * and labelled. A round that *is* the session — the bonus block, where every
+   * card is a round — has nothing to be a visitor in, and a frame around each
+   * one reads as a screen from somewhere else. Matching and bubbles are
+   * frameless already; this is what the choice round needs to join them.
+   */
+  frameless?: boolean;
 }
 
 function hashString(input: string): number {
@@ -180,7 +190,7 @@ function pickCachedVerifiedAudioSideForMatching(
   return null;
 }
 
-export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcome, onFinished, onAddSimilarWords, similarWordsContext, isActive = true }: Props) {
+export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcome, onFinished, onAddSimilarWords, similarWordsContext, isActive = true, frameless = false }: Props) {
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
   // Reported once, from the render that first sees the round settled. Both the
   // matching board and the bubble field can reach the end through several
@@ -302,6 +312,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
         promptMode={typingAndChoicePromptMode}
         soundEnabled={soundEnabled}
         topControls={topControls}
+        frameless={frameless}
       />
     );
   } else if (config.gameType === 'typing') {
@@ -382,12 +393,22 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
   // edge to edge, with no frame of its own, while every other game keeps the
   // centred, width-constrained card treatment.
   const fullBleed = config.gameType === 'bubbleChoice';
+  const gameFrameClass = fullBleed
+    ? 'relative mx-[calc(50%-50vw)] h-full w-screen'
+    : config.gameType === 'multipleChoice'
+      ? `relative mx-auto w-full ${config.words.length > 6 ? 'max-w-4xl' : 'max-w-3xl'}`
+      : 'relative w-full';
 
   return (
     <div className="relative flex items-center justify-center h-full w-full">
       {/* The study column is clamped to 800px; the bubble field escapes it so the
-          play space really does run to the edges of the window. */}
-      <div className={fullBleed ? 'relative mx-[calc(50%-50vw)] h-full w-screen' : 'relative w-full'}>
+          play space really does run to the edges of the window. Choice rounds
+          clamp their whole frame too, so Skip and the top-right controls stay
+          attached to the same column as the prompt and answer grid. */}
+      <div
+        className={gameFrameClass}
+        data-game-frame={fullBleed ? 'full-bleed' : 'contained'}
+      >
         {config.gameType !== 'similarWordsPrompt' && (
           <>
             {/* Every game here is practice: none of them decides a word's next

@@ -7,6 +7,18 @@ export type WordChatMessage = {
   id?: string;
   /** Client-only marker: partial streamed assistant replies are not sent back. */
   incomplete?: boolean;
+  /**
+   * Client-only marker: this reply was produced live in this session and still
+   * owes the learner its typing reveal.
+   *
+   * Kept separate from `incomplete` on purpose. `incomplete` answers "is this
+   * safe to send back to the model"; it stops being true the moment the reply
+   * is whole, which is before a single character of it has been drawn. Reusing
+   * it to drive the reveal meant the animation depended on the UI observing a
+   * flag that was already on its way out — a race the reveal lost whenever
+   * React committed both facts in one render.
+   */
+  awaitingReveal?: boolean;
 };
 
 /** How the assistant addresses the learner in the chat itself. */
