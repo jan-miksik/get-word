@@ -654,8 +654,6 @@ export const viMessages: I18nMessages = {
   "learning.sessionDayExtraHint": "các từ này đã đến lượt ôn",
   "learning.sessionDayNewAction": "Học thêm {count} từ",
   "learning.sessionDayNewHint": "kế hoạch hôm nay chưa tới các từ này",
-  "learning.sessionDayMoreAction": "Học tiếp — thêm {count}",
-  "learning.sessionDayMoreHint": "{due} cần ôn · {fresh} từ mới",
   "learning.sessionDayPracticeAction": "Luyện tập tiếp",
   "learning.sessionDayPracticeHint.one": "{count} thẻ, không ảnh hưởng lịch ôn tập",
   "learning.sessionDayPracticeHint.few": "{count} thẻ, không ảnh hưởng lịch ôn tập",

@@ -73,7 +73,7 @@ export function useAppState(words: NormalizedWord[]) {
     (
       wordId: string,
       stageIndex: number,
-      opts?: { noRepeat?: boolean; countAsKnown?: boolean },
+      opts?: { noRepeat?: boolean; countAsKnown?: boolean; countAsUnknown?: boolean },
     ) =>
       progressState.setCustomStage(resolveProgressId(wordId), stageIndex, opts),
     [progressState, resolveProgressId]

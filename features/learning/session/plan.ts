@@ -11,7 +11,6 @@ export interface SessionPlanInput {
   newWords: NormalizedWord[];
   progress: Record<string, ProgressData>;
   absenceDays?: number;
-  continueAnyway?: boolean;
   dayTargets?: { resolvedNewTarget: number | null; resolvedReviewTarget: number | null; resolvedItemBudget: number | null } | null;
 }
 
@@ -70,7 +69,7 @@ function answerCount(entry: ProgressData | undefined): number {
 /** Pure presentation planner: it neither changes SRS progress nor creates rows. */
 export function planSession(input: SessionPlanInput): SessionPlan {
   const { goal } = input;
-  if (!goal?.enabled || input.continueAnyway) {
+  if (!goal?.enabled) {
     return {
       enabled: Boolean(goal?.enabled), sessionItemCap: null,
       priorityIds: input.priorityWords.map((word) => word.id),
@@ -79,7 +78,7 @@ export function planSession(input: SessionPlanInput): SessionPlan {
       deferredDueCount: 0,
       shortfall: 0,
       newShortfall: 0,
-      reason: input.continueAnyway ? 'unbounded' : 'normal',
+      reason: 'normal',
       blocks: [],
     };
   }
@@ -225,14 +224,11 @@ export function planSession(input: SessionPlanInput): SessionPlan {
   const reviewIds = selectedReview.map((word) => word.id);
   const newIds = selectedNew.map((word) => word.id);
 
-  // A words day has nothing of its own to repeat, so it closes on a second pass
-  // over today's new words instead of being left without review entirely. A day
-  // that *does* have repeats already opens on them, and padding its tail with a
-  // third stretch is exactly what the two-stretch day drops; the goal is
-  // unaffected either way, since it counts distinct words and a same-day repeat
-  // adds none.
-  const fillWithRepeats = newIds.length > 0 && selectedReview.length === 0;
-  const blocks = planSessionBlocks({ reviewIds, newIds, openOnNew: rampUp, fillWithRepeats });
+  // Every introduced word gets one immediate second pass. This consolidation
+  // is deliberately outside the SRS and outside the distinct-word goal; it is
+  // the closing C slot whether or not the day also opened on due reviews.
+  const fillWithRepeats = newIds.length > 0;
+  const blocks = planSessionBlocks({ reviewIds, newIds, fillWithRepeats });
   // The server earns a day on *distinct* words answered (see `recomputeUserDayStat`),
   // so a day padded out with same-day repeats can still fall short of the goal.
   // That gap is what turns the closing card from "day done" into "you have run

@@ -533,9 +533,7 @@ describe('useLearningPageState', () => {
     expect(newBlockGames).toEqual([]);
   });
 
-  it('breaks the leftover repeats into stretches of ten', () => {
-    // Handing over the whole backlog as one block gave the rail a single
-    // segment that barely moved, and the session no seam to rest on.
+  it('opens only one ten-word review round past the daily goal', () => {
     const now = Date.now();
     const words = Array.from({ length: 24 }, (_, index) =>
       makeWord(`rev-${index}`, 'list-a', 'basics', 0, index)
@@ -554,12 +552,65 @@ describe('useLearningPageState', () => {
       })
     );
 
-    expect(result.current.bonusBlockProgress.map((block) => block.total)).toEqual([10, 10, 4]);
-    expect(result.current.streamGroups.map((group) => group.key)).toEqual([
-      'bonus-review-0',
-      'bonus-review-1',
-      'bonus-review-2',
+    expect(result.current.dueNowCount).toBe(10);
+    expect(result.current.newNowCount).toBe(0);
+    expect(result.current.bonusBlockProgress.map((block) => block.total)).toEqual([10]);
+    expect(result.current.streamGroups.map((group) => group.key)).toEqual(['bonus-review-0']);
+    expect(result.current.streamGroups.map((group) => group.items.length)).toEqual([10]);
+  });
+
+  it('caps a new-word bonus at ten and immediately reinforces the same words', () => {
+    const now = Date.now();
+    const words = Array.from({ length: 24 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+
+    const { result, rerender } = renderHook(
+      ({ progress }) => useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress,
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        continueAnyway: true,
+      }),
+      { initialProps: { progress: {} as Record<string, ProgressData> } },
+    );
+
+    expect(result.current.newNowCount).toBe(10);
+    expect(result.current.bonusBlockProgress.map((block) => ({
+      kind: block.kind,
+      total: block.total,
+      reinforcement: block.reinforcement ?? false,
+    }))).toEqual([
+      { kind: 'new', total: 10, reinforcement: false },
+      { kind: 'review', total: 10, reinforcement: true },
     ]);
-    expect(result.current.streamGroups.map((group) => group.items.length)).toEqual([10, 10, 4]);
+    expect(result.current.streamGroups[1]).toMatchObject({
+      kind: 'review',
+      reinforcement: true,
+    });
+
+    const afterFirstPass = Object.fromEntries(words.slice(0, 10).map((word) => [
+      word.id,
+      {
+        stageIndex: 1,
+        knownCount: 1,
+        unknownCount: 0,
+        introducedAt: now,
+        lastKnownAt: now,
+        nextDueAt: now + 5 * 60_000,
+      },
+    ])) as Record<string, ProgressData>;
+    rerender({ progress: afterFirstPass });
+
+    expect(result.current.streamGroups).toHaveLength(1);
+    expect(result.current.streamGroups[0]).toMatchObject({
+      kind: 'review',
+      reinforcement: true,
+      items: words.slice(0, 10),
+    });
   });
 });

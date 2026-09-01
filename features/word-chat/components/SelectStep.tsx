@@ -201,6 +201,12 @@ export function SelectStep({
   const overSelectionLimit = projectedSelectedCount > selectionLimit;
   const inputInvalid = Boolean(firstOverlongLine) || overSelectionLimit;
   const canAddTyped = Boolean(customInput.trim()) && !atSelectionLimit && !inputInvalid;
+  // What Select all actually reaches: blank rows are never picked, and the
+  // selection cap can stop it short of the rest. Both are why this is measured
+  // against the picks themselves rather than remembered from the click.
+  const selectableProposals = proposals.filter((item) => item.text.trim());
+  const everythingSelected =
+    selectableProposals.length > 0 && selectableProposals.every(isSelected);
 
   function submitCustom(event: FormEvent) {
     event.preventDefault();
@@ -339,7 +345,18 @@ export function SelectStep({
             <button
               type="button"
               onClick={onSelectAll}
-              className="onboarding-option-secondary rounded-full px-3 py-1.5 text-xs font-bold"
+              aria-pressed={everythingSelected}
+              className={[
+                'rounded-full px-3 py-1.5 text-xs font-bold',
+                // Filled once it has actually taken effect, so the button says
+                // whether the basket is whole rather than only offering to make
+                // it so. `.onboarding-option` has to replace the secondary base
+                // here: the secondary rule is written after the highlight one,
+                // so combining the two would let it win the background back.
+                everythingSelected
+                  ? 'onboarding-option onboarding-option-highlight'
+                  : 'onboarding-option-secondary',
+              ].join(' ')}
             >
               {t('wordChat.selectAll')}
             </button>

@@ -346,16 +346,20 @@ export function useProgress(
     (
       wordId: string,
       stageIndex: number,
-      opts?: { noRepeat?: boolean; countAsKnown?: boolean },
+      opts?: { noRepeat?: boolean; countAsKnown?: boolean; countAsUnknown?: boolean },
     ) => {
       const now = Date.now();
       const noRepeat = opts?.noRepeat === true;
-      const clampedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
+      const preserveSchedule = opts?.countAsKnown === true || opts?.countAsUnknown === true;
       const prev = progressRef.current;
       const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
       const previousStageIndex = current.stageIndex;
+      const requestedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
+      const clampedStageIndex = preserveSchedule ? previousStageIndex : requestedStageIndex;
       const stage = STAGES[clampedStageIndex];
-      const nextDueAt = noRepeat
+      const nextDueAt = preserveSchedule
+        ? current.nextDueAt
+        : noRepeat
         ? undefined
         : stage.intervalMs > 0
           ? now + stage.intervalMs
@@ -367,12 +371,19 @@ export function useProgress(
       let lastUnknownAt = current.lastUnknownAt;
 
       if (opts?.countAsKnown) {
-        // Reinforcement is a real correct answer, but deliberately not an SRS
-        // promotion. Counting it gives the second-pass block a durable,
-        // reload-safe completion signal while the unchanged stage restarts its
-        // own interval (normally five minutes) from this answer.
+        // Reinforcement is a real completed answer, but deliberately not an
+        // SRS review. Counting it gives the second-pass block a durable,
+        // reload-safe completion signal while both the stage and its existing
+        // due date stay exactly where the introduction put them.
         knownCount += 1;
         lastKnownAt = now;
+      } else if (opts?.countAsUnknown) {
+        // A failed immediate check is useful session feedback, but it must not
+        // demote a word that entered the SRS only moments ago or pull its due
+        // date forward. The scheduled five-minute review remains the first
+        // review that is allowed to move the ladder.
+        unknownCount += 1;
+        lastUnknownAt = now;
       } else if (noRepeat) {
         if (previousStageIndex < clampedStageIndex) {
           knownCount += 1;

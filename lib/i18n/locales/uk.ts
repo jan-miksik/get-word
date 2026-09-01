@@ -654,8 +654,6 @@ export const ukMessages: I18nMessages = {
   "learning.sessionDayExtraHint": "їхній час уже настав",
   "learning.sessionDayNewAction": "Вивчити ще {count}",
   "learning.sessionDayNewHint": "сьогоднішній план до них не дійшов",
-  "learning.sessionDayMoreAction": "Продовжити — ще {count}",
-  "learning.sessionDayMoreHint": "{due} на повторення · {fresh} нових",
   "learning.sessionDayPracticeAction": "Тренуватися далі",
   "learning.sessionDayPracticeHint.one": "{count} картка, на повторення не вплине",
   "learning.sessionDayPracticeHint.few": "{count} картки, на повторення не вплине",

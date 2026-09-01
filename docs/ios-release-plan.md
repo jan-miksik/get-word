@@ -3,6 +3,10 @@
 Everything left before Get Word is on the App Store, split by who does it.
 Written 2026-07-31.
 
+> This is the historical first-release plan. For every current TestFlight build,
+> use the authoritative repeat-release runbook in
+> [`../mobile/README.md`](../mobile/README.md#testflight-release-runbook).
+
 ## Where we are
 
 Done:
@@ -270,7 +274,11 @@ Captured from the simulator at the required sizes, for you to approve.
 
 ### B10. Version and build numbers, then archive and upload
 
-Marketing version `1.0`, release build `11`, incrementing on every later upload.
+Use the repeat-release runbook in
+[`../mobile/README.md`](../mobile/README.md#testflight-release-runbook). Build 11
+was the original public-release target; later TestFlight uploads reached build
+16. Always confirm the latest accepted number in App Store Connect and choose a
+new, greater number before archiving.
 
 ---
 

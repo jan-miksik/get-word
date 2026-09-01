@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { adjustNewTargetForBacklog, resolveGoalTargets, resolveWordsDayTargets } from '../calibration';
+import {
+  adjustNewTargetForBacklog,
+  estimateWordsSessionSeconds,
+  resolveGoalTargets,
+  resolveWordsDayTargets,
+} from '../calibration';
 import { simulateReviewLoad } from '../forecast';
 import type { StudyPacing } from '../goal';
 
@@ -12,6 +17,38 @@ const wordsGoal = { mode: 'words' as const, minutesPerDay: 10, wordsPerDay: 10, 
 describe('words goal policy', () => {
   it('uses a 30/70 unique-slot split', () => {
     expect(resolveGoalTargets(wordsGoal)).toMatchObject({ desiredNew: 10, itemBudget: 33, desiredReviewTarget: 23 });
+  });
+
+  // The displayed time has to cover the cards the session actually deals: every
+  // new word is introduced and then reinforced in the same session, so it owns
+  // two of them, not the one its slot in `itemBudget` suggests.
+  it('prices the day as repeats plus two cards per new word', () => {
+    const graded: StudyPacing = {
+      revealMode: 'press',
+      minigameFrequency: 'off',
+      fineTune: {
+        version: 3,
+        stages: [
+          {
+            reveal: { weight: 1, variants: ['press'] },
+            choice: { weight: 0, variants: [] },
+            typing: { weight: 0, variants: [] },
+            assembly: { weight: 0, variants: [] },
+          },
+          {
+            reveal: { weight: 0, variants: [] },
+            choice: { weight: 0, variants: [] },
+            typing: { weight: 1, variants: ['typing'] },
+            assembly: { weight: 0, variants: [] },
+          },
+        ],
+      },
+    };
+    // Reveal costs 8s and typing 20s, so a repeat averages 14s and a new card,
+    // drawn from the first band alone, costs 8s.
+    expect(estimateWordsSessionSeconds({ desiredNew: 5, desiredReviewTarget: 12 }, graded))
+      .toBe((12 * 14) + (2 * 5 * 8));
+    expect(resolveGoalTargets({ ...wordsGoal, newWordsPerDay: 5, pacing: graded }).minutesPerDay).toBe(5);
   });
 
   it('never reduces new words below the twenty-percent floor', () => {

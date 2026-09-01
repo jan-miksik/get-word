@@ -434,8 +434,11 @@ function PreviewStudy({
               <div className="flex h-full justify-center overflow-y-auto">
                 <SessionDoneCard
                   settlingCount={7}
-                  dueNowCount={39}
-                  newNowCount={6}
+                  // One bonus round is all the closing card can ever offer, and
+                  // repeats win it outright, so `newNowCount` is zero whenever
+                  // `dueNowCount` is not — see `useLearningPageState`.
+                  dueNowCount={10}
+                  newNowCount={0}
                   dayFlow={resolveSessionFlow([
                     { ...previewBlocks[0], done: 6, liveRemaining: 0 },
                     { ...previewBlocks[1], done: 4, liveRemaining: 0 },

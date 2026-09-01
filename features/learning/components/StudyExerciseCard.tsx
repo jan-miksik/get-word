@@ -42,6 +42,11 @@ export interface StudyExerciseCardProps {
   onUnknown: () => void;
   onCustomStage: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   /**
+   * A same-session check of a newly introduced word. It still asks for an
+   * answer, but controls that can explicitly edit the SRS ladder stay hidden.
+   */
+  reinforcement?: boolean;
+  /**
    * The card is being played for practice: `onOutcome` only advances it, and
    * nothing it reports reaches the spaced-repetition schedule.
    *
@@ -106,6 +111,7 @@ export function StudyExerciseCard({
   onReallyKnown,
   onUnknown,
   onCustomStage,
+  reinforcement = false,
   practice = false,
   onScore,
   onOutcome,
@@ -139,7 +145,7 @@ export function StudyExerciseCard({
         onScore={onScore}
         onOutcome={onOutcome}
         onAnswered={onAnswered}
-        onCustomStage={practice ? undefined : onCustomStage}
+        onCustomStage={practice || reinforcement ? undefined : onCustomStage}
         practice={practice}
         memoryHook={memoryHook}
         suggestedHook={suggestedHook}
@@ -163,7 +169,7 @@ export function StudyExerciseCard({
         onScore={onScore}
         onOutcome={onOutcome}
         onAnswered={onAnswered}
-        onCustomStage={practice ? undefined : onCustomStage}
+        onCustomStage={practice || reinforcement ? undefined : onCustomStage}
       />
     );
   }
@@ -193,8 +199,8 @@ export function StudyExerciseCard({
       memoryHook={memoryHook}
       suggestedHook={suggestedHook}
       onKnown={onKnown}
-      onReallyKnown={practice ? undefined : onReallyKnown}
-      onCustomStage={practice ? undefined : onCustomStage}
+      onReallyKnown={practice || reinforcement ? undefined : onReallyKnown}
+      onCustomStage={practice || reinforcement ? undefined : onCustomStage}
       onUnknown={onUnknown}
       // Practice records nothing, so the card asks the learner to look rather
       // than to judge: one way on, in place of "I know it" / "forgotten".

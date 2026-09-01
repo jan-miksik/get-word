@@ -270,7 +270,9 @@ export function SessionDoneCard({
   const { t, language } = useI18n();
   const canCarryOn = Boolean(onStudyExtra);
   const dueLeft = canCarryOn ? dueNowCount : 0;
-  const newLeft = canCarryOn ? newNowCount : 0;
+  // Continuing is review-first. New words are a separate commitment offered
+  // only once there is no scheduled review waiting.
+  const newLeft = canCarryOn && dueLeft === 0 ? newNowCount : 0;
   const waiting = dueLeft + newLeft;
   const planned = dayFlow && dayFlow.dayTotal > 0 ? dayFlow : null;
   // `shortfall` belongs only to the plan frozen for this visit. A learner can
@@ -306,25 +308,20 @@ export function SessionDoneCard({
           ? t(pluralForm(SETTLING, language, settlingCount), { count: settlingCount })
           : t('learning.sessionDoneBody');
 
-  // Whatever the plan left over is one offer, not two lists: the round behind
-  // this button holds the leftover repeats and the untouched new words alike,
-  // and the label names whichever of them is actually waiting.
-  const carryOn = waiting > 0
-    ? dueLeft > 0 && newLeft > 0
+  // One opt-in starts one kind of work. Due reviews take priority, and `newLeft`
+  // is already zero while any of them are waiting, so the two offers are
+  // mutually exclusive by construction — there is no combined one to write.
+  const carryOn = dueLeft > 0
+    ? {
+        label: t('learning.sessionDayExtraAction', { count: dueLeft }),
+        hint: t('learning.sessionDayExtraHint'),
+      }
+    : newLeft > 0
       ? {
-          label: t('learning.sessionDayMoreAction', { count: waiting }),
-          hint: t('learning.sessionDayMoreHint', { due: dueLeft, fresh: newLeft }),
+          label: t('learning.sessionDayNewAction', { count: newLeft }),
+          hint: t('learning.sessionDayNewHint'),
         }
-      : dueLeft > 0
-        ? {
-            label: t('learning.sessionDayExtraAction', { count: dueLeft }),
-            hint: t('learning.sessionDayExtraHint'),
-          }
-        : {
-            label: t('learning.sessionDayNewAction', { count: newLeft }),
-            hint: t('learning.sessionDayNewHint'),
-          }
-    : null;
+      : null;
 
   // Strictly an alternative to carrying on, never a companion to it: with real
   // repeats or new words still waiting, a block that changes nothing would be

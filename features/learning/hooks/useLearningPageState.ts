@@ -48,7 +48,7 @@ interface UseLearningPageStateOptions {
   isSessionDataReady?: boolean;
   /** Canonical language-pair part of the persisted daily-plan scope. */
   sessionScopeKey?: string;
-  /** The learner asked to carry on past the day's plan; the stream stops being capped. */
+  /** The learner asked for one finite bonus round past the day's plan. */
   continueAnyway?: boolean;
   /**
    * Cards answered in the deck whose SRS write is still queued behind the exit
@@ -83,17 +83,11 @@ type LearningUiState = {
 
 type SessionDay = { dayKey: string; timezone: string };
 
-/** The extra helping of new words offered when the goal names no size itself. */
-const DEFAULT_EXTRA_NEW_WORDS = 5;
-
 /**
- * How long one stretch of the bonus round is.
+ * How large one opt-in bonus round may be.
  *
- * The leftovers can be dozens of words, and handing them over as a single block
- * gave the rail one segment that barely moved and the session no seam at all —
- * a learner who had already earned the day was then asked to walk an unbroken
- * wall of repeats with nothing to read progress from. Ten is short enough to
- * see the end of, and it restores the breather between stretches.
+ * The leftovers can be dozens of words. Ten is short enough for the learner to
+ * see the end before deliberately opting into another round.
  */
 const BONUS_BLOCK_SIZE = 10;
 
@@ -111,17 +105,28 @@ function freezeBonusRound(input: {
   progress: Record<string, ProgressData>;
 }): { blocks: SessionBlock[]; baseline: Record<string, number> } | null {
   const blocks: SessionBlock[] = [];
-  const push = (kind: SessionBlockKind, words: NormalizedWord[]) => {
-    for (let offset = 0; offset < words.length; offset += BONUS_BLOCK_SIZE) {
-      blocks.push({
-        key: `bonus-${kind}-${blocks.length}`,
-        kind,
-        ids: words.slice(offset, offset + BONUS_BLOCK_SIZE).map((word) => word.id),
-      });
-    }
+  const push = (
+    kind: SessionBlockKind,
+    words: NormalizedWord[],
+    options: { pass?: number; reinforcement?: true } = {},
+  ) => {
+    if (words.length === 0) return;
+    blocks.push({
+      key: `bonus-${kind}-${blocks.length}`,
+      kind,
+      ids: words.slice(0, BONUS_BLOCK_SIZE).map((word) => word.id),
+      ...options,
+    });
   };
-  push('review', input.reviewWords);
-  push('new', input.newWords);
+  // One click means one predictable kind of work. Due reviews always win; new
+  // material is offered only after that queue is empty. New words include their
+  // own immediate, non-SRS second pass before the done card returns.
+  if (input.reviewWords.length > 0) {
+    push('review', input.reviewWords);
+  } else {
+    push('new', input.newWords);
+    push('review', input.newWords, { pass: 2, reinforcement: true });
+  }
   if (blocks.length === 0) return null;
   const baseline: Record<string, number> = {};
   for (const id of blocks.flatMap((block) => block.ids)) {
@@ -296,19 +301,15 @@ export function useLearningPageState({
         .map((block) => block.key),
     );
   }, [liveById, progress, session.dailyPlan, sessionDayKey, sessionTimezone, settlingById]);
-  // The overflow round is frozen from the live leftovers at the moment the
-  // learner opts in. Its blocks must drive the deck as well as the rail; using
-  // the unbounded review/new projection here would collapse the ten-card
-  // stretches back into one long block and make both breathers and game ticks
-  // disagree with the cards on screen.
+  // The bonus round is frozen from the live leftovers at the moment the learner
+  // opts in. Its blocks must drive the deck as well as the rail.
   const bonusReviewWords = useMemo(
-    () => [...priorityWords.slice(0, priorityDueCount), ...dueWords],
+    () => [...priorityWords.slice(0, priorityDueCount), ...dueWords].slice(0, BONUS_BLOCK_SIZE),
     [dueWords, priorityDueCount, priorityWords],
   );
-  const extraNewLimit = Math.max(1, dayTargets?.resolvedNewTarget ?? DEFAULT_EXTRA_NEW_WORDS);
   const bonusNewWords = useMemo(
-    () => [...priorityWords.slice(priorityDueCount), ...newWords].slice(0, extraNewLimit),
-    [extraNewLimit, newWords, priorityDueCount, priorityWords],
+    () => [...priorityWords.slice(priorityDueCount), ...newWords].slice(0, BONUS_BLOCK_SIZE),
+    [newWords, priorityDueCount, priorityWords],
   );
   const [bonus, setBonus] = useState<{ blocks: SessionBlock[]; baseline: Record<string, number> } | null>(null);
   const bonusSnapshot = continueAnyway
@@ -316,8 +317,8 @@ export function useLearningPageState({
     : null;
   useEffect(() => {
     if (bonusSnapshot === bonus) return;
-    // The snapshot is written once when overflow begins and cleared when the
-    // learner returns to the capped day.
+    // The snapshot is written once when the bonus begins and cleared when the
+    // learner returns to the closing card.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBonus(bonusSnapshot);
   }, [bonus, bonusSnapshot]);
@@ -465,8 +466,11 @@ export function useLearningPageState({
           key: block.key,
           kind: block.kind,
           blockIndex,
+          ...(block.reinforcement ? { reinforcement: true as const } : {}),
           words: block.ids
-            .map((id) => liveById.get(id))
+            .map((id) =>
+              liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined)
+            )
             .filter((word): word is NormalizedWord => Boolean(word)),
         }))
         .filter((block) => block.words.length > 0);
@@ -509,28 +513,24 @@ export function useLearningPageState({
       }))
       .filter((block) => block.words.length > 0);
   }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, priorityWords, progress, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
-  const plannedPriorityWords = session.dailyPlan
-    ? priorityWords.filter((word) => session.dailyPlan!.priorityIds.includes(word.id))
-    : priorityWords;
   const plannedDueWords = session.dailyPlan
     ? dueWords.filter((word) => session.dailyPlan!.dueIds.includes(word.id))
     : dueWords;
-  // "Review due" means repeats. The learner's own words lead the stream, but a
-  // word they have never studied is not something to review, so only priority
-  // words that are genuinely due count here.
-  const readyCount = plannedPriorityWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0).length + plannedDueWords.length;
   // Repeats that are due *right now* across the whole stream, whatever today's
-  // plan happened to take from it. Answering a word moves it out of the due
-  // bucket, so once the plan is walked this is exactly the backlog the Upcoming
-  // panel lists — which is why the closing card quotes this number instead of
-  // reading an emptied plan as "nothing due".
-  const dueNowCount = priorityDueCount + dueWords.length;
-  const newNowCount = timeGoal
+  // plan happened to take from it. The inventory reading keeps the full count;
+  // the closing-card offer below is capped to one finite bonus round.
+  const totalDueNowCount = priorityDueCount + dueWords.length;
+  // Name the work the next click actually starts, not the whole inventory.
+  const dueNowCount = Math.min(BONUS_BLOCK_SIZE, totalDueNowCount);
+  const availableNewNowCount = timeGoal
     ? new Set([
         ...priorityWords.filter((word) => !hasIntroducedWord(progress[word.id])).map((word) => word.id),
         ...newWords.map((word) => word.id),
       ]).size
     : bonusNewWords.length;
+  const newNowCount = totalDueNowCount > 0
+    ? 0
+    : Math.min(BONUS_BLOCK_SIZE, availableNewNowCount);
 
   const learnedPool = useMemo(
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
@@ -646,8 +646,11 @@ export function useLearningPageState({
   );
 
   const progressStats = useMemo(
-    () => calculateProgressStats(filteredWords, progress, readyCount),
-    [filteredWords, progress, readyCount]
+    // "Ready for review" is an inventory reading next to the total word count,
+    // so it must be the whole due-now backlog. Scoping it to what today's plan
+    // took showed 0 the moment the plan was walked, while repeats were waiting.
+    () => calculateProgressStats(filteredWords, progress, totalDueNowCount),
+    [filteredWords, progress, totalDueNowCount]
   );
 
   return {

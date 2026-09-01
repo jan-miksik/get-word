@@ -2,9 +2,9 @@ import type { I18nMessages } from "./en";
 
 export const csMessages: I18nMessages = {
   "addWords.title": "Přidat vlastní slovíčka",
-  "addWords.tabManual": "Psaním",
-  "addWords.tabPhoto": "Z fotky",
-  "addWords.tabAi": "S AI",
+  "addWords.tabManual": "psaním",
+  "addWords.tabPhoto": "z fotky",
+  "addWords.tabAi": "s AI",
   "app.loading": "Načítání",
   "auth.brand": "Get Word",
   "auth.connectTitle": "Připojení",
@@ -653,9 +653,7 @@ export const csMessages: I18nMessages = {
   "learning.sessionDayExtraAction": "Ještě zopakovat {count}",
   "learning.sessionDayExtraHint": "slovíček a frází, na které už přišel čas",
   "learning.sessionDayNewAction": "Naučit se {count} nových",
-  "learning.sessionDayNewHint": "na ta dnešní plán nedošel",
-  "learning.sessionDayMoreAction": "Pokračovat — ještě {count}",
-  "learning.sessionDayMoreHint": "{due} k opakování · {fresh} nových",
+  "learning.sessionDayNewHint": "nad dnešní cíl",
   "learning.sessionDayPracticeAction": "Procvičovat dál",
   "learning.sessionDayPracticeHint.one": "{count} karta, opakování to nezmění",
   "learning.sessionDayPracticeHint.few": "{count} karty, opakování to nezmění",

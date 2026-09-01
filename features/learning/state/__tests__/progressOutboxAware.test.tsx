@@ -245,7 +245,7 @@ describe('useProgress outbox-aware merge', () => {
     });
   });
 
-  it('reinforces a known word without advancing past the five-minute stage', () => {
+  it('reinforces a known word without changing its SRS stage or due date', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-25T12:00:00.000Z'));
     const isUpdatingFromServerRef = { current: false };
@@ -266,7 +266,7 @@ describe('useProgress outbox-aware merge', () => {
       knownCount: 2,
       unknownCount: 0,
       lastKnownAt: Date.parse('2026-08-25T12:00:00.000Z'),
-      nextDueAt: Date.parse('2026-08-25T12:05:00.000Z'),
+      nextDueAt: Date.parse('2026-08-25T12:03:00.000Z'),
     });
     expect(enqueueOp).toHaveBeenLastCalledWith(expect.objectContaining({
       entity: 'progress',
@@ -274,9 +274,35 @@ describe('useProgress outbox-aware merge', () => {
       payload: expect.objectContaining({
         stage_index: 1,
         known_count: 2,
-        next_due_at: Date.parse('2026-08-25T12:05:00.000Z'),
+        next_due_at: Date.parse('2026-08-25T12:03:00.000Z'),
       }),
     }));
+    vi.useRealTimers();
+  });
+
+  it('records a failed reinforcement without demoting or rescheduling the word', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-25T12:00:00.000Z'));
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => useProgress(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.applyServerProgress(serverProgress([{
+        id: 'w001',
+        stage: 1,
+        knownCount: 1,
+        nextDueAt: '2026-08-25T12:03:00.000Z',
+      }]));
+      result.current.setCustomStage('w001', 1, { countAsUnknown: true });
+    });
+
+    expect(result.current.progress.w001).toMatchObject({
+      stageIndex: 1,
+      knownCount: 1,
+      unknownCount: 1,
+      lastUnknownAt: Date.parse('2026-08-25T12:00:00.000Z'),
+      nextDueAt: Date.parse('2026-08-25T12:03:00.000Z'),
+    });
     vi.useRealTimers();
   });
 

@@ -8,15 +8,15 @@ export interface SessionBlock {
   /**
    * How many answers today each id owes this block. Everything is a single
    * pass except a same-day repeat of words first met earlier in the very same
-   * session — the only review a learner with no repeats due can get, and the
-   * reason a first day is still shaped `new → review` rather than one long
-   * march through unknown words.
+   * session. That second answer is the immediate reinforcement following every
+   * new-word block.
    */
   pass?: number;
   /**
    * A same-session check of words introduced by the preceding new block.
    * It uses the word's current (normally five-minute) exercise configuration;
-   * a successful answer is a normal SRS review and advances to the next stage.
+   * its result completes the session block without changing the SRS stage or
+   * the already scheduled due date.
    */
   reinforcement?: true;
   /**
@@ -38,8 +38,8 @@ export interface SessionBlockPlanInput {
    */
   openOnNew?: boolean;
   /**
-   * Close a day that has no repeats of its own on a second pass over the new
-   * words just seen. Without this a beginner's day is new words only.
+   * Close the introduction with a second pass over the new words just seen.
+   * The pass is session reinforcement, not an SRS review.
    */
   fillWithRepeats?: boolean;
 }
@@ -60,19 +60,15 @@ function push(
 }
 
 /**
- * Shapes an already-selected day into its two stretches.
+ * Shapes an already-selected day into its learning stretches.
  *
- * The day is one stretch of repeats and one of new words, and which comes first
- * is the whole of the decision. Someone who already has words opens on repeats:
- * the material is familiar, and it is the maintenance the day owes before it
- * grows. Someone with nothing to repeat — a first day, or a day where nothing
- * came due — opens on new words, because that is the only work there is, and
- * closes on a second pass over what they just met.
+ * Someone who already has words opens on due repeats, then learns a bounded
+ * batch of new words, then immediately checks that same batch once. A beginner
+ * has no opening repeat block, so the same rule naturally collapses to
+ * `new → reinforcement`.
  *
- * Two stretches, never more. The rail beside the deck is read out of the corner
- * of an eye, and a day chopped into five alternating pieces gave it five fresh
- * starts: the bar fell back to empty four times over a session the learner
- * experienced as one continuous run of work.
+ * Three logical slots, never more. Empty slots disappear rather than producing
+ * a blank transition.
  *
  * Whatever repeats are left over after the day's plan is deliberately NOT here:
  * it is a bonus offered once the day is closed, not a third stretch the learner
@@ -85,21 +81,20 @@ export function planSessionBlocks(input: SessionBlockPlanInput): SessionBlock[] 
 
   const blocks: SessionBlock[] = [];
   const pushNew = () => push(blocks, 'new', newIds);
-  const pushReview = () => {
-    if (reviewIds.length > 0) return push(blocks, 'review', reviewIds);
-    // Nothing of its own to repeat: the day still ends on consolidation, with
-    // the words it introduced coming back for a second pass.
+  const pushDue = () => push(blocks, 'review', reviewIds);
+  const pushReinforcement = () => {
     if (input.fillWithRepeats) push(blocks, 'review', newIds, { pass: 2, reinforcement: true });
   };
 
   // A day with no repeats has no repeats to open on, whatever the caller asked.
   if (reviewIds.length === 0 || input.openOnNew === true) {
     pushNew();
-    pushReview();
+    pushDue();
   } else {
-    pushReview();
+    pushDue();
     pushNew();
   }
+  pushReinforcement();
   return blocks;
 }
 

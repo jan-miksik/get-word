@@ -62,10 +62,11 @@ export function SessionCardShell({
             // seal, headline, recap, both streaks, the week and up to two
             // offers — and it is the only one whose padding can push its own
             // buttons out of sight.
-            // A hairline in ink rather than the white one the seam card wears:
-            // the closing card sits on the study surface with nothing behind it,
-            // and white on warm paper drew no edge at all.
-            ? 'border-ink-faint/70 mx-auto max-w-[500px] rounded-[1.75rem] py-7 sm:rounded-[2rem] sm:py-8'
+            // The same full-strength ink hairline the seam card wears: the
+            // closing card sits on the study surface with nothing behind it,
+            // and first white and then a faint warm edge both read as no edge
+            // at all on warm paper.
+            ? 'border-ink mx-auto max-w-[500px] rounded-[1.75rem] py-7 sm:rounded-[2rem] sm:py-8'
             // A full-strength ink hairline, the same ink the continue button
             // is drawn with. The seam cards sit straight on the study surface,
             // where first the white edge and then a faint warm one both read as

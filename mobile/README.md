@@ -14,10 +14,12 @@ From the repository root:
 ```bash
 pnpm install
 pnpm mobile:build
-pnpm --dir mobile exec cap add ios
 pnpm mobile:sync:ios
 pnpm mobile:open:ios
 ```
+
+`cap add ios` was only needed to create the checked-in native project. Do not
+run it as part of a normal build or release.
 
 The default API origin is `https://getword.app`. Override it for local or
 staging work with:
@@ -48,10 +50,142 @@ overridden with `VITE_SUPABASE_URL` and
   study UI is connected. Server-only modules and Next route components stay in
   the web app.
 
-## Not yet store-ready
+## TestFlight release runbook
 
-The current shell proves the local bundle and native bridge and now contains
-the native Apple sign-in/session foundation. Before TestFlight, it still needs
-the study/sync UI, complete account controls, deep links, camera/photo
-permission declarations, privacy manifest review, final app icons and splash
-assets, and App Store metadata.
+This is the authoritative repeat-release procedure. It was exercised for the
+1.0 TestFlight uploads through build 16. The first-release planning history and
+App Store metadata remain in [`../docs/ios-release-plan.md`](../docs/ios-release-plan.md)
+and [`../docs/app-store-listing.md`](../docs/app-store-listing.md).
+
+Run commands from the repository root. The archive and upload steps need macOS,
+Xcode signed into the Apple developer team `HLWJ75QQ8B`, a valid signing
+identity in the Keychain, and permission to contact Apple's signing and App
+Store Connect services. Never put Apple passwords, API keys, or `.p8` contents
+in the repository or command line.
+
+### 1. Fix the release scope
+
+Inspect the branch and working tree before changing a build number:
+
+```bash
+git status --short --branch
+git diff --check
+```
+
+Release only the intended, reviewed source. Commit it before archiving so the
+uploaded binary has an identifiable source commit. If the native build depends
+on new API behavior or database migrations, deploy and verify those production
+changes before distributing the build; the release bundle uses
+`https://getword.app` by default.
+
+### 2. Choose and record a new build number
+
+Check the latest uploaded build in App Store Connect first. The new build
+number must be greater than every build Apple has already accepted; do not rely
+only on the local project because App Store Connect rejects duplicates.
+
+Set the chosen integer in both `CURRENT_PROJECT_VERSION` entries in
+`mobile/ios/App/App.xcodeproj/project.pbxproj`. Leave `MARKETING_VERSION`
+unchanged unless this is a new App Store version. Verify the result:
+
+```bash
+rg -n 'CURRENT_PROJECT_VERSION|MARKETING_VERSION' \
+  mobile/ios/App/App.xcodeproj/project.pbxproj
+```
+
+There should be two identical `CURRENT_PROJECT_VERSION` values, one for each
+Xcode configuration. Commit the build-number change. `version.json` is the web
+app commit-count version maintained by the pre-commit hook; it is not the iOS
+TestFlight build number and should not be edited for this purpose.
+
+### 3. Verify and synchronize the mobile bundle
+
+Run verification appropriate to the release scope, then the full repository
+check and the native synchronization:
+
+```bash
+pnpm run check
+pnpm mobile:sync:ios
+git status --short
+```
+
+`mobile:sync:ios` type-checks and builds the production Vite bundle before
+Capacitor copies it into the iOS project. Review any newly reported working-tree
+change before continuing.
+
+### 4. Create and inspect the Release archive
+
+Use a fresh path for every attempt. The example below uses build 17; replace it
+with the number chosen in step 2.
+
+```bash
+GET_WORD_BUILD=17
+GET_WORD_ARCHIVE="/private/tmp/get-word-testflight-${GET_WORD_BUILD}.xcarchive"
+test ! -e "$GET_WORD_ARCHIVE"
+
+xcodebuild \
+  -project mobile/ios/App/App.xcodeproj \
+  -scheme App \
+  -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath "$GET_WORD_ARCHIVE" \
+  -allowProvisioningUpdates \
+  archive
+```
+
+Confirm the archive contains the expected bundle identifier, marketing version,
+and build number:
+
+```bash
+/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleIdentifier' \
+  "$GET_WORD_ARCHIVE/Info.plist"
+/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' \
+  "$GET_WORD_ARCHIVE/Info.plist"
+/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' \
+  "$GET_WORD_ARCHIVE/Info.plist"
+```
+
+Expected values are `app.getword`, the intended marketing version, and the new
+build number. Keep automatic signing in the project. A development-signed
+archive is acceptable at this stage: the export in the next step selects the
+managed Store provisioning profile and re-signs it for distribution. Do not
+add a permanent `CODE_SIGN_IDENTITY = "Apple Distribution"` override; that
+previously conflicted with Xcode-managed signing.
+
+### 5. Upload through the tested export path
+
+`ios/UploadOptions.plist` uses `method=app-store-connect` and
+`destination=upload`, so this command both exports/re-signs the archive and
+uploads it. It is the external-state-changing step: run it only after the
+archive metadata is verified.
+
+```bash
+GET_WORD_EXPORT="/private/tmp/get-word-testflight-${GET_WORD_BUILD}-export"
+test ! -e "$GET_WORD_EXPORT"
+
+xcodebuild \
+  -exportArchive \
+  -archivePath "$GET_WORD_ARCHIVE" \
+  -exportOptionsPlist mobile/ios/UploadOptions.plist \
+  -exportPath "$GET_WORD_EXPORT" \
+  -allowProvisioningUpdates
+```
+
+Wait for the command's final upload success, then confirm the same version and
+build in App Store Connect. Apple will initially show it as **Processing** and
+will expose it in TestFlight after processing completes.
+
+If the command ends ambiguously, inspect App Store Connect before retrying; a
+retry of an already accepted build number will be rejected. For signing errors,
+first check the Xcode account, team, certificate, and managed provisioning
+profile. Preserve automatic project signing and diagnose the failing archive or
+export instead of changing signing settings speculatively.
+
+### 6. Finish the hand-off
+
+- Confirm TestFlight processing completed and record the uploaded version/build.
+- Install that exact build on physical iPhone and iPad devices.
+- Smoke-test sign-in, study and audio, list creation, Photo Lab/camera, and
+  account deletion against production.
+- Re-check `git status --short` so generated artifacts or signing experiments
+  are not left in the working tree.

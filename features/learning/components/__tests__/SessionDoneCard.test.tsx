@@ -211,15 +211,12 @@ describe('SessionDoneCard closing the day', () => {
     expect(onStudyExtra).toHaveBeenCalledTimes(1);
   });
 
-  it('rolls repeats and new words into the one opt-in that covers both', () => {
+  it('offers only repeats while both repeats and new words are available', () => {
     const onStudyExtra = vi.fn();
     renderCard({ dayFlow: closedDay(), dueNowCount: 4, newNowCount: 15, onStudyExtra });
 
-    // One offer, and it is the button: the hint under it is the only place the
-    // split between repeats and new words is spelled out.
-    expect(screen.getByText('4 to repeat · 15 new')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /keep going.*19 more/i }));
+    expect(screen.queryByText(/15 new/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /repeat 4 more/i }));
 
     expect(onStudyExtra).toHaveBeenCalledTimes(1);
   });

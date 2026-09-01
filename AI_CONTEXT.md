@@ -163,6 +163,8 @@ subsystem decisions and data-model notes.
 - Admin API shell and DB aggregation: `app/api/admin/stats/route.ts`, `lib/db/queries/usage-stats.ts`
 - Operator script map: `scripts/README.md`
 - Shared demo-audio tooling policy: `scripts/lib/audio-quality.ts`
+- iOS/TestFlight repeat-release runbook: `mobile/README.md` → TestFlight release runbook
+- Historical first App Store release plan and listing copy: `docs/ios-release-plan.md`, `docs/app-store-listing.md`
 
 ### Database
 

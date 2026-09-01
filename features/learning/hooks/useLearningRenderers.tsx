@@ -40,7 +40,7 @@ interface UseLearningRenderersOptions {
   setCustomStage: (
     wordId: string,
     stageIndex: number,
-    opts?: { noRepeat?: boolean; countAsKnown?: boolean },
+    opts?: { noRepeat?: boolean; countAsKnown?: boolean; countAsUnknown?: boolean },
   ) => void;
   setMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>, hook: string) => void;
   lastMovedId: string | null;
@@ -138,7 +138,16 @@ export function useLearningRenderers({
       wordId: string,
       stageIndex: number,
       outcome: TypingOutcome,
+      reinforcement = false,
     ) => {
+      if (reinforcement) {
+        setCustomStage(
+          wordId,
+          stageIndex,
+          outcome === 'unknown' ? { countAsUnknown: true } : { countAsKnown: true },
+        );
+        return;
+      }
       if (outcome === 'known') markKnown(wordId);
       else if (outcome === 'unknown') markUnknown(wordId);
       else setCustomStage(wordId, stageIndex);
@@ -166,15 +175,19 @@ export function useLearningRenderers({
           suggestedHook={getSuggestedMemoryHook(word)}
           onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
           showMemoryHook={shouldRenderMemoryHook(word.id)}
-          onKnown={() => markKnown(word.id)}
-          onReallyKnown={() => markReallyKnown(word.id)}
-          onUnknown={() => markUnknown(word.id)}
+          onKnown={() => applyExerciseOutcome(word.id, prog.stageIndex, 'known', reinforcement)}
+          onReallyKnown={() => reinforcement
+            ? applyExerciseOutcome(word.id, prog.stageIndex, 'known', true)
+            : markReallyKnown(word.id)}
+          onUnknown={() => applyExerciseOutcome(word.id, prog.stageIndex, 'unknown', reinforcement)}
           onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
+          reinforcement={reinforcement}
           onScore={applyExerciseScore}
           onOutcome={(outcome) => applyExerciseOutcome(
             word.id,
             prog.stageIndex,
             outcome,
+            reinforcement,
           )}
           onAnswered={() => onCardAnswered?.(word)}
           isMoved={lastMovedId === word.id}
@@ -190,7 +203,7 @@ export function useLearningRenderers({
         />
       </div>
     );
-  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]);
+  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markReallyKnown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig, isActive = false) => {
     if (dismissedGames.has(config.id)) return null;
@@ -257,15 +270,20 @@ export function useLearningRenderers({
             onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
             showMemoryHook={shouldRenderMemoryHook(word.id)}
             onKnown={() => {
-              onComplete(() => markKnown(word.id));
+              onComplete(() => applyExerciseOutcome(word.id, prog.stageIndex, 'known', reinforcement));
             }}
             onReallyKnown={() => {
-              onComplete(() => markReallyKnown(word.id));
+              onComplete(() => reinforcement
+                ? applyExerciseOutcome(word.id, prog.stageIndex, 'known', true)
+                : markReallyKnown(word.id));
             }}
-            onUnknown={() => { onComplete(() => markUnknown(word.id)); }}
+            onUnknown={() => {
+              onComplete(() => applyExerciseOutcome(word.id, prog.stageIndex, 'unknown', reinforcement));
+            }}
             onCustomStage={(stageIndex, options) => {
               onComplete(() => setCustomStage(word.id, stageIndex, options), { skipAnimation });
             }}
+            reinforcement={reinforcement}
             onScore={applyExerciseScore}
             onOutcome={(outcome) => {
               onComplete(
@@ -273,6 +291,7 @@ export function useLearningRenderers({
                   word.id,
                   prog.stageIndex,
                   outcome,
+                  reinforcement,
                 ),
                 { skipAnimation },
               );
@@ -295,7 +314,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]
+    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markReallyKnown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]
   );
 
   const renderMiniGameForDeck = useCallback(

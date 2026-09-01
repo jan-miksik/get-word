@@ -127,8 +127,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     pendingAnswers, completedGameIds, answeredWords,
     recordAnswerGiven, recordDeckCardCompleted, recordGameFinished,
   } = useSessionCompletions();
-  // Set from the closing card: the day is already earned, and the learner chose
-  // to keep going through the repeats it deliberately left out.
   const [continueAnyway, setContinueAnyway] = useState(false);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const [preflightDismissed, setPreflightDismissed] = useState(false);
@@ -768,7 +766,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     if (!sessionFlow.settled && !bonusClosed) return;
     void flushOutboxBeforeRead()
       .catch(() => undefined)
-      .then(() => refreshGoalSummary());
+      .then(() => {
+        if (bonusClosed) setContinueAnyway(false);
+        return refreshGoalSummary();
+      });
   }, [bonusClosed, refreshGoalSummary, sessionFlow.settled]);
   const { breather, dismiss: dismissBreather } = useSessionBreather(railFlow, railBlocks, answeredWords,
     `${session.planIdentity ?? 'unplanned'}:${continueAnyway ? 'bonus' : 'day'}`);

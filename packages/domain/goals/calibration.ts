@@ -51,6 +51,16 @@ function stageSeconds(stage: GoalFineTuneConfig['stages'][number] | null | undef
   return methods.reduce((sum, method) => sum + method.seconds * (method.weight ?? 0), 0) / total;
 }
 
+/** Minigames are interleaved between cards, so their cost is spread over them. */
+function minigameOverheadSeconds(pacing: StudyPacing): number {
+  const gap = frequencyGap(pacing?.minigameFrequency);
+  return gap ? ESTIMATED_SECONDS_PER_ITEM.minigame / gap : 0;
+}
+
+function finiteSeconds(total: number): number {
+  return Number.isFinite(total) && total > 0 ? total : ESTIMATED_SECONDS_PER_ITEM.press;
+}
+
 /** Stable pacing estimate; it intentionally does not depend on today's backlog. */
 export function estimateSecondsPerItem(pacing: StudyPacing): number {
   const stages = Array.isArray(pacing?.fineTune?.stages) ? pacing.fineTune.stages : [];
@@ -58,9 +68,24 @@ export function estimateSecondsPerItem(pacing: StudyPacing): number {
   const reviewSeconds = stages.length > 0
     ? stages.reduce((sum, stage) => sum + stageSeconds(stage, revealMode), 0) / stages.length
     : revealSeconds(revealMode);
-  const gap = frequencyGap(pacing?.minigameFrequency);
-  const total = reviewSeconds + (gap ? ESTIMATED_SECONDS_PER_ITEM.minigame / gap : 0);
-  return Number.isFinite(total) && total > 0 ? total : ESTIMATED_SECONDS_PER_ITEM.press;
+  return finiteSeconds(reviewSeconds + minigameOverheadSeconds(pacing));
+}
+
+/**
+ * What a card costs for a word met today, rather than the all-stage average.
+ *
+ * Both cards a new word owns — the introduction and the reinforcement that
+ * follows it in the same session — are drawn from the first fine-tune band,
+ * which is normally a bare reveal. Pricing them at `estimateSecondsPerItem`
+ * charges them for the typing that only the late bands ask for.
+ */
+function estimateSecondsPerNewItem(pacing: StudyPacing): number {
+  const stages = Array.isArray(pacing?.fineTune?.stages) ? pacing.fineTune.stages : [];
+  const revealMode = pacing?.revealMode ?? 'press';
+  const firstBandSeconds = stages.length > 0
+    ? stageSeconds(stages[0], revealMode)
+    : revealSeconds(revealMode);
+  return finiteSeconds(firstBandSeconds + minigameOverheadSeconds(pacing));
 }
 
 /**
@@ -110,6 +135,27 @@ export interface ResolvedGoalTargets {
 }
 
 /**
+ * How long a words-mode day is expected to take, in seconds.
+ *
+ * A words day is not `itemBudget` cards. It is `desiredReviewTarget` repeats
+ * plus `desiredNew` words met *twice* — the introduction and the same-session
+ * reinforcement that always follows it (see `planSessionBlocks`). Sizing the
+ * day at the item budget dropped that second pass entirely, and then charged
+ * the new-word cards the all-stage average, which happened to cancel most of
+ * the shortfall. Both halves are now counted for the reason they exist.
+ *
+ * This is a display estimate. Words mode plans in distinct words, so nothing
+ * here decides how long a session actually runs.
+ */
+export function estimateWordsSessionSeconds(
+  targets: Pick<ResolvedGoalTargets, 'desiredNew' | 'desiredReviewTarget'>,
+  pacing: StudyPacing,
+): number {
+  return (targets.desiredReviewTarget * estimateSecondsPerItem(pacing)) +
+    (2 * targets.desiredNew * estimateSecondsPerNewItem(pacing));
+}
+
+/**
  * The one translation layer between a durable goal and session planning.
  * Words mode deliberately keeps a 30/70 new/review split before today's
  * availability and backlog policy are applied.
@@ -120,11 +166,14 @@ export function resolveGoalTargets(
   if (goal.mode === 'words') {
     const desiredNew = Math.max(0, Math.round(goal.newWordsPerDay ?? goal.wordsPerDay));
     const itemBudget = desiredNew > 0 ? Math.round(desiredNew / 0.3) : 0;
+    const desiredReviewTarget = Math.max(0, itemBudget - desiredNew);
     return {
       desiredNew,
       itemBudget,
-      desiredReviewTarget: Math.max(0, itemBudget - desiredNew),
-      minutesPerDay: Math.max(1, Math.ceil((itemBudget * estimateSecondsPerItem(goal.pacing)) / 60)),
+      desiredReviewTarget,
+      minutesPerDay: Math.max(1, Math.ceil(
+        estimateWordsSessionSeconds({ desiredNew, desiredReviewTarget }, goal.pacing) / 60,
+      )),
       wordsPerDay: desiredNew,
     };
   }

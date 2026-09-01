@@ -678,8 +678,6 @@ export const enMessages = {
   "learning.sessionDayExtraHint": "they're ready when you are",
   "learning.sessionDayNewAction": "Learn {count} more",
   "learning.sessionDayNewHint": "today's plan didn't reach them",
-  "learning.sessionDayMoreAction": "Keep going — {count} more",
-  "learning.sessionDayMoreHint": "{due} to repeat · {fresh} new",
   "learning.sessionDayPracticeAction": "Keep practising",
   "learning.sessionDayPracticeHint.one": "{count} card, no effect on your repeats",
   "learning.sessionDayPracticeHint.few": "{count} cards, no effect on your repeats",

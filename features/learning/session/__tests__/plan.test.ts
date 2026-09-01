@@ -16,17 +16,17 @@ describe('planSession', () => {
     expect(plan.blocks[2]).toMatchObject({ ids: plan.newIds, reinforcement: true });
   });
 
-  it('removes the cap only for continue-anyway', () => {
+  it('leaves a session uncapped when there is no enabled goal', () => {
     const plan = planSession({
-      goal, priorityWords: [], dueWords: Array.from({ length: 8 }, (_, i) => word(`d${i}`)),
-      newWords: [], progress: {}, continueAnyway: true,
+      goal: null, priorityWords: [], dueWords: Array.from({ length: 8 }, (_, i) => word(`d${i}`)),
+      newWords: [], progress: {},
     });
     expect(plan.sessionItemCap).toBeNull();
     expect(plan.dueIds).toHaveLength(8);
     expect(plan.blocks).toEqual([]);
   });
 
-  it('shapes an ordinary words day as repeats then new words', () => {
+  it('shapes an ordinary words day as repeats, new words, then reinforcement', () => {
     const roomy = { ...goal, mode: 'words' as const, wordsPerDay: 40, newWordsPerDay: 10 };
     const plan = planSession({
       goal: roomy, priorityWords: [],
@@ -37,7 +37,8 @@ describe('planSession', () => {
       ),
       dayTargets: { resolvedNewTarget: 10, resolvedReviewTarget: 22, resolvedItemBudget: 32 },
     });
-    expect(plan.blocks.map((block) => block.kind)).toEqual(['review', 'new']);
+    expect(plan.blocks.map((block) => block.kind)).toEqual(['review', 'new', 'review']);
+    expect(plan.blocks[2]).toMatchObject({ ids: plan.newIds, pass: 2, reinforcement: true });
     // New words are capped by their share of the day, and the leftover repeats
     // are offered rather than planned.
     expect(plan.newIds).toHaveLength(10);

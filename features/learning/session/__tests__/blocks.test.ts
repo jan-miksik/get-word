@@ -13,6 +13,17 @@ describe('planSessionBlocks', () => {
       .toEqual(['R9', 'N4']);
   });
 
+  it('closes new material with reinforcement even when due reviews opened the day', () => {
+    const blocks = planSessionBlocks({
+      reviewIds: ids('r', 9),
+      newIds: ids('n', 4),
+      fillWithRepeats: true,
+    });
+
+    expect(sizes(blocks)).toEqual(['R9', 'N4', 'R4x2']);
+    expect(blocks[2]).toMatchObject({ ids: ids('n', 4), reinforcement: true });
+  });
+
   it('keeps a large day to the same two stretches', () => {
     expect(sizes(planSessionBlocks({ reviewIds: ids('r', 20), newIds: ids('n', 20) })))
       .toEqual(['R20', 'N20']);
@@ -34,13 +45,13 @@ describe('planSessionBlocks', () => {
     expect(sizes(planSessionBlocks({ reviewIds: [], newIds: ids('n', 6) }))).toEqual(['N6']);
   });
 
-  it('is never more than two stretches, and preserves every bucket in order', () => {
+  it('is never more than three stretches, and preserves every ordinary bucket in order', () => {
     for (const review of [0, 1, 5, 13, 20]) {
       for (let newCount = 0; newCount <= 12; newCount += 1) {
         for (const openOnNew of [false, true]) {
           const input = { reviewIds: ids('r', review), newIds: ids('n', newCount), openOnNew };
           const blocks = planSessionBlocks(input);
-          expect(blocks.length).toBeLessThanOrEqual(2);
+          expect(blocks.length).toBeLessThanOrEqual(3);
           expect(blocks.every((block) => block.ids.length > 0)).toBe(true);
           expect(blocks.filter((block) => block.kind === 'new').flatMap((block) => block.ids))
             .toEqual(input.newIds);
