@@ -32,9 +32,13 @@ export interface SessionBlockPlanInput {
   reviewIds: readonly string[];
   newIds: readonly string[];
   /**
-   * Open on new ground rather than on repeats. Set for a return after a long
-   * absence, where the backlog is the worst possible welcome; a day with no
-   * repeats at all opens on new words whether this is set or not.
+   * Open on new ground rather than on repeats. A day with no repeats at all
+   * opens on new words whether this is set or not.
+   *
+   * No caller sets it today: a words day with a fixed new-word count is always
+   * `due → new → reinforcement`, so the after-an-absence reordering was dropped
+   * from `planSession`. Kept deliberately for the time goal, where the mix is
+   * dynamic and opening on new ground may earn its place again.
    */
   openOnNew?: boolean;
   /**

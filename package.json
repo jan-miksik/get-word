@@ -38,6 +38,7 @@
     "demo:generate-audio": "tsx scripts/generate-demo-audio.ts",
     "demo:generate-bundled-audio": "tsx scripts/generate-bundled-demo-audio.ts",
     "account:process-deletions": "tsx scripts/process-account-deletion-jobs.ts",
+    "account:reset-goal": "tsx scripts/reset-goal-onboarding.ts",
     "audio:check-object": "tsx scripts/check-object-storage.ts",
     "audio:backfill-object": "tsx scripts/backfill-object-audio.ts",
     "audio:prod:backfill-object": "bash scripts/production-db.sh backfill-object",

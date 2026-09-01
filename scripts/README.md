@@ -17,6 +17,8 @@ operator workflows share the behavior.
   `process-account-deletion-jobs.ts`
 - School pilot access: `school-access.ts`
 - Per-account feature limits: `user-limits.ts`
+- Goal-onboarding rehearsal: `reset-goal-onboarding.ts` (staging only; it drops
+  a learner's goal history and day snapshots to replay the release interstitial)
 
 ## Development guardrails
 
