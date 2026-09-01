@@ -41,6 +41,16 @@ export interface StudyExerciseCardProps {
   onReallyKnown: () => void;
   onUnknown: () => void;
   onCustomStage: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
+  /**
+   * The card is being played for practice: `onOutcome` only advances it, and
+   * nothing it reports reaches the spaced-repetition schedule.
+   *
+   * Everything that edits the schedule therefore comes off the card — the
+   * reveal's own verdict buttons, the stage popover behind them, and the offer
+   * to retire a word at the top of the ladder. What is left is the exercise
+   * itself and a way past it.
+   */
+  practice?: boolean;
   onScore: (points: number) => void;
   onOutcome: (outcome: ExerciseOutcome) => void;
   /**
@@ -96,6 +106,7 @@ export function StudyExerciseCard({
   onReallyKnown,
   onUnknown,
   onCustomStage,
+  practice = false,
   onScore,
   onOutcome,
   onAnswered,
@@ -128,7 +139,8 @@ export function StudyExerciseCard({
         onScore={onScore}
         onOutcome={onOutcome}
         onAnswered={onAnswered}
-        onCustomStage={onCustomStage}
+        onCustomStage={practice ? undefined : onCustomStage}
+        practice={practice}
         memoryHook={memoryHook}
         suggestedHook={suggestedHook}
         onMemoryHookChange={onMemoryHookChange}
@@ -151,7 +163,7 @@ export function StudyExerciseCard({
         onScore={onScore}
         onOutcome={onOutcome}
         onAnswered={onAnswered}
-        onCustomStage={onCustomStage}
+        onCustomStage={practice ? undefined : onCustomStage}
       />
     );
   }
@@ -181,9 +193,12 @@ export function StudyExerciseCard({
       memoryHook={memoryHook}
       suggestedHook={suggestedHook}
       onKnown={onKnown}
-      onReallyKnown={onReallyKnown}
-      onCustomStage={onCustomStage}
+      onReallyKnown={practice ? undefined : onReallyKnown}
+      onCustomStage={practice ? undefined : onCustomStage}
       onUnknown={onUnknown}
+      // Practice records nothing, so the card asks the learner to look rather
+      // than to judge: one way on, in place of "I know it" / "forgotten".
+      onContinue={practice ? () => onOutcome('stay') : undefined}
       onMemoryHookChange={onMemoryHookChange}
       isMoved={isMoved}
       showEnglish={showEnglish}
@@ -253,7 +268,7 @@ function ChoiceExercise({
   onScore: (points: number) => void;
   onOutcome: (outcome: ExerciseOutcome) => void;
   onAnswered?: () => void;
-  onCustomStage: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
+  onCustomStage?: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
 }) {
   const [answered, setAnswered] = useState<ExerciseOutcome | null>(null);
   // The same one setting the sound toggle on a minigame card writes: silencing
@@ -262,6 +277,7 @@ function ChoiceExercise({
   // Same rule as the reveal and typing cards: a clean answer at 60 days is the
   // moment to offer retirement rather than book another 60 days.
   const showFullyKnownOffer =
+    Boolean(onCustomStage) &&
     answered === 'known' &&
     isTopStage(progress.stageIndex ?? 0) &&
     Boolean(progress.nextDueAt);
@@ -305,12 +321,12 @@ function ChoiceExercise({
       >
         {showFullyKnownOffer ? (
           <FullyKnownOffer
-            onRetire={() => onCustomStage(TOP_STAGE_INDEX, { noRepeat: true })}
+            onRetire={() => onCustomStage?.(TOP_STAGE_INDEX, { noRepeat: true })}
           />
         ) : null}
         {answered ? (
           <ContinueButton
-            variant="solid"
+            variant="slab"
             className="self-center max-w-[22rem]"
             onClick={() => onOutcome(answered)}
           />

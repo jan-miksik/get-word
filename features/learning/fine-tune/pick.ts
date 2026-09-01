@@ -99,6 +99,28 @@ function pickUniform<T>(items: readonly T[], random: () => number): T {
 }
 
 /**
+ * Try every configured variant, beginning at a seeded random offset.
+ *
+ * A variant can be structurally possible (enough options, enough answer parts)
+ * and still fail its requested similarity band. Rotating the list preserves the
+ * random choice between usable variants without letting one impossible variant
+ * hide another one that the word can genuinely support.
+ */
+function pickFirstResolved<V, R>(
+  variants: readonly V[],
+  random: () => number,
+  resolve: (variant: V) => R | null,
+): R | null {
+  if (variants.length === 0) return null;
+  const start = Math.min(variants.length - 1, Math.floor(random() * variants.length));
+  for (let offset = 0; offset < variants.length; offset += 1) {
+    const resolved = resolve(variants[(start + offset) % variants.length]);
+    if (resolved) return resolved;
+  }
+  return null;
+}
+
+/**
  * Weighted pick over methods, NOT over variants. This is the whole point of the
  * two-step model: a stage that allows seven kinds of multiple choice and one
  * kind of reveal must still show reveal as often as its weight says, instead of
@@ -273,11 +295,20 @@ function resolveAssemblyParts({
     [...generatedSimilar, ...poolParts, ...fallbackExtraParts(correct.join(''), unit)],
     correctKeys,
   );
-  // Band III offers more to sift through as well as harder decoys; below it the
-  // count stays at the floor, because at band II every extra tile is already a
-  // near-miss and a longer row is a reading test rather than a harder one.
+  // Band III offers more to sift through as well as harder decoys.
+  //
+  // Band II used to share III's count (3-6 extra tiles), which made the ladder
+  // lopsided: I hands over nothing but the answer's own parts, so II jumped
+  // straight from "nothing to sift" to a board where over a third of the tiles
+  // are near-misses — the steepest step of the three, and the one that arrives
+  // earliest. It now adds a smaller handful, two to four, so the climb is
+  // spread across both steps. Every one of them is still a near-miss (see
+  // below), which is what keeps II harder than I rather than merely longer.
   const base = Math.min(6, Math.max(3, Math.ceil(correct.length * 0.3)));
-  const needed = band === 'III' ? Math.min(8, base + 2) : base;
+  const needed =
+    band === 'III'
+      ? Math.min(8, base + 2)
+      : Math.min(4, Math.max(2, Math.ceil(correct.length * 0.2)));
   const isSimilarEnough = (candidate: string, attempt: SimilarityBand): boolean =>
     correct.some((part) =>
       unit === 'letters'
@@ -349,31 +380,83 @@ export function pickExerciseForWord({
     return stage[id].variants.length > 0;
   });
 
-  const method = pickWeightedMethod(candidates, stage, random);
-  if (!method) return FALLBACK_EXERCISE;
+  let remaining = candidates;
+  while (remaining.length > 0) {
+    const method = pickWeightedMethod(remaining, stage, random);
+    if (!method) break;
 
-  if (method === 'reveal') {
-    return { method: 'reveal', variant: pickUniform(stage.reveal.variants, random) as RevealVariant };
+    if (method === 'reveal') {
+      return { method: 'reveal', variant: pickUniform(stage.reveal.variants, random) as RevealVariant };
+    }
+
+    if (method === 'typing') {
+      return { method: 'typing', variant: pickUniform(stage.typing.variants, random) as TypingVariant };
+    }
+
+    const resolved = method === 'assembly'
+      ? pickFirstResolved(usableAssembly, random, (variant) =>
+          buildAssemblyExercise({
+            word,
+            variant,
+            pool: distractorPool,
+            role,
+            random,
+          }))
+      : pickFirstResolved(usableChoice, random, (variant) =>
+          buildChoiceExercise({
+            word,
+            variant,
+            pool: distractorPool,
+            role,
+            random,
+          }));
+    if (resolved) return resolved;
+
+    // This method had the right shape but could not meet its configured
+    // difficulty. Let the remaining methods inherit its weight instead of
+    // rendering an easier card than the learner's ladder permits.
+    remaining = remaining.filter((candidate) => candidate !== method);
   }
 
-  if (method === 'typing') {
-    return { method: 'typing', variant: pickUniform(stage.typing.variants, random) as TypingVariant };
-  }
+  return FALLBACK_EXERCISE;
+}
 
-  if (method === 'assembly') {
-    const variant = pickUniform(usableAssembly, random);
-    return {
-      method: 'assembly',
-      variant,
-      ...resolveAssemblyParts({ target: word, pool: distractorPool, role, variant, random }),
-    };
-  }
+function buildAssemblyExercise({
+  word,
+  variant,
+  pool,
+  role,
+  random,
+}: {
+  word: NormalizedWord;
+  variant: AssemblyVariant;
+  pool: NormalizedWord[];
+  role: LearningRole;
+  random: () => number;
+}): Extract<ResolvedExercise, { method: 'assembly' }> | null {
+  const resolved = resolveAssemblyParts({ target: word, pool, role, variant, random });
+  const requestedBand = parseAssemblyVariant(variant).band;
+  if (!bandAtLeast(resolved.effectiveBand, requestedBand)) return null;
+  return { method: 'assembly', variant, ...resolved };
+}
 
-  const variant = pickUniform(usableChoice, random);
+function buildChoiceExercise({
+  word,
+  variant,
+  pool,
+  role,
+  random,
+}: {
+  word: NormalizedWord;
+  variant: ChoiceVariant;
+  pool: NormalizedWord[];
+  role: LearningRole;
+  random: () => number;
+}): ResolvedExercise | null {
   const { options, band, side } = parseChoiceVariant(variant);
   const resolved = resolveVariantDistractors({
     target: word,
-    pool: distractorPool,
+    pool,
     count: options - 1,
     band,
     minInBand: MIN_IN_BAND_OPTIONS,
@@ -381,14 +464,13 @@ export function pickExerciseForWord({
     // Difficulty is about the words the learner has to tell apart, so it is
     // measured on the side the options are actually written in.
     side: wordSideForOptions(side, role),
-    // Only the hardest band. Below it the exercise is asking the learner to tell
-    // words apart, and real vocabulary does that job; band III is asking them to
-    // read one word precisely, which is what a one-diacritic near-miss tests and
-    // what no list reliably supplies on its own.
-    allowInvented: band === 'III',
+    // A configured band is a floor. When the real vocabulary cannot supply
+    // enough similar options, safe invented near-twins keep II/III honest.
+    allowInvented: band !== 'I',
   });
 
-  if (!resolved) return FALLBACK_EXERCISE;
+  if (!resolved) return null;
+  if (!bandAtLeast(resolved.effectiveBand, band)) return null;
 
   return {
     method: 'choice',
@@ -398,6 +480,61 @@ export function pickExerciseForWord({
     optionsSide: side,
     distractors: resolved.distractors,
   };
+}
+
+/**
+ * The variants a practice block asks for, one set per method.
+ *
+ * Practice ignores the ladder on purpose. The ladder's job is to decide that a
+ * 30-day word is only ever typed; a practice block's job is the opposite — every
+ * exercise the app has, inside ten cards, whatever stage its words happen to sit
+ * at. These sit around the middle rungs: real work, but nothing brutal for a
+ * block taken on after the day was already earned.
+ */
+const PRACTICE_REVEAL_VARIANTS: RevealVariant[] = ['foreign', 'known'];
+const PRACTICE_CHOICE_VARIANTS: ChoiceVariant[] = ['3:II:foreign', '4:II:foreign', '5:II:foreign'];
+const PRACTICE_TYPING_VARIANT: TypingVariant = '50:90';
+const PRACTICE_ASSEMBLY_VARIANTS: AssemblyVariant[] = ['words:II', 'letters:II'];
+
+/**
+ * Build one exercise of a named method, or null when this word cannot support
+ * it — a short answer has nothing to assemble, a thin pool has nothing to
+ * choose between. A caller that gets null moves on to the next method rather
+ * than dropping the card, which is why this never falls back to reveal the way
+ * the stage picker does.
+ */
+export function resolvePracticeExercise({
+  word,
+  method,
+  pool,
+  role,
+  random,
+}: {
+  word: NormalizedWord;
+  method: MethodId;
+  pool: NormalizedWord[];
+  role: LearningRole;
+  random: () => number;
+}): ResolvedExercise | null {
+  if (method === 'reveal') {
+    return { method: 'reveal', variant: pickUniform(PRACTICE_REVEAL_VARIANTS, random) };
+  }
+
+  if (method === 'typing') {
+    return { method: 'typing', variant: PRACTICE_TYPING_VARIANT };
+  }
+
+  if (method === 'assembly') {
+    const usable = feasibleAssemblyVariants(PRACTICE_ASSEMBLY_VARIANTS, word, role);
+    if (usable.length === 0) return null;
+    return pickFirstResolved(usable, random, (variant) =>
+      buildAssemblyExercise({ word, variant, pool, role, random }));
+  }
+
+  const usable = feasibleChoiceVariants(PRACTICE_CHOICE_VARIANTS, word, pool);
+  if (usable.length === 0) return null;
+  return pickFirstResolved(usable, random, (variant) =>
+    buildChoiceExercise({ word, variant, pool, role, random }));
 }
 
 function matchVariantsForStage(
@@ -443,22 +580,23 @@ export function pickMatchRound({
   });
   if (usable.length === 0) return null;
 
-  const variant = pickUniform(usable, random);
-  const { pairs, band } = parseMatchVariant(variant);
-  const resolved = resolveVariantDistractors({
-    target: anchor,
-    pool,
-    count: pairs - 1,
-    band,
-    minInBand: MIN_IN_BAND_PAIRS,
-    random,
-  });
-  if (!resolved) return null;
+  return pickFirstResolved(usable, random, (variant) => {
+    const { pairs, band } = parseMatchVariant(variant);
+    const resolved = resolveVariantDistractors({
+      target: anchor,
+      pool,
+      count: pairs - 1,
+      band,
+      minInBand: MIN_IN_BAND_PAIRS,
+      random,
+    });
+    if (!resolved || !bandAtLeast(resolved.effectiveBand, band)) return null;
 
-  return {
-    variant,
-    requestedBand: resolved.requestedBand,
-    effectiveBand: resolved.effectiveBand,
-    words: [anchor, ...resolved.distractors],
-  };
+    return {
+      variant,
+      requestedBand: resolved.requestedBand,
+      effectiveBand: resolved.effectiveBand,
+      words: [anchor, ...resolved.distractors],
+    };
+  });
 }

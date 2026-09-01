@@ -159,6 +159,54 @@ describe('StudyExerciseCard — reveal', () => {
     expect(document.querySelector('article')?.className).toContain('phrase-card');
     expect(screen.getByText('pes')).toBeInTheDocument();
   });
+
+  it('uses only Continue in practice and does not call an SRS action', () => {
+    const onKnown = vi.fn();
+    const onReallyKnown = vi.fn();
+    const onUnknown = vi.fn();
+    const onCustomStage = vi.fn();
+    const onOutcome = vi.fn();
+
+    render(
+      <StudyExerciseCard
+        word={WORD}
+        progress={PROGRESS}
+        role="knownLanguage"
+        exercise={{ method: 'reveal', variant: 'known' }}
+        practice
+        showAll
+        memoryHook=""
+        suggestedHook=""
+        onMemoryHookChange={vi.fn()}
+        showMemoryHook={false}
+        onKnown={onKnown}
+        onReallyKnown={onReallyKnown}
+        onUnknown={onUnknown}
+        onCustomStage={onCustomStage}
+        onScore={vi.fn()}
+        onOutcome={onOutcome}
+        showEnglish={false}
+        showCategoryBadges={false}
+        showPronunciation={false}
+        categoryOrder={[]}
+        studyNotesEnabled={false}
+        studyNoteMinimizeFromStage={2}
+        typingPrefillPunctuation
+        typingPlayAudioAfterCheck={false}
+        typingCheckButtonEnabled={false}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /don't know/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^i know/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(onOutcome).toHaveBeenCalledWith('stay');
+    expect(onKnown).not.toHaveBeenCalled();
+    expect(onReallyKnown).not.toHaveBeenCalled();
+    expect(onUnknown).not.toHaveBeenCalled();
+    expect(onCustomStage).not.toHaveBeenCalled();
+  });
 });
 
 describe('StudyExerciseCard — typing', () => {

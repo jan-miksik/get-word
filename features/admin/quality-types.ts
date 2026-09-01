@@ -36,6 +36,8 @@ type QualityAudioAsset = {
   content_hash: string | null;
   size_bytes: number | null;
   storage: string | null;
+  /** The voice on the clip; null when unknown (asset predates the column). */
+  voice_id: string | null;
   /** Derived client-side from `isSuspiciousSizeForText`, not stored. */
   suspicious: boolean;
 };
@@ -138,10 +140,64 @@ export function hasAudioGap(side: QualityAudioSide, occurrences: number): boolea
 export type QualityAudioResult = {
   generated: boolean;
   linked_items: number;
+  /** Of the linked items, how many already had a playable clip that was swapped. */
+  replaced_items: number;
   /** Items sharing the pool key whose exact text was not audio-equivalent. */
   skipped_items: number;
   /** Items left untouched because they already had a playable clip. */
   kept_items: number;
   content_hash: string | null;
+  /** The voice that spoke it — 'default' when Google was given no name. */
+  voice_id: string | null;
   error?: string;
+};
+
+/**
+ * How the pool should choose a voice.
+ *
+ * `auto` is the deterministic Chirp3-HD pick used for filling gaps. It is the
+ * wrong choice for re-recording: the same text resolves to the same voice, so
+ * the clip would hash identically and nothing would change. `random` is the
+ * mix — a Chirp3-HD voice drawn at random, avoiding the ones the pair already
+ * uses — and `explicit` names one.
+ */
+export type QualityVoiceRequest =
+  | { mode: 'auto' }
+  | { mode: 'random' }
+  | { mode: 'explicit'; voiceId: string };
+
+/** `fill` records only what is missing; `replace` overwrites existing clips. */
+export type QualityAudioMode = 'fill' | 'replace';
+
+export type QualityVoicesResponse = {
+  language: string;
+  /** False when Google has no voice at all for the language (e.g. Māori). */
+  supported: boolean;
+  voices: string[];
+};
+
+type QualityEventAction =
+  | 'verdict'
+  | 'suggestion'
+  | 'audio_filled'
+  | 'audio_replaced';
+
+/**
+ * One editor action on a pair.
+ *
+ * `actor` is an editor's email and `detail` holds counts — never an item id, a
+ * list id or an owner id. The history must not become a way to join a pair
+ * back to the learner who wrote it.
+ */
+export type QualityEvent = {
+  id: string;
+  action: QualityEventAction;
+  side: 'known' | 'target' | null;
+  detail: Record<string, unknown>;
+  actor: string | null;
+  created_at: string;
+};
+
+export type QualityHistoryResponse = {
+  events: QualityEvent[];
 };

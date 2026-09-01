@@ -144,7 +144,7 @@ describe('TiltChoiceGame', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'con chó' }));
-    expect(levelTwo).toHaveBeenCalledWith(2);
+    expect(levelTwo).toHaveBeenCalledWith(1);
     second.unmount();
 
     const wrong = vi.fn();
@@ -152,7 +152,7 @@ describe('TiltChoiceGame', () => {
       <TiltChoiceGame words={WORDS} role="knownLanguage" sourceLang="from" onResult={wrong} />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'con mèo' }));
-    expect(wrong).toHaveBeenCalledWith(-1);
+    expect(wrong).toHaveBeenCalledWith(0);
     expect(screen.getByText(/✗\s+con chó/)).toBeInTheDocument();
   });
 

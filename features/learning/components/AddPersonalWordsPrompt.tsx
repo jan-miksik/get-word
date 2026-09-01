@@ -1,6 +1,7 @@
 'use client';
 
 import { useI18n } from '@/components/I18nProvider';
+import { ContinueButton } from '@/features/learning/components/ContinueButton';
 
 type Props = {
   onAddWords: () => void;
@@ -23,13 +24,10 @@ export function AddPersonalWordsPrompt({ onAddWords, onDismiss }: Props) {
           {t('wordChat.moreWordsBody')}
         </p>
         <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2">
-          <button
-            type="button"
-            onClick={onAddWords}
-            className="onboarding-option onboarding-option-highlight rounded-xl px-5 py-3 text-base font-extrabold"
-          >
-            {t('wordChat.moreWordsAction')}
-          </button>
+          {/* The same slab the study cards advance on — this prompt is the end
+              of the deck, so its primary action reads as the session's continue
+              rather than as a one-off onboarding option. */}
+          <ContinueButton onClick={onAddWords} label={t('wordChat.moreWordsAction')} />
           <button
             type="button"
             onClick={onDismiss}

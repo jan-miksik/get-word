@@ -141,6 +141,18 @@ export function UpcomingIcon(props: IconProps) {
   );
 }
 
+/** Rising bars — the learning overview. */
+export function ProgressIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M4.5 19.5h15" />
+      <path d="M7.5 19.5v-5" />
+      <path d="M12 19.5v-9" />
+      <path d="M16.5 19.5v-13" />
+    </Glyph>
+  );
+}
+
 /** Graduation cap — school membership and the school dashboard. */
 export function SchoolIcon(props: IconProps) {
   return (

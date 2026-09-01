@@ -8,8 +8,8 @@ import { letterFamilyOf } from './letter-families';
  * They exist because band III is otherwise unsatisfiable. A near-twin of the
  * word being asked ("fér" / "fén") is rare in any real list, so a request for
  * the hardest similarity quietly degrades to band II and the exercise stops
- * being hard. A one-diacritic variant of the answer is a guaranteed near-twin
- * for every word there is.
+ * being hard. A one-edit variant of the answer is a guaranteed near-twin: a
+ * diacritic change where possible, otherwise a same-list grapheme substitution.
  *
  * The exercise never claims these forms do not exist — a wrong pick is answered
  * with the plain "✗ <correct answer>" every wrong pick gets. That matters: a
@@ -44,9 +44,9 @@ const MIN_INVENTABLE_GRAPHEMES = 2;
  * This is what keeps a Czech list from being offered "kốlo". The letter families
  * span every accent Czech and Vietnamese put on a vowel, and drawing from all of
  * them regardless of language produces shapes that read as a rendering fault, not
- * as a word someone might have written. Restricting replacements to letters the
- * list already contains keeps every invented form inside the script the learner
- * is reading.
+ * as a word someone might have written. Restricting replacements to graphemes
+ * the list already contains keeps every invented form inside the writing system
+ * the learner is reading.
  */
 export function scriptAlphabet(terms: Iterable<string>): Set<string> {
   const alphabet = new Set<string>();
@@ -65,10 +65,14 @@ function withCaseOf(source: string, replacement: string): string {
 }
 
 /**
- * Build lookalikes of `term` that differ from it by exactly one diacritic.
+ * Build lookalikes of `term` that differ by one small written edit.
  *
- * Multi-word phrases are skipped: they are told apart by their shape long before
- * their accents, so a bent phrase is just a longer read, not a harder one.
+ * A diacritic change is preferred because it is the most natural spelling trap.
+ * When the word has no usable diacritic family, one letter is substituted with
+ * another letter already present in the learner's list. That lets an unaccented
+ * word such as "house" support band III too, without importing characters from
+ * a different writing system. Multi-word phrases remain excluded: they are told
+ * apart by their shape long before a single bent letter becomes meaningful.
  */
 export function inventLookalikeForms({
   term,
@@ -110,6 +114,42 @@ export function inventLookalikeForms({
       const bent = [...graphemes];
       bent[index] = withCaseOf(graphemes[index], member);
       const candidate = bent.join('');
+      const key = surfaceKey(candidate);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (isTaken(candidate)) continue;
+      candidates.push(candidate);
+    }
+  }
+
+  // Plain words have no diacritic variant to draw from. Bend one grapheme with
+  // a letter or number the same list already uses; the result is still exactly
+  // one edit away and therefore an honest near-twin, even when it is not a real
+  // dictionary word.
+  const scriptCharacters = [...alphabet]
+    .filter((candidate) => /^[\p{L}\p{N}]$/u.test(candidate))
+    .map((candidate) => candidate.toLocaleLowerCase());
+  for (let index = 0; index < graphemes.length; index += 1) {
+    const current = graphemes[index].toLocaleLowerCase();
+    for (const replacement of scriptCharacters) {
+      if (replacement === current) continue;
+      const bent = [...graphemes];
+      bent[index] = withCaseOf(graphemes[index], replacement);
+      const candidate = bent.join('');
+      const key = surfaceKey(candidate);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (isTaken(candidate)) continue;
+      candidates.push(candidate);
+    }
+  }
+
+  // A tiny or single-character alphabet can make substitution impossible.
+  // Deletion is the final one-edit fallback, while still leaving a visible
+  // option and respecting the same taken-answer guard.
+  if (graphemes.length > 2) {
+    for (let index = 0; index < graphemes.length; index += 1) {
+      const candidate = graphemes.filter((_, partIndex) => partIndex !== index).join('');
       const key = surfaceKey(candidate);
       if (seen.has(key)) continue;
       seen.add(key);

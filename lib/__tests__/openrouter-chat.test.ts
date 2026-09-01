@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   callOpenRouterChatParsed,
+  streamOpenRouterCompletion,
   OpenRouterChatError,
 } from "@/lib/openrouter-chat";
 
@@ -106,5 +107,45 @@ describe("callOpenRouterChatParsed", () => {
         usage: { prompt_tokens: 100, completion_tokens: 20 },
       }),
     );
+  });
+});
+
+describe('buffered response deadline', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it('classifies a streaming body timeout as retryable so the caller can use a buffered fallback', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(async (_url, options) => new Response(new ReadableStream({
+      start(controller) {
+        options.signal.addEventListener('abort', () => controller.error(new DOMException('aborted', 'AbortError')), { once: true });
+      },
+    }))));
+    const stream = await streamOpenRouterCompletion({
+      apiKey: 'test', model: 'test', messages: [{ role: 'user', content: 'hello' }], maxAttempts: 1, timeoutMs: 100,
+    });
+    const pending = stream[Symbol.asyncIterator]().next();
+    const assertion = expect(pending).rejects.toMatchObject({ kind: 'transport', retryable: true });
+    await vi.advanceTimersByTimeAsync(100);
+    await assertion;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps the timeout active after headers while the response body is stalled', async () => {
+    vi.useFakeTimers();
+    const onResponse = vi.fn();
+    vi.stubGlobal('fetch', vi.fn(async (_url, options) => new Response(new ReadableStream({
+      start(controller) {
+        options.signal.addEventListener('abort', () => controller.error(new DOMException('aborted', 'AbortError')), { once: true });
+      },
+    }))));
+    const pending = callOpenRouterChatParsed({
+      apiKey: 'test', model: 'test', messages: [{ role: 'user', content: 'hello' }],
+      maxAttempts: 1, timeoutMs: 100, onResponse,
+    }, JSON.parse);
+    const assertion = expect(pending).rejects.toMatchObject({ kind: 'transport', retryable: true });
+    await vi.advanceTimersByTimeAsync(100);
+    await assertion;
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateProgressStats } from '../progress-stats';
-import type { NormalizedWord } from '../words';
+import { STAGES, type NormalizedWord } from '../words';
 
 const words: NormalizedWord[] = [
   { id: 'w1', cz: 'a', en: 'a', vi: 'a', category: ['noun'] } as NormalizedWord,
@@ -26,5 +26,21 @@ describe('progress-stats', () => {
     expect(stats.new).toBe(1);
     expect(stats.fresh).toBe(2);
     expect(stats.totalKnown).toBe(2);
+  });
+
+  it('counts a top-stage word with no due date as retired, not as a booked repeat', () => {
+    const top = STAGES.length - 1;
+    const progress = {
+      w1: { stageIndex: top, knownCount: 4, unknownCount: 0 },
+      w2: { stageIndex: top, knownCount: 4, unknownCount: 0, nextDueAt: Date.now() + 100_000 },
+      w3: { stageIndex: 0, knownCount: 0, unknownCount: 0 },
+    };
+
+    const stats = calculateProgressStats(words, progress, 0);
+
+    expect(stats.retired).toBe(1);
+    // Still inside the stage tally — the UI subtracts it for the stage row.
+    expect(stats.byStage[top]).toBe(2);
+    expect(stats.done).toBe(2);
   });
 });

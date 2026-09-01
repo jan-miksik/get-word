@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import { useId, type CSSProperties } from 'react';
 
 import type { StreakDay } from '@/features/learning/goals/streakWeek';
 import { INK, KEPT, segmentPaint, TRACK, type SegmentPaint } from './StreakDays';
@@ -34,8 +34,11 @@ function kept(paint: SegmentPaint): boolean {
  *
  * No day is ever a gap. Leaving days off the preferred weekdays blank made the
  * week look broken in a way it was not: those days were never owed, and the
- * weekly target counts days rather than naming them. A grey link says "nothing
- * happened here" without implying anything was lost.
+ * weekly target counts days rather than naming them. An empty day still holds
+ * its place in the row without implying anything was lost — but it holds it as
+ * a dot inside its slot, not as a filled grey disc: seven equal discs gave a
+ * lived week the same visual weight as an untouched one, and the run is the
+ * thing worth looking at.
  */
 export interface ChainLink {
   /** Colour of the filled portion; grey when the day is unfilled. */
@@ -62,58 +65,153 @@ export function chainLink(day: StreakDay): ChainLink {
   };
 }
 
+/**
+ * A five-pointed star, point up, centred on (cx, cy).
+ *
+ * The only mark in the week that is not about attendance: it says a day went
+ * past what was asked, which is a different kind of fact than "kept" and so
+ * earns a different shape rather than a brighter blue.
+ */
+function starPath(cx: number, cy: number, outer: number, inner: number, points = 5): string {
+  const step = Math.PI / points;
+  return Array.from({ length: points * 2 }, (_, i) => {
+    const radius = i % 2 === 0 ? outer : inner;
+    const angle = -Math.PI / 2 + i * step;
+    const x = cx + radius * Math.cos(angle);
+    // Nudged down: a point-up star hangs optically high when centred by box.
+    const y = cy + radius * Math.sin(angle) + outer * 0.06;
+    return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(' ') + ' Z';
+}
+
+/**
+ * How a bead is drawn. The link says what is true about the day; this says
+ * which of the six forms carries it, so the switch lives in one place.
+ */
+type BeadKind = 'kept' | 'partial' | 'open' | 'missed' | 'planned' | 'ahead';
+
+function beadKind(day: StreakDay, link: ChainLink): BeadKind {
+  if (link.amount >= 1) return 'kept';
+  if (link.amount > 0) return 'partial';
+  if (day.isToday) return 'open';
+  if (link.ring) return 'planned';
+  return day.isFuture ? 'ahead' : 'missed';
+}
+
 export function ChainShape({ days, compact = false }: ShapeProps) {
-  const size = compact ? 10 : 30;
-  const linkW = compact ? 4 : 12;
-  const linkH = compact ? 2 : 4;
+  const uid = useId();
+  const r = compact ? 5 : 15;
+  const gap = compact ? 4 : 12;
+  const pad = compact ? 3 : 7;
+  const pitch = r * 2 + gap;
+  const width = pad * 2 + days.length * r * 2 + (days.length - 1) * gap;
+  const height = pad * 2 + r * 2;
+  const cy = height / 2;
+  const cx = (index: number) => pad + r + index * pitch;
+  const links = days.map(chainLink);
 
   return (
-    <span aria-hidden className="inline-flex items-center">
-      {days.map((day, index) => {
-        const link = chainLink(day);
-        const welded = link.amount >= 1 && index > 0 && chainLink(days[index - 1]).amount >= 1;
+    <svg aria-hidden width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+      {/* Connectors first, so a welded run passes behind its own beads. */}
+      {links.map((link, index) => {
+        if (index === 0) return null;
+        const previous = links[index - 1];
+        const welded = link.amount >= 1 && previous.amount >= 1;
+        // Welded links run bead-edge to bead-edge with no inset, so the run
+        // reads as one cast object; the rest are short, thin and grey.
+        const inset = welded ? -1 : compact ? 1.5 : 4;
         return (
-          <span key={day.dayKey} className="relative inline-flex items-center">
-            {index > 0 ? (
-              <span
-                className="block"
-                style={{
-                  width: linkW,
-                  height: linkH,
-                  borderRadius: 999,
-                  // Welded links take the colour of the run; the rest stay grey
-                  // so an unbroken stretch is visible from across the room.
-                  background: welded ? KEPT : TRACK,
-                  opacity: welded ? 0.95 : 0.55,
-                }}
-              />
-            ) : null}
-            <span
-              className="relative block shrink-0 rounded-full motion-safe:transition-[background] motion-safe:duration-300"
-              style={{
-                width: size,
-                height: size,
-                opacity: link.dim ? 0.5 : 1,
-                background: link.amount > 0 && link.amount < 1
-                  ? `linear-gradient(to top, ${link.fill} ${link.amount * 100}%, ${TRACK} ${link.amount * 100}%)`
-                  : link.fill,
-                boxShadow: [
-                  link.ring ? `inset 0 0 0 ${compact ? 1.5 : 2.5}px color-mix(in srgb, ${INK} 22%, transparent)` : '',
-                  link.halo ? `0 0 0 ${compact ? 2 : 5}px color-mix(in srgb, ${link.halo} 22%, transparent)` : '',
-                ].filter(Boolean).join(', ') || undefined,
-              }}
-            >
-              {link.cap ? (
-                <span
-                  className="absolute inset-0 rounded-full"
-                  style={{ boxShadow: `inset 0 0 0 ${compact ? 1.5 : 3}px color-mix(in srgb, ${INK} 42%, transparent)` }}
-                />
-              ) : null}
-            </span>
-          </span>
+          <line
+            key={`link-${days[index].dayKey}`}
+            x1={cx(index - 1) + r + inset}
+            x2={cx(index) - r - inset}
+            y1={cy}
+            y2={cy}
+            stroke={welded ? previous.fill : TRACK}
+            strokeWidth={welded ? r * (compact ? 0.6 : 0.42) : compact ? 1.2 : 2.5}
+            strokeLinecap="round"
+            opacity={welded ? 0.95 : 0.5}
+          />
         );
       })}
-    </span>
+
+      {links.map((link, index) => {
+        const day = days[index];
+        const x = cx(index);
+        const kind = beadKind(day, link);
+        return (
+          <g key={day.dayKey} opacity={link.dim ? 0.7 : 1}>
+            {/* Today's halo sits under everything, so it reads as light around
+                the bead rather than as another ring drawn on it. */}
+            {link.halo ? (
+              <circle
+                cx={x} cy={cy} r={r + (compact ? 1.6 : 3.5)} fill="none"
+                stroke={`color-mix(in srgb, ${link.halo} 22%, transparent)`}
+                strokeWidth={compact ? 2 : 4.5}
+              />
+            ) : null}
+
+            {kind === 'kept' ? (
+              <>
+                <circle cx={x} cy={cy} r={r} fill={link.fill} />
+                {/* Beyond the goal: a star in the bead. The one mark in the
+                    week that is not about attendance, so it gets a shape of
+                    its own rather than another shade of the same colour. */}
+                {link.cap ? (
+                  compact
+                    ? <circle cx={x} cy={cy} r={r * 0.34} fill="var(--paper)" opacity={0.92} />
+                    : <path d={starPath(x, cy, r * 0.62, r * 0.26)} fill="var(--paper)" opacity={0.95} />
+                ) : null}
+              </>
+            ) : null}
+
+            {kind === 'partial' ? (
+              <>
+                <circle cx={x} cy={cy} r={r} fill={TRACK} />
+                <clipPath id={`${uid}-${index}`}>
+                  <rect x={x - r} y={cy + r - r * 2 * link.amount} width={r * 2} height={r * 2 * link.amount} />
+                </clipPath>
+                <circle cx={x} cy={cy} r={r} fill={link.fill} clipPath={`url(#${uid}-${index})`} />
+              </>
+            ) : null}
+
+            {/* Today, still open: an outline in the kept colour — "you are
+                here", not "you failed". */}
+            {kind === 'open' ? (
+              <circle
+                cx={x} cy={cy} r={r - (compact ? 0.6 : 1.5)} fill="none"
+                stroke={KEPT} strokeWidth={compact ? 1.4 : 3} opacity={0.85}
+              />
+            ) : null}
+
+            {/* A day that was planned or had nothing due: the slot, empty. */}
+            {kind === 'planned' ? (
+              <circle
+                cx={x} cy={cy} r={r - (compact ? 0.5 : 1.25)} fill="none"
+                stroke={`color-mix(in srgb, ${INK} 20%, transparent)`} strokeWidth={compact ? 1 : 2.5}
+              />
+            ) : null}
+
+            {/* Blank days are a dot, not a grey disc. Seven equal blobs made a
+                good week look the same weight as an empty one; a dot keeps the
+                rhythm and lets the run own the eye. */}
+            {kind === 'missed' || kind === 'ahead' ? (
+              <>
+                <circle
+                  cx={x} cy={cy} r={r - 0.75} fill="none"
+                  stroke={`color-mix(in srgb, ${INK} ${kind === 'missed' ? 10 : 6}%, transparent)`}
+                  strokeWidth={compact ? 0.8 : 1.5}
+                />
+                <circle
+                  cx={x} cy={cy} r={r * (compact ? 0.34 : 0.26)}
+                  fill={INK} opacity={kind === 'missed' ? 0.2 : 0.12}
+                />
+              </>
+            ) : null}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

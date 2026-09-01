@@ -352,7 +352,7 @@ describe('injectMinigames', () => {
     });
   });
 
-  it('stays at level 1 when the pool holds no similar words', () => {
+  it('skips matching when the pool cannot meet the configured similarity floor', () => {
     // Both sides must be unrelated: a band is the more confusable of the two,
     // and "over half the letters shared" is enough to reach band II, so words
     // sharing a stem on either side would not make this pool distinct.
@@ -367,8 +367,7 @@ describe('injectMinigames', () => {
       maxInterval: 1,
     });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
-    expect(games.length).toBeGreaterThan(0);
-    expect(games.some((g) => g.level === 2)).toBe(false);
+    expect(games).toEqual([]);
   });
 });
 

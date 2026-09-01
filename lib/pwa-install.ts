@@ -55,7 +55,7 @@ export function onBeforeInstallPromptCaptured(fn: () => void): () => void {
   };
 }
 
-export function isStandalone() {
+function isStandalone() {
   if (typeof window === 'undefined') return false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nav: any = navigator;

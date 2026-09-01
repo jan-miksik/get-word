@@ -87,14 +87,23 @@ self.addEventListener('push', (event) => {
     && !payload.url.startsWith('//')
     ? payload.url
     : '/?source=study-reminder';
-  event.waitUntil(self.registration.showNotification(title, {
-    body,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/maskable-192.png',
-    tag: 'get-word-study-reminder',
-    renotify: false,
-    data: { url },
-  }));
+  event.waitUntil((async () => {
+    // A nudge to study is noise while the learner is already looking at the
+    // app. This tests visibility rather than the mere existence of a client:
+    // a tab left open in the background is not someone studying, and the
+    // browser only waives the `userVisibleOnly` promise for a push it can see
+    // arriving at a genuinely visible window.
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (windows.some((client) => client.visibilityState === 'visible')) return;
+    await self.registration.showNotification(title, {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/maskable-192.png',
+      tag: 'get-word-study-reminder',
+      renotify: false,
+      data: { url },
+    });
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {

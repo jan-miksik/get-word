@@ -4,6 +4,7 @@ import {
   scriptAlphabet,
   surfaceKey,
 } from '../invented-forms';
+import { similarityBandForTerms } from '../similarity';
 
 const czech = scriptAlphabet(['fér', 'můj', 'věc', 'hůl', 'čaj', 'zítra', 'dům']);
 const vietnamese = scriptAlphabet(['phở', 'mẹ', 'cảm ơn', 'người', 'nước', 'bàn']);
@@ -17,16 +18,12 @@ const invent = (term: string, alphabet: ReadonlySet<string>, limit = 4) =>
     random: () => 0,
   });
 
-/** Same letters once every accent is removed — i.e. a diacritic-only change. */
-const bareLetters = (value: string) =>
-  value.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLocaleLowerCase();
-
 describe('inventLookalikeForms', () => {
-  it('changes nothing but diacritics', () => {
+  it('keeps every invented spelling within the hardest similarity band', () => {
     const forms = invent('fér', czech);
     expect(forms.length).toBeGreaterThan(0);
     for (const form of forms) {
-      expect(bareLetters(form)).toBe(bareLetters('fér'));
+      expect(similarityBandForTerms(form, 'fér')).toBe('III');
       expect(surfaceKey(form)).not.toBe(surfaceKey('fér'));
     }
   });
@@ -59,7 +56,7 @@ describe('inventLookalikeForms', () => {
 
   it('keeps the original capitalisation', () => {
     for (const form of invent('Fér', czech, 20)) {
-      expect(form[0]).toBe('F');
+      expect(form[0]).toBe(form[0].toLocaleUpperCase());
     }
   });
 
@@ -71,8 +68,10 @@ describe('inventLookalikeForms', () => {
     expect(invent('a', vietnamese)).toEqual([]);
   });
 
-  it('has nothing to bend when no letter carries an accent anywhere', () => {
-    expect(invent('pes', scriptAlphabet(['pes', 'kolo', 'stul']), 20)).toEqual([]);
+  it('uses same-list letters when no word carries an accent', () => {
+    const forms = invent('pes', scriptAlphabet(['pes', 'kolo', 'stul']), 20);
+    expect(forms.length).toBeGreaterThan(0);
+    expect(forms.every((form) => similarityBandForTerms(form, 'pes') === 'III')).toBe(true);
   });
 
   it('respects the limit and repeats for the same seed', () => {
@@ -97,12 +96,11 @@ describe('inventLookalikeForms', () => {
     expect(draw(2)).toEqual(draw(2));
   });
 
-  it('yields a single form when the list barely uses accents', () => {
-    // Worth stating outright: on a Czech list whose words carry one accent each
-    // there is exactly one lookalike to make — the version with the accent
-    // dropped. Two invented options per round is what Vietnamese lists supply,
-    // not something every list can.
-    expect(invent('můj', scriptAlphabet(['můj', 'pes', 'kolo']), 20)).toEqual(['muj']);
+  it('supplements a sparse accent family with same-list letter edits', () => {
+    const forms = invent('můj', scriptAlphabet(['můj', 'pes', 'kolo']), 20);
+    expect(forms).toContain('muj');
+    expect(forms.length).toBeGreaterThan(1);
+    expect(forms.every((form) => similarityBandForTerms(form, 'můj') === 'III')).toBe(true);
   });
 
 });

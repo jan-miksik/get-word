@@ -10,9 +10,18 @@ export const DEFAULT_MINIGAME_FREQUENCY = { min: 2, max: 3 } satisfies Exclude<
   'off'
 >;
 
-export const MINIGAME_FREQUENCY_MIN = 0;
-/** Keep study methods, especially typing, broken up by a quiz at least every three cards. */
-export const MINIGAME_FREQUENCY_MAX = 3;
+/** One card between quizzes is the tightest the stream can be; zero used to be
+ * offered and was silently read as one everywhere it mattered. */
+export const MINIGAME_FREQUENCY_MIN = 1;
+/**
+ * The default still breaks study methods, especially typing, up by a quiz every
+ * two or three cards. That pacing is where the setting starts, not where it
+ * stops: capping the scale at three left the slider four positions wide, and in
+ * a review block of a handful of cards both ends produced the same one or two
+ * quizzes, so the control looked inert. Eight is far enough out that moving the
+ * handle is visible in an ordinary block.
+ */
+export const MINIGAME_FREQUENCY_MAX = 8;
 
 export interface MiniGameConfig {
   _isMinigame: true;

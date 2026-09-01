@@ -10,15 +10,16 @@
   "budgets": {
     "features/word-chat/hooks/useWordChat.ts": 1710,
     "features/lists/components/translation-step/TranslationStep.tsx": 1530,
-    "features/learning/components/HomeClient.tsx": 1170,
-    "features/admin/components/AdminStatsPage.tsx": 1140,
+    "features/learning/components/HomeClient.tsx": 1220,
+    "features/admin/components/AdminStatsPage.tsx": 1730,
     "lib/activity/runtime.ts": 1120,
     "features/lists/components/category-browser/CategoryBrowser.tsx": 1090,
     "features/learning/onboarding/server/autogenerate-common-list/index.ts": 1070,
-    "app/dev/design-system/button-personalities.ts": 1010,
+    "app/dev/design-system/button-personalities.ts": 1110,
+    "features/admin/components/AdminQualityPoolPage.tsx": 1110,
     "components/TopMenu.tsx": 990,
-    "features/learning/components/TypingStudyCard.tsx": 930,
-    "lib/db/queries/usage-stats.ts": 920,
+    "features/learning/components/TypingStudyCard.tsx": 950,
+    "lib/db/queries/usage-stats.ts": 1420,
     "lib/db/queries/quality-pool-read.ts": 520
   }
 }

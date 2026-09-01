@@ -16,13 +16,14 @@ import {
   fetchWordChatContext,
   requestProposal,
   saveWordChatPreferences,
-  sendChatMessageStream,
   translateSelection,
 } from '../client/api';
 import { forgetClip, prefetchClips } from '../client/clip-playback';
 import { generateAudioWithRetries } from '../client/audio-generation';
 import { clearDraft, loadDraft, saveDraft } from '../client/storage';
-import type { CallDiagnostics } from '../client/api';
+import type { CallDiagnostics, ChatMessageStreamResponse } from '../client/api';
+import { useChatTurn } from './useChatTurn';
+import type { PendingChatAction } from '../client/storage';
 import { personalListName } from '../personal-list-name';
 import type {
   CommitResult,
@@ -316,6 +317,8 @@ export function useWordChat({
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
+  const [pendingChatAction, setPendingChatAction] = useState<PendingChatAction | null>(null);
   // What to run again if the learner presses Retry, and how many attempts have
   // failed back to back. Refs, not state: neither belongs in a dependency list,
   // and the count must survive the re-render each failure causes.
@@ -369,7 +372,16 @@ export function useWordChat({
     setSessionId(draft.sessionId);
     setCreationKey(draft.creationKey);
     setStep(draft.step);
-    setMessages(completeTranscript(draft.messages));
+    const conversation = completeTranscript(draft.messages);
+    setMessages(conversation);
+    setRecoveryRequired(draft.recoveryRequired === true);
+    const pending = draft.pendingChatAction ?? (conversation.at(-1)?.role === 'user' ? { kind: 'chat' as const } : null);
+    if (draft.step === 'chat' && pending && conversation.length > 0) {
+      setPendingChatAction(pending);
+      retryTargetRef.current = { ...pending, conversation };
+      setCanRetry(true);
+      setError(t('wordChat.conversationRestored'));
+    }
     // A draft saved before the learner answered must not un-answer it: these
     // two belong to the learner, not to one interrupted session, so the stored
     // preference wins over the draft's blank.
@@ -389,7 +401,7 @@ export function useWordChat({
     setPretranslatedItems(draft.pretranslatedItems ?? []);
     setIsPublic(draft.isPublic);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [languageFrom, languageTo, setReviewItems]);
+  }, [languageFrom, languageTo, setReviewItems, t]);
 
   // Persist after every meaningful change. Cheap, and the alternative is losing
   // a paid-for proposal — or a dozen hand-typed words — to an accidental reload.
@@ -401,6 +413,8 @@ export function useWordChat({
       creationKey,
       step,
       messages: completeTranscript(messages),
+      pendingChatAction,
+      recoveryRequired,
       addressRegister,
       salutationGender,
       languageLevel: currentLanguageLevel,
@@ -423,6 +437,8 @@ export function useWordChat({
     languageTo,
     step,
     messages,
+    pendingChatAction,
+    recoveryRequired,
     addressRegister,
     salutationGender,
     currentLanguageLevel,
@@ -466,6 +482,8 @@ export function useWordChat({
         creationKey,
         step,
         messages: currentMessages,
+        pendingChatAction,
+        recoveryRequired,
         addressRegister,
         salutationGender,
         languageLevel: currentLanguageLevel,
@@ -509,6 +527,7 @@ export function useWordChat({
             ? 'select'
             : 'chat',
         messages: currentMessages,
+        recoveryRequired,
         addressRegister,
         salutationGender,
         languageLevel: currentLanguageLevel,
@@ -539,6 +558,8 @@ export function useWordChat({
       languageTo,
       listName,
       messages,
+      pendingChatAction,
+      recoveryRequired,
       pretranslatedItems,
       proposals,
       reviewItems,
@@ -673,6 +694,7 @@ export function useWordChat({
 
   /** A step finished. Forget the retry and start the failure count over. */
   const noteSuccess = useCallback(() => {
+    setRecoveryRequired(false);
     failureCountRef.current = 0;
     retryTargetRef.current = null;
     setCanRetry(false);
@@ -703,7 +725,7 @@ export function useWordChat({
             : t('wordChat.errorTemporary'),
       );
 
-      const retryable = Boolean(target) && !terminal && !apiError?.isLimitReached;
+      const retryable = Boolean(target) && !terminal && !apiError?.isLimitReached && (!apiError || apiError.retryable);
       retryTargetRef.current = retryable ? (target ?? null) : null;
       setCanRetry(retryable);
 
@@ -762,7 +784,13 @@ export function useWordChat({
   const proposeMessages = useCallback(async (
     conversation: WordChatMessage[],
     contentMode: WordChatContentMode,
+    parentSignal?: AbortSignal,
   ) => {
+    if (parentSignal?.aborted || (!parentSignal && activeChatAbortRef.current)) return;
+    const controller = parentSignal ? null : new AbortController();
+    const signal = parentSignal ?? controller!.signal;
+    if (controller) activeChatAbortRef.current = controller;
+    setPendingChatAction({ kind: 'propose', contentMode });
     setBusy('propose');
     try {
       const response = await requestProposal({
@@ -775,7 +803,10 @@ export function useWordChat({
         messages: conversation,
         baseListId,
         model: modelOverrides.proposal,
+        signal,
       });
+      if (signal.aborted) return;
+      setPendingChatAction(null);
       noteSuccess();
       recordDiagnostics(response.diagnostics);
       translatedSignatureRef.current = null;
@@ -799,11 +830,12 @@ export function useWordChat({
       });
       setStep('select');
     } catch (err) {
-      handleError(err, { kind: 'propose', conversation, contentMode });
+      if (!signal.aborted) handleError(err, { kind: 'propose', conversation, contentMode });
     } finally {
-      // The proposal can run on its own (a retry) or inside a chat turn, so it
-      // has to release the spinner itself rather than rely on its caller.
-      setBusy(null);
+      if (controller && activeChatAbortRef.current === controller) {
+        activeChatAbortRef.current = null;
+        setBusy(null);
+      }
     }
   }, [
     chatLanguage,
@@ -818,132 +850,62 @@ export function useWordChat({
     sessionId,
   ]);
 
-  /**
-   * One chat turn over an already-complete conversation. Split out from
-   * `sendMessage` so a retry re-sends the same turn: the learner's message is
-   * already in the transcript, and appending it again would ask the model to
-   * answer it twice.
-   */
-  const runChatTurn = useCallback(async (conversation: WordChatMessage[]) => {
-    activeChatAbortRef.current?.abort();
-    const controller = new AbortController();
-    activeChatAbortRef.current = controller;
-    const assistantId = newId();
-    activeAssistantIdRef.current = assistantId;
-    setBusy('chat');
-    setMessages([
-      ...conversation,
-      { role: 'assistant', content: '', id: assistantId, incomplete: true, awaitingReveal: true },
-    ]);
-    let pendingDelta = '';
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-    const flushDelta = () => {
-      flushTimer = null;
-      if (!pendingDelta || controller.signal.aborted) return;
-      const text = pendingDelta;
-      pendingDelta = '';
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === assistantId && message.incomplete
-            ? { ...message, content: `${message.content}${text}` }
-            : message,
-        ),
-      );
-    };
-    try {
-      const response = await sendChatMessageStream({
-        sessionId,
-        languageFrom,
-        languageTo,
-        chatLanguage,
-        addressRegister: effectiveAddressRegister,
-        salutationGender: salutationGenderApplies ? salutationGender : null,
-        languageLevel: effectiveLanguageLevel,
-        messages: conversation,
-        model: modelOverrides.chat,
-        signal: controller.signal,
-      }, {
-        onDelta: (text) => {
-          pendingDelta += text;
-          if (!flushTimer) flushTimer = setTimeout(flushDelta, 32);
-        },
-      });
-      if (flushTimer) clearTimeout(flushTimer);
-      flushDelta();
-      noteSuccess();
-      recordDiagnostics(response.diagnostics);
-      // Same id as the streamed placeholder: the reply keeps its React identity
-      // when the parsed text replaces the deltas, so the bubble is updated in
-      // place instead of being remounted with the full answer at once.
-      const conversationWithReply: WordChatMessage[] = [
-        ...conversation,
-        // Whole, so no longer `incomplete` — but not yet seen, so still awaiting
-        // its reveal. The server usually delivers the validated reply in one
-        // final chunk, which means this single render is the reveal's only cue;
-        // `awaitingReveal` survives until the text has actually been drawn,
-        // rather than being cleared a frame later and racing the bubble's mount.
-        { role: 'assistant', content: response.reply, id: assistantId, awaitingReveal: true },
-      ];
-      setMessages(conversationWithReply);
-      setSuggestions(response.suggestions);
-
-      if (
-        response.language_change &&
-        response.metadata_valid &&
-        onLanguagePairChange
-      ) {
-        try {
-          await changeLanguagePair(response.language_change, conversationWithReply);
-        } catch {
-          setError(t('wordChat.languageChangeFailed'));
-        }
-        return;
-      }
-
-      // The model has already decided it knows enough. Continue in the same
-      // event-driven request chain instead of bouncing through an effect that
-      // synchronously mutates state and can retrigger on unrelated renders.
-      if (response.ready_to_propose && response.metadata_valid) {
-        if (response.content_mode) {
-          await proposeMessages(conversationWithReply, response.content_mode);
-        }
-      }
-    } catch (err) {
-      if (flushTimer) clearTimeout(flushTimer);
-      flushDelta();
-      if (err instanceof WordChatApiError && err.code === 'WORD_CHAT_ABORTED') return;
-      handleError(err, { kind: 'chat', conversation });
-    } finally {
-      if (flushTimer) clearTimeout(flushTimer);
-      if (activeAssistantIdRef.current === assistantId) {
-        activeAssistantIdRef.current = null;
-        activeChatAbortRef.current = null;
-      }
-      setBusy(null);
+  const onChatResponse = useCallback(async (
+    response: ChatMessageStreamResponse,
+    conversation: WordChatMessage[],
+    signal: AbortSignal,
+  ) => {
+    noteSuccess();
+    recordDiagnostics(response.diagnostics);
+    setPendingChatAction(null);
+    setSuggestions(response.suggestions);
+    setRecoveryRequired(response.recovery_required === true);
+    if (response.recovery_required) return;
+    if (response.language_change && response.metadata_valid && onLanguagePairChange) {
+      try { await changeLanguagePair(response.language_change, conversation); }
+      catch { if (!signal.aborted) setError(t('wordChat.languageChangeFailed')); }
+      return;
     }
-  }, [
-    chatLanguage,
-    effectiveAddressRegister,
-    effectiveLanguageLevel,
-    handleError,
-    languageFrom,
-    languageTo,
-    modelOverrides.chat,
-    noteSuccess,
-    changeLanguagePair,
-    onLanguagePairChange,
-    proposeMessages,
-    recordDiagnostics,
-    salutationGender,
-    salutationGenderApplies,
-    sessionId,
-    t,
-  ]);
+    if (response.ready_to_propose && response.metadata_valid && response.content_mode) {
+      await proposeMessages(conversation, response.content_mode, signal);
+    } else if (!response.metadata_valid) {
+      // Older servers may return partial replies. They cannot authorize a
+      // proposal or leave the learner with no recovery action.
+      setMessages(conversation.slice(0, -1));
+      setPendingChatAction({ kind: 'chat' });
+      handleError(new WordChatApiError('Incomplete response', 'WORD_CHAT_TEMPORARY', 503, true),
+        { kind: 'chat', conversation: conversation.slice(0, -1) });
+    }
+  }, [noteSuccess, recordDiagnostics, onLanguagePairChange, changeLanguagePair, t, proposeMessages, handleError]);
+
+  const runChatTurn = useChatTurn({
+    request: { sessionId, languageFrom, languageTo, chatLanguage,
+      addressRegister: effectiveAddressRegister,
+      salutationGender: salutationGenderApplies ? salutationGender : null,
+      languageLevel: effectiveLanguageLevel, model: modelOverrides.chat },
+    abortRef: activeChatAbortRef, assistantIdRef: activeAssistantIdRef,
+    setMessages, setBusy,
+    onStart: () => { setRecoveryRequired(false); setPendingChatAction({ kind: 'chat' }); },
+    onResponse: onChatResponse,
+    onError: (err, conversation) => handleError(err, { kind: 'chat', conversation }),
+  });
+
+  const continueToProposal = useCallback(async () => {
+    if (busy || activeChatAbortRef.current || !preferencesComplete) return;
+    const conversation = completeTranscript(messages);
+    if (!conversation.some((message) => message.role === 'user')) return;
+    setError(null);
+    setUnavailable(false);
+    // This explicit action confirms the currently selected pair even when the
+    // failed chat turn could not reliably interpret a language-change request.
+    setRecoveryRequired(false);
+    await proposeMessages(conversation, 'mixed');
+  }, [busy, preferencesComplete, messages, proposeMessages]);
 
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || busy || !preferencesComplete) return false;
+      if (!trimmed || busy || activeChatAbortRef.current || !preferencesComplete) return false;
       setError(null);
       const nextMessages: WordChatMessage[] = [
         ...completeTranscript(messages),
@@ -1101,6 +1063,8 @@ export function useWordChat({
     activeChatAbortRef.current?.abort();
     activeChatAbortRef.current = null;
     activeAssistantIdRef.current = null;
+    setPendingChatAction(null);
+    setMessages((current) => current.filter((message) => !message.incomplete));
     translatedSignatureRef.current = null;
     setBusy(null);
     setError(null);
@@ -1515,6 +1479,7 @@ export function useWordChat({
    * is rebuilt: the same conversation, the same selection, the same rows.
    */
   const retry = useCallback(async () => {
+    if (busy || activeChatAbortRef.current) return;
     const target = retryTargetRef.current;
     if (!target) return;
     setError(null);
@@ -1524,7 +1489,7 @@ export function useWordChat({
     else if (target.kind === 'propose') await proposeMessages(target.conversation, target.contentMode);
     else if (target.kind === 'translate') await continueToReview();
     else await commit();
-  }, [commit, continueToReview, proposeMessages, runChatTurn]);
+  }, [busy, commit, continueToReview, proposeMessages, runChatTurn]);
 
   const backToSelect = useCallback(() => {
     setStep('select');
@@ -1540,6 +1505,8 @@ export function useWordChat({
     activeChatAbortRef.current?.abort();
     activeChatAbortRef.current = null;
     activeAssistantIdRef.current = null;
+    setPendingChatAction(null);
+    setMessages((current) => current.filter((message) => !message.incomplete));
     setManualEntry(false);
     setStep('chat');
     setBusy(null);
@@ -1554,6 +1521,8 @@ export function useWordChat({
     activeChatAbortRef.current?.abort();
     activeChatAbortRef.current = null;
     activeAssistantIdRef.current = null;
+    setPendingChatAction(null);
+    setRecoveryRequired(false);
     setSessionId(newId());
     setCreationKey(newId());
     translatedSignatureRef.current = null;
@@ -1668,7 +1637,11 @@ export function useWordChat({
     error,
     unavailable,
     canRetry,
+    recoveryRequired,
     retry,
+    continueToProposal,
+    canContinueToProposal: step === 'chat' && preferencesComplete &&
+      (recoveryRequired || (pendingChatAction?.kind === 'chat' && canRetry)) && messages.some((message) => message.role === 'user'),
     sendMessage,
     toggleSelected,
     toggleAudioDisabled,

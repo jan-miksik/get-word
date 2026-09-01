@@ -1,6 +1,7 @@
 'use client';
 
 import { useI18n } from '@/components/I18nProvider';
+import { ContinueButton } from './ContinueButton';
 import { SessionCardShell } from './SessionCardShell';
 
 export function SessionTimeNewWordsCard({ onAddWords }: { onAddWords: () => void }) {
@@ -13,13 +14,11 @@ export function SessionTimeNewWordsCard({ onAddWords }: { onAddWords: () => void
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-500">
         {t('learning.sessionTimeNewEmptyBody')}
       </p>
-      <button
-        type="button"
+      <ContinueButton
         onClick={onAddWords}
-        className="onboarding-option onboarding-option-highlight mx-auto mt-6 min-h-12 w-full max-w-sm rounded-full px-5 py-3 text-base font-extrabold"
-      >
-        {t('learning.sessionTimeNewEmptyAction')}
-      </button>
+        label={t('learning.sessionTimeNewEmptyAction')}
+        className="mx-auto mt-6 max-w-sm"
+      />
     </SessionCardShell>
   );
 }
@@ -45,13 +44,11 @@ export function SessionTimeNoPracticeCard({ onAddWords }: { onAddWords: () => vo
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-500">
         {t('learning.sessionTimeReviewEmptyBody')}
       </p>
-      <button
-        type="button"
+      <ContinueButton
         onClick={onAddWords}
-        className="onboarding-option onboarding-option-highlight mx-auto mt-6 min-h-12 w-full max-w-sm rounded-full px-5 py-3 text-base font-extrabold"
-      >
-        {t('learning.sessionTimeNewEmptyAction')}
-      </button>
+        label={t('learning.sessionTimeNewEmptyAction')}
+        className="mx-auto mt-6 max-w-sm"
+      />
     </SessionCardShell>
   );
 }

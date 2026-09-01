@@ -36,6 +36,11 @@ export const OPENROUTER_RETRY_BASE_DELAY_MS = 600;
  */
 export const OPENROUTER_TIMEOUT_MS = 90_000;
 
+// A short onboarding turn must not inherit translation's three 90s attempts.
+// One streamed attempt, then one buffered fallback; both are reserved up front.
+export const CHAT_MAX_ATTEMPTS = 2;
+export const CHAT_ATTEMPT_TIMEOUT_MS = 15_000;
+
 /**
  * Output budgets.
  *

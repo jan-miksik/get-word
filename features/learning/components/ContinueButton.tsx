@@ -16,7 +16,7 @@ import { useI18n } from '@/components/I18nProvider';
  * and leaves only the *skin* to the variant, so the variants stay honestly
  * comparable and any of them can drop into any card without per-card tuning.
  *
- * The learning flow currently uses the `solid` variant.
+ * The learning flow currently uses the `slab` variant.
  *
  * The colours come from the paper-palette utilities (`bg-sea`, `text-paper`,
  * `border-ink`), never from `--accent` / `--text`. Games and study cards re-map
@@ -28,9 +28,9 @@ import { useI18n } from '@/components/I18nProvider';
  * when those stable names did not exist.
  */
 
-export type ContinueButtonVariant = 'solid' | 'ink' | 'lift' | 'outline';
+export type ContinueButtonVariant = 'slab' | 'ink' | 'lift' | 'outline';
 
-const CONTINUE_BUTTON_DEFAULT_VARIANT: ContinueButtonVariant = 'solid';
+const CONTINUE_BUTTON_DEFAULT_VARIANT: ContinueButtonVariant = 'slab';
 
 /** Height, radius, typography and padding — identical for every variant. */
 const SHAPE = [
@@ -38,10 +38,25 @@ const SHAPE = [
   'rounded-[14px] border-2 px-6 py-3',
   'text-[0.95rem] font-black uppercase leading-none tracking-[0.07em]',
   'cursor-pointer select-none touch-manipulation',
-  'transition-[background-color,border-color,color,box-shadow,transform] duration-150',
+  // `scale` and `translate` are named explicitly: Tailwind v4 compiles those
+  // utilities to the standalone CSS properties, not to `transform`, so a
+  // transform-only transition would leave the press snapping.
+  'transition-[background-color,border-color,color,box-shadow,transform,scale,translate] duration-150 ease-[cubic-bezier(0.2,0,0,1)]',
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sea',
-  'disabled:cursor-default disabled:opacity-45 disabled:shadow-none disabled:translate-y-0',
+  'disabled:cursor-default disabled:opacity-45 disabled:shadow-none disabled:translate-y-0 disabled:scale-100',
 ].join(' ');
+
+/**
+ * The press physics: the slab shrinks a little under the thumb instead of
+ * dropping onto a hard shadow. 3 % is enough to read as give on a full-width
+ * button and small enough that the tap target does not move out from under a
+ * finger resting near the edge; below ~6 % it stops being feedback and becomes
+ * a jump. Motion is the second signal only — with `prefers-reduced-motion` the
+ * fill alone has to carry the press, which is why the active colours are on the
+ * skins and not here.
+ */
+const PRESS = 'active:scale-[0.97] motion-reduce:active:scale-100';
+const PRESSED = '!scale-[0.97] motion-reduce:!scale-100';
 
 type VariantSkin = {
   /** Resting appearance plus the real hover/active pseudo-states. */
@@ -51,14 +66,18 @@ type VariantSkin = {
 };
 
 const SKINS: Record<ContinueButtonVariant, VariantSkin> = {
-  // Flat accent fill — the same treatment as `.onboarding-option-highlight`.
-  solid: {
+  // Cream slab with a thick ink border that fills on press — the `.srs-btn`
+  // treatment the "Umím / Nevím" row already uses, which is the row this button
+  // literally replaces in `WordCard`. Neobrutalist without the hard offset
+  // shadow, so nothing on the card floats; the press is carried by the fill
+  // plus a small shrink instead (see `PRESS`).
+  slab: {
     base: [
-      'border-sea bg-sea text-paper shadow-none',
-      'hover:border-sea-mid hover:bg-sea-mid',
-      'active:translate-y-px active:border-sea-deep active:bg-sea-deep',
+      'border-ink bg-paper text-ink shadow-none',
+      'hover:bg-sea hover:text-paper',
+      `active:border-sea active:bg-sea active:text-paper ${PRESS}`,
     ].join(' '),
-    pressed: '!translate-y-px !border-sea-deep !bg-sea-deep',
+    pressed: `!border-sea !bg-sea !text-paper ${PRESSED}`,
   },
   // Dark ink bar — matches the typing card's continue and the minigame overlay,
   // and reads as "advance the session" rather than "another answer".
@@ -80,8 +99,8 @@ const SKINS: Record<ContinueButtonVariant, VariantSkin> = {
     ].join(' '),
     pressed: '!translate-y-[3px] !shadow-none',
   },
-  // Cream with an ink border that fills on press — the `.srs-btn` treatment,
-  // quiet enough to sit under a card that already shows a success mark.
+  // `slab` before the press physics: the border turns sea on hover as well, and
+  // the press is colour only. Kept as the still comparison.
   outline: {
     base: [
       'border-ink bg-paper text-ink shadow-none',

@@ -1,6 +1,10 @@
 import type { NormalizedWord } from '@/lib/words';
 import type { GameType, MiniGameConfig } from '@/features/learning/minigames';
+import type { ProgressData } from '@/features/sync/contracts';
 import { resolveVariantDistractors } from '@/features/learning/fine-tune/distractors';
+import { resolvePracticeExercise } from '@/features/learning/fine-tune/pick';
+import type { ResolvedExercise } from '@/features/learning/fine-tune/types';
+import type { LearningRole } from '@/features/learning/state/learningRole';
 
 /**
  * The bonus block offered once the day is closed and there is nothing left to
@@ -8,23 +12,34 @@ import { resolveVariantDistractors } from '@/features/learning/fine-tune/distrac
  *
  * Deliberately NOT a study session: nothing here writes progress, picks a
  * spaced-repetition stage or consults the fine-tune ladder. It builds a short
- * block out of the words already in the learner's study scope and hands the
- * rounds to the same `MiniGameCard` the study stream uses, so there is no
- * second implementation of any exercise — only a second reason to play one.
+ * block out of the words already in the learner's study scope and hands each
+ * card to the same component the study stream uses — `MiniGameCard` for the
+ * multi-word rounds, `StudyExerciseCard` for the single-word exercises — so no
+ * exercise is implemented twice; there is only a second reason to play one.
  *
- * The three exercises are mixed rather than chosen. Picking a game is a
- * decision the learner has no basis for making at the end of a finished day,
- * and a block that keeps changing shape holds attention better than ten
- * identical questions.
+ * The exercises are mixed rather than chosen. Picking one is a decision the
+ * learner has no basis for making at the end of a finished day, and a block
+ * that keeps changing shape holds attention better than ten identical
+ * questions. The mix is everything the app can ask: reveal (scratched or
+ * pressed, whichever the learner set), choice, typing, assembly, matching —
+ * and at most one field of bubbles.
  */
-type QuickPracticeMethod = 'choice' | 'matching' | 'bubbles';
+type PracticeMethod = 'reveal' | 'choice' | 'typing' | 'assembly' | 'matching' | 'bubbles';
 
-/** Rotated through, in this order, for as long as the block lasts. */
-const METHOD_ROTATION = ['choice', 'matching', 'bubbles'] as const satisfies
-  readonly QuickPracticeMethod[];
+/**
+ * Rotated through, in this order, for as long as the block lasts.
+ *
+ * Bubbles are not in it: one field is plenty. A bubble round is a whole screen
+ * of its own and takes as long as three ordinary cards, so a rotation with
+ * bubbles in it would spend a third of the block on them.
+ */
+const METHOD_ROTATION = ['choice', 'typing', 'matching', 'reveal', 'assembly'] as const satisfies
+  readonly PracticeMethod[];
 
-const GAME_TYPE: Record<QuickPracticeMethod, GameType> = {
-  choice: 'multipleChoice',
+/** Everything the rotation can offer, plus the one bubble field. */
+const METHOD_COUNT = METHOD_ROTATION.length + 1;
+
+const GAME_TYPE: Record<'matching' | 'bubbles', GameType> = {
   matching: 'matching',
   bubbles: 'bubbleChoice',
 };
@@ -38,15 +53,20 @@ export const QUICK_PRACTICE_BLOCK_ROUNDS = 10;
  */
 const QUICK_PRACTICE_MIN_WORDS = 4;
 
-/** Options a choice round aims for, and the floor it degrades to. */
-const CHOICE_OPTIONS = 4;
-const CHOICE_MIN_OPTIONS = 3;
 /** Pairs one matching round covers. */
 const MATCHING_PAIRS = 4;
 const MATCHING_MIN_PAIRS = 2;
 /** Bubbles on screen are the answer plus these. */
 const BUBBLE_DISTRACTORS = 7;
 const BUBBLE_MIN_DISTRACTORS = 3;
+
+/**
+ * One card of a block: either a multi-word round or a single-word exercise.
+ * Both are played the same way — answer it, move on, nothing written back.
+ */
+export type PracticeStep =
+  | { kind: 'game'; id: string; config: MiniGameConfig }
+  | { kind: 'exercise'; id: string; word: NormalizedWord; exercise: ResolvedExercise };
 
 /**
  * Deterministic within a run, different between runs. A learner who plays two
@@ -92,11 +112,44 @@ export function canQuickPractice(
 }
 
 /**
- * One round of one exercise, or null when the pool cannot fill it — a caller
- * that gets null moves on to the next exercise rather than giving up.
+ * The bonus is free practice, not a second due queue.  It may therefore draw
+ * from the whole selected list, but should begin with the words the learner
+ * has gone longest without actually answering.  No progress is ever written
+ * while practising, so this order stays stable for the whole block.
+ *
+ * A word never answered has no timestamp and naturally comes first.  At the
+ * same age, lower stages lead: when there is more material than ten cards can
+ * hold, that makes the voluntary block a little more useful without turning it
+ * into a new SRS policy.
  */
-function buildRound(
-  method: QuickPracticeMethod,
+export function rankPracticeWords(
+  words: readonly NormalizedWord[],
+  progress: Record<string, ProgressData> | undefined,
+): NormalizedWord[] {
+  return words
+    .map((word, index) => ({ word, index }))
+    .sort((left, right) => {
+      const leftProgress = progress?.[left.word.id];
+      const rightProgress = progress?.[right.word.id];
+      const leftSeen = Math.max(leftProgress?.lastKnownAt ?? 0, leftProgress?.lastUnknownAt ?? 0);
+      const rightSeen = Math.max(rightProgress?.lastKnownAt ?? 0, rightProgress?.lastUnknownAt ?? 0);
+      if (leftSeen !== rightSeen) return leftSeen - rightSeen;
+
+      const leftStage = leftProgress?.stageIndex ?? 0;
+      const rightStage = rightProgress?.stageIndex ?? 0;
+      if (leftStage !== rightStage) return leftStage - rightStage;
+
+      return left.index - right.index;
+    })
+    .map(({ word }) => word);
+}
+
+/**
+ * One multi-word round, or null when the pool cannot fill it — a caller that
+ * gets null moves on to the next exercise rather than giving up.
+ */
+function buildGameRound(
+  method: 'matching' | 'bubbles',
   anchor: NormalizedWord,
   pool: NormalizedWord[],
   random: () => number,
@@ -105,9 +158,7 @@ function buildRound(
   const wanted =
     method === 'matching'
       ? Math.max(MATCHING_MIN_PAIRS, Math.min(MATCHING_PAIRS, pool.length)) - 1
-      : method === 'bubbles'
-        ? Math.max(BUBBLE_MIN_DISTRACTORS, Math.min(BUBBLE_DISTRACTORS, pool.length - 1))
-        : Math.max(CHOICE_MIN_OPTIONS - 1, Math.min(CHOICE_OPTIONS, pool.length) - 1);
+      : Math.max(BUBBLE_MIN_DISTRACTORS, Math.min(BUBBLE_DISTRACTORS, pool.length - 1));
 
   const resolved = resolveVariantDistractors({
     target: anchor,
@@ -118,6 +169,9 @@ function buildRound(
     random,
   });
   if (!resolved) return null;
+  // A field of one bubble is not a field, and a pair game needs a pair. Both
+  // floors are what the pool could not supply rather than what was asked for.
+  if (resolved.distractors.length < (method === 'bubbles' ? BUBBLE_MIN_DISTRACTORS : 1)) return null;
 
   return {
     _isMinigame: true,
@@ -129,8 +183,10 @@ function buildRound(
 }
 
 export interface QuickPracticeInput {
-  /** The learner's current study scope; every round is anchored to one of these. */
+  /** The learner's current study scope; every card is anchored to one of these. */
   words: readonly NormalizedWord[];
+  /** Which side of the pair the learner already knows; assembly needs it. */
+  role: LearningRole;
   seed: number;
   /** Shorter blocks are for previews and tests; the app uses the default. */
   size?: number;
@@ -138,55 +194,77 @@ export interface QuickPracticeInput {
 
 /**
  * Build one block, or an empty list when these words cannot support even a
- * single round. Callers use the emptiness as the availability test — a block
+ * single card. Callers use the emptiness as the availability test — a block
  * that cannot be played is never offered.
  */
 export function buildQuickPracticeBlock({
   words,
+  role,
   seed,
   size = QUICK_PRACTICE_BLOCK_ROUNDS,
-}: QuickPracticeInput): MiniGameConfig[] {
+}: QuickPracticeInput): PracticeStep[] {
   const pool = practicable(words);
   if (pool.length === 0) return [];
-  // One learned word can still fill spare review time with typing cards.
-  // They are practice-only here, so completing them never writes progress.
-  if (pool.length === 1) {
-    return Array.from({ length: size }, (_, index) => ({
-      _isMinigame: true as const,
-      id: `quick-${index}-${pool[0].id}`,
-      gameType: 'typing' as const,
-      level: 1,
-      words: [pool[0]],
-    }));
-  }
 
   const random = createRng(seed);
-  const rounds: MiniGameConfig[] = [];
+  // Where the single bubble field goes. Never the opening card: the field takes
+  // the whole screen edge to edge, and a block that opens on it reads as having
+  // started somewhere else. A scope too thin to fill a field skips it entirely,
+  // and that slot goes back to the rotation.
+  const bubbleSlot = pool.length > BUBBLE_MIN_DISTRACTORS && size > 1
+    ? 1 + Math.floor(random() * (size - 1))
+    : -1;
+
+  const steps: PracticeStep[] = [];
   // Anchors are drawn from a shuffled bag that refills when it runs out, so a
   // short list repeats evenly instead of hammering whichever word sorts first.
+  // Select before shuffling: the first block uses the least recently answered
+  // words, while its presentation still feels varied.  Once that small pool is
+  // exhausted, repeats come from the whole scope so a four-word list can still
+  // make ten cards.
+  const preferredPool = pool.slice(0, Math.min(size, pool.length));
   let bag: NormalizedWord[] = [];
   let rotation = 0;
   // Guards a scope no exercise can be built from at all; a single exercise that
   // cannot be filled only costs its turn in the rotation.
   let consecutiveMisses = 0;
 
-  while (rounds.length < size && consecutiveMisses < METHOD_ROTATION.length) {
-    const method = METHOD_ROTATION[rotation % METHOD_ROTATION.length];
-    rotation += 1;
-    if (bag.length === 0) bag = shuffled(pool, random);
+  while (steps.length < size && consecutiveMisses < METHOD_COUNT) {
+    const method: PracticeMethod = steps.length === bubbleSlot && consecutiveMisses === 0
+      ? 'bubbles'
+      : METHOD_ROTATION[rotation % METHOD_ROTATION.length];
+    if (method !== 'bubbles') rotation += 1;
+    if (bag.length === 0) bag = shuffled(steps.length < preferredPool.length ? preferredPool : pool, random);
     const anchor = bag.shift();
     if (!anchor) break;
 
-    const round = buildRound(method, anchor, pool, random, `quick-${rounds.length}-${anchor.id}`);
-    if (!round) {
+    const id = `quick-${steps.length}-${anchor.id}`;
+    const step = buildStep(method, anchor, pool, role, random, id);
+    if (!step) {
       consecutiveMisses += 1;
       // The anchor was never asked about, so it goes back for the next exercise.
       bag.unshift(anchor);
       continue;
     }
     consecutiveMisses = 0;
-    rounds.push(round);
+    steps.push(step);
   }
 
-  return rounds;
+  return steps;
+}
+
+function buildStep(
+  method: PracticeMethod,
+  anchor: NormalizedWord,
+  pool: NormalizedWord[],
+  role: LearningRole,
+  random: () => number,
+  id: string,
+): PracticeStep | null {
+  if (method === 'matching' || method === 'bubbles') {
+    const config = buildGameRound(method, anchor, pool, random, id);
+    return config ? { kind: 'game', id, config } : null;
+  }
+  const exercise = resolvePracticeExercise({ word: anchor, method, pool, role, random });
+  return exercise ? { kind: 'exercise', id, word: anchor, exercise } : null;
 }

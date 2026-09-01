@@ -1,6 +1,5 @@
 'use client';
 
-import type { StreakChipData } from '@/features/learning/goals/streakWeek';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { TopMenu } from '@/components/TopMenu';
 import type { SchoolMembership } from '@/features/auth/client/useAuth';
@@ -16,7 +15,6 @@ import { useAppStateContext } from '@/context/AppStateContext';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
 import { useI18n } from '@/components/I18nProvider';
-import type { ProgressStats } from '@/lib/progress-stats';
 import {
   clearPendingCommonListAudio,
   readPendingCommonListAudio,
@@ -51,9 +49,6 @@ interface AppLayoutProps {
   onSurfaceChange?: (surface: AppSurface) => void;
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
-  progressStats: ProgressStats;
-  /** The study series for the header chip; absent when no goal is active. */
-  streak?: StreakChipData | null;
   // Layout
   header?: ReactNode;
   children: ReactNode;
@@ -75,8 +70,6 @@ export function AppLayout({
   activeSurface = 'study',
   onSurfaceChange,
   categories,
-  progressStats,
-  streak,
   header,
   children,
 }: AppLayoutProps) {
@@ -87,9 +80,7 @@ export function AppLayout({
     categoryOpen,
     memoryHooksOpen,
     upcomingOpen,
-    openRequest,
     toggle,
-    open,
     closeAll,
   } = useMenuPanels();
 
@@ -161,8 +152,6 @@ export function AppLayout({
           showAll={showAll}
           onShowAll={() => setShowAll(!showAll)}
           onMenuAction={toggle}
-          streak={streak}
-          onOpenStreak={() => open('upcoming', { section: 'progress' })}
           categoryCount={selectedCategories.size}
           categoryActive={categories.length > 0 && selectedCategories.size < categories.length}
           score={gameScore}
@@ -276,9 +265,14 @@ export function AppLayout({
       <UpcomingPanel
         isOpen={upcomingOpen}
         onClose={closeAll}
-        progressStats={progressStats}
-        focusSection={openRequest?.panel === 'upcoming' ? openRequest.section : null}
-        focusRequestId={openRequest?.panel === 'upcoming' ? openRequest.requestId : undefined}
+        onOpenProgress={
+          onSurfaceChange
+            ? () => {
+                closeAll();
+                onSurfaceChange('progress');
+              }
+            : undefined
+        }
       />
 
       <PWAInstallBanner />

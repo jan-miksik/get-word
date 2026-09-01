@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
 import {
+  DEFAULT_MINIGAME_FREQUENCY,
   MINIGAME_FREQUENCY_MIN,
   MINIGAME_FREQUENCY_MAX,
 } from '@/features/learning/minigames';
@@ -18,8 +19,10 @@ export function MinigamesSection({
 }) {
   const { t } = useI18n();
 
-  const minFreq = minigameFrequency !== 'off' ? minigameFrequency.min : 1;
-  const maxFreq = minigameFrequency !== 'off' ? minigameFrequency.max : 3;
+  const minFreq =
+    minigameFrequency !== 'off' ? minigameFrequency.min : DEFAULT_MINIGAME_FREQUENCY.min;
+  const maxFreq =
+    minigameFrequency !== 'off' ? minigameFrequency.max : DEFAULT_MINIGAME_FREQUENCY.max;
   const minFreqPercent =
     ((minFreq - MINIGAME_FREQUENCY_MIN) / (MINIGAME_FREQUENCY_MAX - MINIGAME_FREQUENCY_MIN)) *
     100;
@@ -51,7 +54,7 @@ export function MinigamesSection({
       action={
         <ToggleSwitch
           checked={minigameFrequency !== 'off'}
-          onChange={(on) => onMinigameFrequencyChange(on ? { min: 1, max: 3 } : 'off')}
+          onChange={(on) => onMinigameFrequencyChange(on ? DEFAULT_MINIGAME_FREQUENCY : 'off')}
           ariaLabel={t('settings.minigames')}
         />
       }

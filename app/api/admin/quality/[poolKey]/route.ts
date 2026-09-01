@@ -5,7 +5,7 @@ import {
   unauthorizedResponse,
   forbiddenResponse,
 } from "@/lib/auth";
-import { getQualityPoolRow, writeQualityVerdict } from "@/lib/db";
+import { getQualityPoolRow, recordQualityEvent, writeQualityVerdict } from "@/lib/db";
 // Only the heuristic generation is stamped from a constant. The audit
 // generation is copied from the row itself, so a pair the model never saw
 // keeps a null instead of claiming it was judged against an audit.
@@ -105,6 +105,27 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       heuristicVersion: HEURISTIC_VERSION,
       // Null keeps "never audited" distinct from "audited by generation N".
       llmAuditVersion: found.review?.llmAuditVersion ?? null,
+    });
+
+    // Append-only trail of what a human did to this pair. The row itself only
+    // ever holds the latest verdict, so without this there is no way to see
+    // that a pair was marked ok before a suggestion replaced it.
+    await recordQualityEvent({
+      poolKey,
+      actorUserId: user.id,
+      action: verdict === "suggested" ? "suggestion" : "verdict",
+      detail: {
+        verdict,
+        previous_verdict: found.review?.verdict ?? "unreviewed",
+        ...(verdict === "suggested"
+          ? {
+              suggested_known: suggestedKnown,
+              suggested_target: suggestedTarget,
+              note,
+              suggestion_version: suggestionVersion,
+            }
+          : {}),
+      },
     });
 
     return NextResponse.json(

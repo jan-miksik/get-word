@@ -40,6 +40,7 @@ import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
 import { SuccessMark } from './games/SuccessMark';
 import { StageBadge } from './StageBadge';
 import { CardTopControls } from './CardTopControls';
+import { ContinueButton } from './ContinueButton';
 import { useCardAudio } from './card-audio/useCardAudio';
 
 import {
@@ -69,6 +70,12 @@ interface TypingStudyCardProps {
   /** Fires the moment the answer is checked, so progress counts from there. */
   onAnswered?: () => void;
   onCustomStage?: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
+  /**
+   * Practice: the card is played for its own sake and nothing it reports moves
+   * a schedule. What comes off it is every promise about one — the interval
+   * printed under Continue, and the "repeat in" popover beside it.
+   */
+  practice?: boolean;
   fullscreen?: boolean;
   autoFocus?: boolean;
   /** Overrides autoFocus on mobile; when omitted, autoFocus applies everywhere. */
@@ -108,6 +115,7 @@ export function TypingStudyCard({
   onOutcome,
   onAnswered,
   onCustomStage,
+  practice = false,
   fullscreen = false,
   autoFocus = false,
   autoFocusOnMobile,
@@ -610,8 +618,9 @@ export function TypingStudyCard({
         ? Math.max(clampedStageIndex - 1, 0)
         : clampedStageIndex;
   const isRetired = isTopStage(clampedStageIndex) && !progress.nextDueAt;
-  const continueHint =
-    isRetired && result?.outcome !== 'unknown'
+  const continueHint = practice
+    ? ''
+    : isRetired && result?.outcome !== 'unknown'
       ? t('card.staysFullyKnown')
       : formatNextReviewHint(STAGES[nextStageIndex]?.intervalMs ?? 0, t);
   // A clean answer at the top of the ladder earns the retire offer; anything
@@ -695,14 +704,7 @@ export function TypingStudyCard({
   flushWord();
 
   const resultLabels: Record<TypingResult['presentation'], React.ReactNode> = {
-    // Absolutely centred rather than in flow: the feedback box is a fixed
-    // reserved slot, and with the keyboard open there is no room for it to grow
-    // by the badge's height the moment an answer lands.
-    exact: (
-      <span className="absolute inset-0 flex items-center justify-center">
-        <SuccessMark key={word.id} label={t('game.perfect')} />
-      </span>
-    ),
+    exact: <SuccessMark key={word.id} label={t('game.perfect')} />,
     close: (
       <>
         ~ {t('game.close')}{' '}
@@ -732,7 +734,7 @@ export function TypingStudyCard({
   return (
     <article
       ref={articleRef}
-      className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''} ${isMemoryHookEditing ? 'word-card--editing-hook' : ''}`}
+      className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''} ${practice ? 'h-full min-h-0' : ''} ${isMemoryHookEditing ? 'word-card--editing-hook' : ''}`}
       style={gamePaletteVars}
       data-word-id={word.id}
       data-stage-group={stageGroup}
@@ -746,12 +748,15 @@ export function TypingStudyCard({
           custom-interval button, invisible and untappable. */}
       <div
         ref={contentRef}
-        className={`word-card-content flex min-h-0 flex-col gap-2 overflow-y-auto md:[@media(max-height:800px)]:gap-1 ${fullscreen ? 'md:translate-y-4 md:[@media(max-height:800px)]:!translate-y-0' : ''}`}
+        className={`word-card-content flex min-h-0 flex-col gap-2 overflow-y-auto md:[@media(max-height:800px)]:gap-1 ${fullscreen ? 'md:translate-y-4 md:[@media(max-height:800px)]:!translate-y-0' : ''} ${practice ? 'flex-1 justify-center' : ''}`}
       >
+        {/* Reserve the full 80px badge plus padding even before answering.
+            Keep it in flow and never shrink the slot on short viewports, where
+            a smaller absolute slot let the badge overlap the prompt. */}
         <div
           role={result ? 'status' : undefined}
           aria-hidden={result ? undefined : true}
-          className={`game-feedback relative self-center min-h-[3.25rem] w-[min(34rem,calc(100vw-2rem))] !justify-center !border !border-transparent !px-3 !py-1.5 text-center !text-[1rem] leading-tight sm:!text-[1.1rem] md:[@media(max-height:800px)]:min-h-10 md:[@media(max-height:800px)]:!py-1 [&_strong]:font-extrabold ${result ? `game-feedback--${result.presentation === 'typo' ? 'close' : result.presentation} ${feedbackToneClass}` : 'invisible'}`}
+          className={`game-feedback relative self-center min-h-24 shrink-0 w-[min(34rem,calc(100vw-2rem))] !justify-center !border !border-transparent !px-3 !py-1.5 text-center !text-[1rem] leading-tight sm:!text-[1.1rem] [&_strong]:font-extrabold ${result ? `game-feedback--${result.presentation === 'typo' ? 'close' : result.presentation} ${feedbackToneClass}` : 'invisible'}`}
         >
           {result ? resultLabels[result.presentation] : '\u00A0'}
         </div>
@@ -807,6 +812,21 @@ export function TypingStudyCard({
           onPreserveFocus={preserveTypingFocus}
         />
 
+        {showTypingAudio && practice && (
+          <div className="flex justify-end pt-2 pr-0.5">
+            <button
+              ref={audioButtonRef}
+              type="button"
+              className="audio-btn !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-ink !bg-paper !text-ink !shadow-none hover:!border-sea hover:!bg-sea hover:!text-paper active:!border-sea active:!bg-sea active:!text-paper"
+              onClick={handleAudioClick}
+              onPointerDown={startAudioWithoutDroppingTypingFocus}
+              aria-label={t('card.playAudio')}
+            >
+              <SpeakerIcon size={23} />
+            </button>
+          </div>
+        )}
+
         {showMemoryHook && (
           <TypingMemoryHook
             memoryHook={memoryHook}
@@ -824,8 +844,8 @@ export function TypingStudyCard({
         />
       )}
 
-      <div className="card-actions relative mt-6 md:[@media(max-height:800px)]:!mt-2">
-        {showTypingAudio && (
+      <div className={`card-actions relative ${practice ? 'mt-4 pb-4' : 'mt-6 md:[@media(max-height:800px)]:!mt-2'}`}>
+        {showTypingAudio && !practice && (
           <button
             ref={audioButtonRef}
             type="button"
@@ -837,37 +857,49 @@ export function TypingStudyCard({
             <SpeakerIcon size={23} />
           </button>
         )}
-        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 md:relative md:block md:h-[72px] md:!w-[33rem] md:!max-w-[33rem] md:[@media(max-height:800px)]:!h-14">
-          {result && (
-            <button
-              ref={compactContinueRef}
-              type="button"
-              className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-ink !bg-ink px-3 !text-paper shadow-none hover:!border-ink-600 hover:!bg-ink-600 hover:!text-paper focus-visible:!border-ink-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
-              onClick={handleContinue}
-            >
-              <span className="srs-btn-copy">
-                <span className="srs-btn-label">{t('card.continue')} →</span>
-                <span className="srs-btn-hint !opacity-[0.55] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{continueHint}</span>
-              </span>
-            </button>
-          )}
-          <div
-            data-typing-secondary-actions
-            className={`mx-auto w-full !max-w-md max-md:!h-11 max-md:!w-32 max-md:!max-w-32 max-md:transition-transform max-md:duration-300 max-md:ease-out max-md:[&_.srs-btn]:!h-11 max-md:[&_.srs-btn]:!min-h-11 max-md:[&_.srs-btn]:!px-2 max-md:[&_.srs-btn]:!py-1 md:absolute md:left-0 md:top-0 md:mx-0 md:!h-[72px] md:!w-64 md:!max-w-64 md:transition-transform md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] md:[&_.srs-btn]:!h-[72px] md:[&_.srs-btn]:!min-h-[72px] md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!min-h-14 ${result ? 'md:translate-x-0' : 'max-md:-translate-y-1 md:translate-x-[136px]'} ${isFocused && result === null ? 'max-md:invisible max-md:pointer-events-none' : ''}`}
-          >
-            <CustomStagePopover
-              clampedStageIndex={clampedStageIndex}
-              onCustomStage={handleCustomStage}
-            />
+        {practice ? (
+          <div className="mx-auto flex min-h-14 w-full max-w-[22rem] items-center">
+            {result && (
+              <ContinueButton
+                variant="slab"
+                className="typing-practice-continue w-full"
+                onClick={handleContinue}
+              />
+            )}
           </div>
-          {result && (
+        ) : (
+          <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 md:relative md:block md:h-[72px] md:!w-[33rem] md:!max-w-[33rem] md:[@media(max-height:800px)]:!h-14">
+            {result && (
+              <button
+                ref={compactContinueRef}
+                type="button"
+                className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-ink !bg-ink px-3 !text-paper shadow-none hover:!border-ink-600 hover:!bg-ink-600 hover:!text-paper focus-visible:!border-ink-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
+                onClick={handleContinue}
+              >
+                <span className="srs-btn-copy">
+                  <span className="srs-btn-label">{t('card.continue')} →</span>
+                  <span className="srs-btn-hint !opacity-[0.55] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{continueHint}</span>
+                </span>
+              </button>
+            )}
             <div
-              data-mobile-result-actions-spacer
-              aria-hidden="true"
-              className="h-[calc(60px+env(safe-area-inset-bottom,0px))] shrink-0 md:hidden"
-            />
-          )}
-        </div>
+              data-typing-secondary-actions
+              className={`mx-auto w-full !max-w-md max-md:!h-11 max-md:!w-32 max-md:!max-w-32 max-md:transition-transform max-md:duration-300 max-md:ease-out max-md:[&_.srs-btn]:!h-11 max-md:[&_.srs-btn]:!min-h-11 max-md:[&_.srs-btn]:!px-2 max-md:[&_.srs-btn]:!py-1 md:absolute md:left-0 md:top-0 md:mx-0 md:!h-[72px] md:!w-64 md:!max-w-64 md:transition-transform md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] md:[&_.srs-btn]:!h-[72px] md:[&_.srs-btn]:!min-h-[72px] md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!min-h-14 ${result ? 'md:translate-x-0' : 'max-md:-translate-y-1 md:translate-x-[136px]'} ${isFocused && result === null ? 'max-md:invisible max-md:pointer-events-none' : ''}`}
+            >
+              <CustomStagePopover
+                clampedStageIndex={clampedStageIndex}
+                onCustomStage={handleCustomStage}
+              />
+            </div>
+            {result && (
+              <div
+                data-mobile-result-actions-spacer
+                aria-hidden="true"
+                className="h-[calc(60px+env(safe-area-inset-bottom,0px))] shrink-0 md:hidden"
+              />
+            )}
+          </div>
+        )}
         <style>{`
           @keyframes typing-continue-enter {
             from { opacity: 0; }
@@ -897,7 +929,7 @@ export function TypingStudyCard({
 
         `}</style>
       </div>
-      {result && (
+      {!practice && result && (
         <button
           type="button"
           className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-ink bg-ink px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-paper shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"

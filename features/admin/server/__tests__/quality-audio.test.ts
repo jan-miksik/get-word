@@ -35,8 +35,8 @@ function item(overrides: Partial<PoolItem> = {}): PoolItem {
   };
 }
 
-const playable = { contentHash: 'h', storageType: 'object_store', storageRef: 'ref' };
-const legacyR2 = { contentHash: 'h', storageType: 'r2', storageRef: 'ref' };
+const playable = { contentHash: 'h', storageType: 'object_store', storageRef: 'ref', voiceId: null };
+const legacyR2 = { contentHash: 'h', storageType: 'r2', storageRef: 'ref', voiceId: null };
 
 describe('pickCanonicalText', () => {
   /**
@@ -201,11 +201,40 @@ describe('resolvePoolVoice', () => {
   });
 
   it('uses an explicitly requested voice without consulting the catalog', async () => {
-    expect(await resolvePoolVoice('pes', 'cs', 'cs-CZ-Studio-A')).toEqual({
+    expect(
+      await resolvePoolVoice('pes', 'cs', { kind: 'explicit', voiceId: 'cs-CZ-Studio-A' }),
+    ).toEqual({
       supported: true,
       voiceId: 'cs-CZ-Studio-A',
     });
     expect(getGoogleVoicesForLanguage).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The whole point of the mix: re-recording under the deterministic pick
+   * would resolve to the same voice, hash to the same asset and change
+   * nothing, so a random pick is what makes "record again" audible.
+   */
+  it('avoids the voices the pair is already recorded in', async () => {
+    getGoogleVoicesForLanguage.mockResolvedValue([
+      'cs-CZ-Standard-A',
+      'cs-CZ-Chirp3-HD-Aoede',
+      'cs-CZ-Chirp3-HD-Puck',
+    ]);
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      expect(
+        await resolvePoolVoice('pes', 'cs', { kind: 'random' }, ['cs-CZ-Chirp3-HD-Aoede']),
+      ).toEqual({ supported: true, voiceId: 'cs-CZ-Chirp3-HD-Puck' });
+    }
+  });
+
+  /** One Chirp3-HD voice is still a recording, not a failure. */
+  it('reuses the only voice there is rather than refusing', async () => {
+    getGoogleVoicesForLanguage.mockResolvedValue(['cs-CZ-Chirp3-HD-Aoede']);
+    expect(
+      await resolvePoolVoice('pes', 'cs', { kind: 'random' }, ['cs-CZ-Chirp3-HD-Aoede']),
+    ).toEqual({ supported: true, voiceId: 'cs-CZ-Chirp3-HD-Aoede' });
   });
 
   /** A language with voices but no Chirp3-HD one still gets recorded. */

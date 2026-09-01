@@ -2,10 +2,12 @@ import type {
   ProposedItem,
   ReviewItem,
   WordChatAddressRegister,
+  WordChatContentMode,
   WordChatLanguageLevel,
   WordChatMessage,
   WordChatSalutationGender,
 } from '../types';
+import { isWordChatContentMode } from '../types';
 import { proposalDifficultyIssue } from '../difficulty';
 import { personalListName } from '../personal-list-name';
 
@@ -30,6 +32,8 @@ const TTL_MS = 24 * 60 * 60 * 1000;
 
 type WordChatDraftStep = 'chat' | 'select' | 'review';
 
+export type PendingChatAction = { kind: 'chat' } | { kind: 'propose'; contentMode: WordChatContentMode };
+
 export type WordChatDraft = {
   version: number;
   savedAt: number;
@@ -37,6 +41,10 @@ export type WordChatDraft = {
   creationKey: string;
   step: WordChatDraftStep;
   messages: WordChatMessage[];
+  /** Last unfinished operation; never replay paid work automatically on reload. */
+  pendingChatAction?: PendingChatAction | null;
+  /** A local fallback awaits explicit continuation instead of another model turn. */
+  recoveryRequired?: boolean;
   addressRegister: WordChatAddressRegister | null;
   salutationGender: WordChatSalutationGender | null;
   languageLevel: WordChatLanguageLevel | null;
@@ -89,6 +97,15 @@ export function loadDraft(
     ) {
       return null;
     }
+    if (!Array.isArray(parsed.messages) || !Array.isArray(parsed.proposals) ||
+        !Array.isArray(parsed.selectedKeys) || !Array.isArray(parsed.customItems) ||
+        !Array.isArray(parsed.reviewItems)) return null;
+    parsed.messages = parsed.messages.filter((message) => message &&
+      (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string');
+    const pending = parsed.pendingChatAction;
+    parsed.pendingChatAction = pending?.kind === 'chat' ? { kind: 'chat' }
+      : pending?.kind === 'propose' && isWordChatContentMode(pending.contentMode)
+        ? { kind: 'propose', contentMode: pending.contentMode } : null;
     if (!parsed.savedAt || Date.now() - parsed.savedAt > TTL_MS) {
       clearDraft(languageFrom, languageTo);
       return null;

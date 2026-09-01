@@ -265,7 +265,12 @@ export async function recomputeUserDayStat(userId: string, dayKey: string, timez
   // A words-mode row created by a summary refresh is only a measurement
   // placeholder until ensureDayGoalSnapshot freezes its targets. Treating its
   // null targets as zero would otherwise earn the day without any study.
-  const isWords = existing?.goalMode === 'words' || (!existing && goal?.mode === 'words');
+  // A frozen day keeps the mode it was planned with. A row that is only a
+  // measurement placeholder has no such claim: it may predate the goal, so the
+  // mode in force today decides.
+  const isWords = existing?.snapshotCreatedAt
+    ? existing.goalMode === 'words'
+    : (goal?.mode ?? existing?.goalMode) === 'words';
   const hasWordsSnapshot = isWords && existing?.snapshotCreatedAt !== null && existing?.snapshotCreatedAt !== undefined;
   // Builds before the target/availability distinction capped this field at
   // `availableNewWords`. Repair those snapshots while the rolling summary is
@@ -315,6 +320,15 @@ export async function recomputeUserDayStat(userId: string, dayKey: string, timez
       ? resolvedNewTarget
       : sql`${userDayStats.resolvedNewTarget}`,
     met: repairsUndersizedNewTarget ? met : sql`${userDayStats.met} OR ${met}`,
+    // Goal identity was insert-only, so a row created before the learner had a
+    // goal — or before today's version took effect — kept a null mode forever
+    // and every reader saw the day as goal-less. Fill it while the day is still
+    // a placeholder; a frozen snapshot stays immutable.
+    goalVersionId: sql`case when ${userDayStats.snapshotCreatedAt} is null then excluded.goal_version_id else ${userDayStats.goalVersionId} end`,
+    goalDaysPerWeek: sql`case when ${userDayStats.snapshotCreatedAt} is null then excluded.goal_days_per_week else ${userDayStats.goalDaysPerWeek} end`,
+    goalMinutes: sql`case when ${userDayStats.snapshotCreatedAt} is null then excluded.goal_minutes else ${userDayStats.goalMinutes} end`,
+    goalWords: sql`case when ${userDayStats.snapshotCreatedAt} is null then excluded.goal_words else ${userDayStats.goalWords} end`,
+    goalMode: sql`case when ${userDayStats.snapshotCreatedAt} is null then excluded.goal_mode else ${userDayStats.goalMode} end`,
     // Use the typed INSERT values. Passing a Date directly through a raw SQL
     // interpolation gives postgres-js a `text` parameter, and Postgres cannot
     // resolve `least(timestamptz, text)` / `greatest(timestamptz, text)`. That

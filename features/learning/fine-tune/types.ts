@@ -209,7 +209,7 @@ export type ResolvedExercise =
       method: 'choice';
       variant: ChoiceVariant;
       requestedBand: SimilarityBand;
-      /** May be lower than requested when the list ran out of similar words. */
+      /** Never lower than requested; an unsatisfied variant is not rendered. */
       effectiveBand: SimilarityBand;
       /** Which language the options are written in. */
       optionsSide: ChoiceOptionsSide;

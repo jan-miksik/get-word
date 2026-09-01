@@ -12,8 +12,14 @@ import type {
   UsageWeekBucket,
   UserActivityDay,
   WordChatUsageAccountRow,
+  GoalAdherenceBucket,
+  GoalDistributionBucket,
   GoogleApiUsageSourceRow,
+  LanguagePairRow,
+  LanguageTargetRow,
   UiLanguageRequestRow,
+  UserGoalProgress,
+  UserGoalSetting,
 } from '@/features/admin/types';
 import { PHOTO_ANALYSIS_TRACKING_STARTED_AT } from '@/features/photo-lab/server/analysis-events';
 import { userHandle } from '@/features/admin/server/userHandle';
@@ -31,6 +37,7 @@ import {
   normalizeActivityWindow,
   numberFromRow,
   sqlTextArray,
+  toDateString,
   weekStarts,
   zeroFillWeeks,
 } from './stats-shared';
@@ -65,6 +72,55 @@ const CLIENT_CLOCK_TRUST_WINDOW = '2 days';
 const HEATMAP_WEEKS = 53;
 const DEVICE_PLATFORMS: DevicePlatform[] = ['ios', 'android', 'macos', 'windows', 'linux', 'other', 'unknown'];
 const DEVICE_FORM_FACTORS: DeviceFormFactor[] = ['mobile', 'tablet', 'desktop', 'unknown'];
+
+/**
+ * The learner's own calendar day for a review event.
+ *
+ * `local_day_key` is stamped by the client at answer time and is authoritative;
+ * rows written before that column existed fall back to the trusted answer
+ * timestamp. What this must never be is `server_created_at`'s UTC date: that is
+ * the day the outbox happened to flush, so an offline evening session is filed
+ * under whichever day the phone next found a network, and a session after
+ * midnight in Prague is filed under the day before.
+ */
+function reviewLocalDay(alias: string): SQL {
+  const a = sql.raw(alias);
+  return sql`coalesce(
+    ${a}.local_day_key,
+    (CASE
+       WHEN ${a}.client_created_at IS NULL
+         OR abs(EXTRACT(EPOCH FROM (${a}.client_created_at - ${a}.server_created_at)))
+            > EXTRACT(EPOCH FROM INTERVAL ${sql.raw(`'${CLIENT_CLOCK_TRUST_WINDOW}'`)})
+       THEN ${a}.server_created_at
+       ELSE ${a}.client_created_at
+     END)::date
+  )`;
+}
+
+/**
+ * The same day key for a measured activity segment. `timezone_at_creation` is
+ * client-supplied, so it is looked up in `pg_timezone_names` before use — an
+ * unknown name would otherwise abort the whole query.
+ */
+function segmentLocalDay(alias: string): SQL {
+  const a = sql.raw(alias);
+  return sql`coalesce(
+    ${a}.local_day_key,
+    (${a}.started_at AT TIME ZONE coalesce(
+      (SELECT name FROM pg_timezone_names WHERE name = ${a}.timezone_at_creation LIMIT 1),
+      'UTC'
+    ))::date
+  )`;
+}
+
+/**
+ * `cz` and `cs` are the same language. `word_lists` already folds them together
+ * in its unique indexes, and the language panels must not report one language
+ * as two.
+ */
+function normalizedLanguage(expression: SQL): SQL {
+  return sql`(CASE WHEN lower(${expression}) IN ('cz', 'cs') THEN 'cs' ELSE lower(${expression}) END)`;
+}
 
 function parseEnvList(value: string | undefined, normalize: (item: string) => string = (item) => item): string[] {
   if (!value) return [];
@@ -165,6 +221,13 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   const heatmapFrom = new Date(
     currentWeekStart.getTime() - (HEATMAP_WEEKS - 1) * WEEK_MS
   ).toISOString();
+  // Goal adherence is measured in local days, which is what `user_day_stats`
+  // is keyed on; 30 days ending today, inclusive.
+  const GOAL_WINDOW_DAYS = 30;
+  const goalWindowFromDay = toDateString(
+    new Date(generatedAt.getTime() - (GOAL_WINDOW_DAYS - 1) * 24 * 60 * 60 * 1000)
+  );
+  const goalWindowToDay = toDateString(generatedAt);
   const starts = weekStarts(currentWeekStart);
   const activityStarts = getActivityWindowStarts(activityWindow, generatedAt);
   const activityDayStart = activityStarts.day.toISOString();
@@ -177,8 +240,9 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       count(*) FILTER (WHERE supabase_auth_id IS NOT NULL)::int AS registered_total,
       count(*) FILTER (WHERE supabase_auth_id IS NOT NULL AND auth_provider = 'email')::int AS registered_email,
       count(*) FILTER (WHERE supabase_auth_id IS NOT NULL AND auth_provider = 'google')::int AS registered_google,
+      count(*) FILTER (WHERE supabase_auth_id IS NOT NULL AND auth_provider = 'apple')::int AS registered_apple,
       count(*) FILTER (WHERE supabase_auth_id IS NOT NULL
-        AND coalesce(auth_provider, 'unknown') NOT IN ('email', 'google'))::int AS registered_other,
+        AND coalesce(auth_provider, 'unknown') NOT IN ('email', 'google', 'apple'))::int AS registered_other,
       count(*) FILTER (WHERE supabase_auth_id IS NULL)::int AS anonymous_total
     FROM users u
     WHERE ${includedUserCondition('u', exclusionOptions)}
@@ -289,11 +353,14 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     ORDER BY 1
   `);
 
-  // App-wide GitHub-style heatmap: distinct study-active users per calendar day
-  // (UTC) over the heatmap window. Uses review_events — the only per-day history
-  // (user_devices keeps only the latest open).
+  // App-wide GitHub-style heatmap: distinct study-active users per day over the
+  // heatmap window, bucketed by each learner's own local day. Uses review_events
+  // — the only per-day history (user_devices keeps only the latest open). This
+  // one stays study-only: merging in measured presence would need each day's set
+  // of user ids, not a per-day count, and `activity_segments` is a hand-applied
+  // migration that must not be able to take this panel down.
   const activityHeatmapRows = await db.execute(sql`
-    SELECT (re.server_created_at)::date::text AS day,
+    SELECT ${reviewLocalDay('re')}::text AS day,
            count(DISTINCT re.user_id)::int AS active_users
     FROM review_events re
     JOIN users u ON u.id = re.user_id
@@ -352,6 +419,135 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     ORDER BY subscriber_count DESC, wl.name ASC
     LIMIT 10
   `);
+
+  // Who studies what, at (user x direction) granularity so that every figure the
+  // languages panel needs — learners per target language, learners per
+  // direction, and how many people study more than one language — comes from a
+  // single pass. Aggregating to the language in SQL could not answer the last
+  // one, and counting distinct users per target by summing the directions would
+  // double-count anyone learning English from two different mother tongues.
+  //
+  // A review is attributed through its item to that item's list, which is where
+  // the direction actually lives. Events whose item has since been deleted carry
+  // a null `word_list_item_id` and drop out — they have no language any more.
+  const studiedLanguageRows = await db.execute(sql`
+    SELECT re.user_id::text AS user_id,
+           ${normalizedLanguage(sql`wl.language_from`)} AS language_from,
+           ${normalizedLanguage(sql`wl.language_to`)} AS language_to,
+           count(*)::int AS reviews,
+           count(*) FILTER (WHERE re.server_created_at >= ${monthAgo}::timestamp)::int AS reviews_30d
+    FROM review_events re
+    JOIN users u ON u.id = re.user_id
+    JOIN word_list_items wli ON wli.id = re.word_list_item_id
+    JOIN word_lists wl ON wl.id = wli.list_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+    GROUP BY 1, 2, 3
+  `);
+
+  // The direction currently selected in the app, which is a setting and not
+  // study: it is what a learner who registered and never answered a card has,
+  // and it is the gap between "wanted to learn this" and "did".
+  const selectedLanguageRows = await db.execute(sql`
+    SELECT ${normalizedLanguage(sql`u.language_from`)} AS language_from,
+           ${normalizedLanguage(sql`u.language_to`)} AS language_to,
+           count(*)::int AS users
+    FROM users u
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND coalesce(u.language_from, '') <> ''
+      AND coalesce(u.language_to, '') <> ''
+    GROUP BY 1, 2
+  `);
+
+  // Goals: the version in force today per learner, plus how the trailing 30
+  // local days went against it. One row per learner, so the aggregate panel and
+  // the per-user table are the same numbers rather than two definitions.
+  //
+  // `user_day_stats` is sparse: a learner who never opened the app on Tuesday
+  // has no Tuesday row. Calendar days therefore come from `generate_series`,
+  // not from the rollup table; otherwise every missed day disappears from the
+  // denominator and adherence can exceed 100 %. Only an explicit
+  // `nothing_due` snapshot makes a promised day neutral.
+  //
+  // Guarded like the other hand-applied migrations: an environment still short
+  // of 0064/0065 gets an empty panel, not a dead dashboard.
+  const goalRows = await executeOrEmpty(
+    sql`
+      WITH active_version AS (
+        SELECT DISTINCT ON (v.user_id)
+               v.user_id,
+               v.enabled,
+               v.goal_mode,
+               v.goal_preset,
+               v.goal_days_per_week,
+               v.goal_minutes_per_day,
+               v.goal_new_words_per_day,
+               v.effective_from_day
+        FROM user_study_goal_versions v
+        JOIN users u ON u.id = v.user_id
+        WHERE ${includedUserCondition('u', exclusionOptions)}
+          AND v.effective_from_day <= ${goalWindowToDay}::date
+        ORDER BY v.user_id, v.effective_from_day DESC
+      ),
+      calendar_days AS (
+        SELECT av.user_id, series.day_key::date AS day_key
+        FROM active_version av
+        CROSS JOIN generate_series(
+          ${goalWindowFromDay}::date,
+          ${goalWindowToDay}::date,
+          interval '1 day'
+        ) AS series(day_key)
+      ),
+      versioned_days AS (
+        SELECT cd.user_id,
+               cd.day_key,
+               goal.enabled,
+               goal.goal_days_per_week,
+               stats.met,
+               stats.goal_status,
+               stats.snapshot_created_at
+        FROM calendar_days cd
+        LEFT JOIN LATERAL (
+          SELECT v.enabled, v.goal_days_per_week
+          FROM user_study_goal_versions v
+          WHERE v.user_id = cd.user_id
+            AND v.effective_from_day <= cd.day_key
+          ORDER BY v.effective_from_day DESC
+          LIMIT 1
+        ) goal ON true
+        LEFT JOIN user_day_stats stats
+          ON stats.user_id = cd.user_id
+          AND stats.day_key = cd.day_key
+      ),
+      window_days AS (
+        SELECT d.user_id,
+               count(*) FILTER (WHERE d.enabled
+                 AND d.goal_days_per_week IS NOT NULL
+                 AND NOT (d.snapshot_created_at IS NOT NULL AND d.goal_status = 'nothing_due'))::int AS eligible_days,
+               count(*) FILTER (WHERE d.enabled AND d.met)::int AS met_days,
+               coalesce(sum(d.goal_days_per_week) FILTER (WHERE d.enabled
+                 AND d.goal_days_per_week IS NOT NULL
+                 AND NOT (d.snapshot_created_at IS NOT NULL AND d.goal_status = 'nothing_due')), 0)::numeric / 7 AS expected_days,
+               max(d.day_key) FILTER (WHERE d.enabled AND d.met) AS last_met_day
+        FROM versioned_days d
+        GROUP BY d.user_id
+      )
+      SELECT av.user_id::text AS user_id,
+             av.enabled,
+             av.goal_mode,
+             av.goal_preset,
+             av.goal_days_per_week,
+             av.goal_minutes_per_day,
+             av.goal_new_words_per_day,
+             av.effective_from_day::text AS effective_from_day,
+             coalesce(wd.eligible_days, 0)::int AS eligible_days,
+             coalesce(wd.met_days, 0)::int AS met_days,
+             coalesce(wd.expected_days, 0)::float8 AS expected_days,
+             wd.last_met_day::text AS last_met_day
+      FROM active_version av
+      LEFT JOIN window_days wd ON wd.user_id = av.user_id
+    `,
+    'study goals',
+  );
 
   // Aggregate per user BEFORE counting: the LEFT JOIN multiplies rows per
   // review event, so eligible/returned must never be counted on the raw join.
@@ -497,7 +693,8 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   // reviews, and photos cannot multiply and inflate the counts.
   const userRows = await db.execute(sql`
     WITH included_registered AS (
-      SELECT u.id, u.email, u.created_at, u.registered_at, u.game_score
+      SELECT u.id, u.email, u.created_at, u.registered_at, u.game_score,
+             u.language_from, u.language_to
       FROM users u
       WHERE ${includedUserCondition('u', exclusionOptions)}
         AND u.supabase_auth_id IS NOT NULL
@@ -518,11 +715,15 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       FROM user_devices
       ORDER BY user_id, last_seen_at DESC NULLS LAST, first_seen_at DESC
     ),
+    -- Fallback active-day count, used only when the measured-presence query
+    -- below is unavailable. Days are the learner's own (see reviewLocalDay);
+    -- counting them on the server's UTC date filed an offline evening session
+    -- under whichever day the outbox next flushed.
     review_counts AS (
-      SELECT user_id,
+      SELECT re.user_id AS user_id,
              count(*) AS review_count,
-             count(DISTINCT (server_created_at)::date) AS active_days
-      FROM review_events GROUP BY user_id
+             count(DISTINCT ${reviewLocalDay('re')}) AS active_days
+      FROM review_events re GROUP BY re.user_id
     ),
     -- client_created_at is when the learner actually answered.
     -- server_created_at is when the sync batch was inserted, and the outbox
@@ -603,6 +804,8 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
            ir.created_at AS first_seen_at,
            ir.registered_at AS registered_at,
            ir.game_score AS game_score,
+           ir.language_from AS selected_language_from,
+           ir.language_to AS selected_language_to,
            ds.last_seen_at AS last_seen_at,
            coalesce(ds.device_count, 0)::int AS device_count,
            coalesce(ld.platform, 'unknown') AS last_device_platform,
@@ -629,7 +832,7 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   const userRowIds = userRows.map((raw) => String((raw as Record<string, unknown>).id ?? ''));
   const userDailyRows = await db.execute(sql`
     SELECT re.user_id::text AS user_id,
-           (re.server_created_at)::date::text AS day,
+           ${reviewLocalDay('re')}::text AS day,
            count(*)::int AS reviews
     FROM review_events re
     WHERE re.user_id::text = ANY(${sqlTextArray(userRowIds)})
@@ -637,6 +840,51 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     GROUP BY 1, 2
     ORDER BY 1, 2
   `);
+
+  // Days the learner was in the app without necessarily answering anything —
+  // adding words, browsing lists, the photo lab. Merged into the mini heatmap so
+  // it shows the same days the `activeDays` column counts.
+  const userPresenceDayRows = await executeOrEmpty(
+    sql`
+      SELECT s.user_id::text AS user_id,
+             ${segmentLocalDay('s')}::text AS day,
+             (sum(s.active_ms) / 1000)::int AS active_seconds
+      FROM activity_segments s
+      WHERE s.user_id::text = ANY(${sqlTextArray(userRowIds)})
+        AND s.started_at >= ${heatmapFrom}::timestamptz
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `,
+    'user presence days',
+  );
+
+  // All-time active days: the union of days with a review and days with measured
+  // presence, per learner. Kept apart from the main per-user query on purpose —
+  // `activity_segments` arrives with a hand-applied migration, so this degrades
+  // to the review-only count in `review_counts` rather than emptying the table.
+  const userActiveDayRows = await executeOrEmpty(
+    sql`
+      WITH review_days AS (
+        SELECT re.user_id, ${reviewLocalDay('re')} AS day
+        FROM review_events re
+        WHERE re.user_id::text = ANY(${sqlTextArray(userRowIds)})
+      ),
+      presence_days AS (
+        SELECT s.user_id, ${segmentLocalDay('s')} AS day
+        FROM activity_segments s
+        WHERE s.user_id::text = ANY(${sqlTextArray(userRowIds)})
+      ),
+      all_days AS (
+        SELECT user_id, day FROM review_days
+        UNION ALL
+        SELECT user_id, day FROM presence_days
+      )
+      SELECT user_id::text AS user_id, count(DISTINCT day)::int AS active_days
+      FROM all_days
+      GROUP BY 1
+    `,
+    'user active days',
+  );
 
   // Measured activity. Guarded like the other panels: migration 0061 is applied
   // by hand, so a deploy can legitimately run ahead of the table and must not
@@ -694,14 +942,247 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
   };
 
-  const dailyActivityByUser = new Map<string, UserActivityDay[]>();
+  // One entry per (user, day) across both sources, so a day spent in the app
+  // without answering a card is still a square on the heatmap.
+  const dailyActivityByUser = new Map<string, Map<string, UserActivityDay>>();
+  const dayEntry = (userId: string, date: string): UserActivityDay => {
+    const days = dailyActivityByUser.get(userId) ?? new Map<string, UserActivityDay>();
+    dailyActivityByUser.set(userId, days);
+    const entry = days.get(date) ?? { date, count: 0, activeSeconds: 0 };
+    days.set(date, entry);
+    return entry;
+  };
   for (const raw of userDailyRows) {
     const row = raw as Record<string, unknown>;
     const userId = String(row.user_id ?? '');
-    const list = dailyActivityByUser.get(userId) ?? [];
-    list.push({ date: String(row.day ?? ''), count: numberFromRow(row, 'reviews') });
-    dailyActivityByUser.set(userId, list);
+    if (!userId) continue;
+    dayEntry(userId, String(row.day ?? '')).count += numberFromRow(row, 'reviews');
   }
+  for (const row of userPresenceDayRows) {
+    const userId = String(row.user_id ?? '');
+    if (!userId) continue;
+    dayEntry(userId, String(row.day ?? '')).activeSeconds += numberFromRow(row, 'active_seconds');
+  }
+
+  const activeDaysByUser = new Map<string, number>();
+  for (const row of userActiveDayRows) {
+    activeDaysByUser.set(String(row.user_id ?? ''), numberFromRow(row, 'active_days'));
+  }
+
+  // Studied languages, folded three ways from one result set: per learner (for
+  // the table), per target language, and per direction.
+  const selectedByPair = new Map<string, number>();
+  const selectedByTarget = new Map<string, number>();
+  for (const raw of selectedLanguageRows) {
+    const row = raw as Record<string, unknown>;
+    const from = String(row.language_from ?? '');
+    const to = String(row.language_to ?? '');
+    if (!from || !to) continue;
+    const users = numberFromRow(row, 'users');
+    selectedByPair.set(`${from}>${to}`, (selectedByPair.get(`${from}>${to}`) ?? 0) + users);
+    selectedByTarget.set(to, (selectedByTarget.get(to) ?? 0) + users);
+  }
+
+  interface LanguageAccumulator {
+    learners: Set<string>;
+    learners30d: Set<string>;
+    reviews: number;
+  }
+  const emptyAccumulator = (): LanguageAccumulator => ({
+    learners: new Set(),
+    learners30d: new Set(),
+    reviews: 0,
+  });
+  const targetAccumulators = new Map<string, LanguageAccumulator>();
+  const pairAccumulators = new Map<string, LanguageAccumulator & { from: string; to: string }>();
+  const languagesByUser = new Map<string, Map<string, number>>();
+  const allLearners = new Set<string>();
+  const allLearners30d = new Set<string>();
+  const targetsByUser = new Map<string, Set<string>>();
+  const targetsByUser30d = new Map<string, Set<string>>();
+
+  for (const raw of studiedLanguageRows) {
+    const row = raw as Record<string, unknown>;
+    const userId = String(row.user_id ?? '');
+    const from = String(row.language_from ?? '');
+    const to = String(row.language_to ?? '');
+    if (!userId || !from || !to) continue;
+    const reviews = numberFromRow(row, 'reviews');
+    const reviews30d = numberFromRow(row, 'reviews_30d');
+
+    const target = targetAccumulators.get(to) ?? emptyAccumulator();
+    target.learners.add(userId);
+    target.reviews += reviews;
+    if (reviews30d > 0) target.learners30d.add(userId);
+    targetAccumulators.set(to, target);
+
+    const pairKey = `${from}>${to}`;
+    const pair = pairAccumulators.get(pairKey) ?? { ...emptyAccumulator(), from, to };
+    pair.learners.add(userId);
+    pair.reviews += reviews;
+    if (reviews30d > 0) pair.learners30d.add(userId);
+    pairAccumulators.set(pairKey, pair);
+
+    const perUser = languagesByUser.get(userId) ?? new Map<string, number>();
+    perUser.set(to, (perUser.get(to) ?? 0) + reviews);
+    languagesByUser.set(userId, perUser);
+
+    allLearners.add(userId);
+    const userTargets = targetsByUser.get(userId) ?? new Set<string>();
+    userTargets.add(to);
+    targetsByUser.set(userId, userTargets);
+    if (reviews30d > 0) {
+      allLearners30d.add(userId);
+      const userTargets30d = targetsByUser30d.get(userId) ?? new Set<string>();
+      userTargets30d.add(to);
+      targetsByUser30d.set(userId, userTargets30d);
+    }
+  }
+
+  const emptyGoalProgress = (): UserGoalProgress => ({
+    eligibleDays: 0,
+    metDays: 0,
+    expectedDays: 0,
+    lastMetDay: null,
+  });
+  const goalByUser = new Map<string, { goal: UserGoalSetting; progress: UserGoalProgress }>();
+  const countBy = new Map<string, Map<string, number>>();
+  const bump = (dimension: string, key: string) => {
+    const counts = countBy.get(dimension) ?? new Map<string, number>();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    countBy.set(dimension, counts);
+  };
+  const adherenceCounts = new Map<GoalAdherenceBucket, number>();
+  const goalTotals = {
+    enabled: 0,
+    disabled: 0,
+    minutesMode: 0,
+    wordsMode: 0,
+    metDays30d: 0,
+    expectedDays30d: 0,
+    eligibleDays30d: 0,
+    trackedLearners30d: 0,
+    untrackedLearners30d: 0,
+  };
+
+  for (const row of goalRows) {
+    const userId = String(row.user_id ?? '');
+    if (!userId) continue;
+    const mode = row.goal_mode === 'words' ? 'words' : 'minutes';
+    const enabled = row.enabled === true || row.enabled === 'true';
+    const goal: UserGoalSetting = {
+      enabled,
+      mode,
+      preset: String(row.goal_preset ?? 'custom'),
+      daysPerWeek: numberFromRow(row, 'goal_days_per_week'),
+      minutesPerDay: row.goal_minutes_per_day == null ? null : numberFromRow(row, 'goal_minutes_per_day'),
+      newWordsPerDay: row.goal_new_words_per_day == null ? null : numberFromRow(row, 'goal_new_words_per_day'),
+      effectiveFromDay: String(row.effective_from_day ?? ''),
+    };
+    const progress: UserGoalProgress = {
+      eligibleDays: numberFromRow(row, 'eligible_days'),
+      metDays: numberFromRow(row, 'met_days'),
+      expectedDays: numberFromRow(row, 'expected_days'),
+      lastMetDay: row.last_met_day == null ? null : String(row.last_met_day),
+    };
+    goalByUser.set(userId, { goal, progress });
+
+    // A goal that was switched off is history, not a promise: it is reported
+    // as such and left out of the mode, shape and adherence breakdowns.
+    if (!enabled) {
+      goalTotals.disabled += 1;
+      continue;
+    }
+    goalTotals.enabled += 1;
+    if (mode === 'words') goalTotals.wordsMode += 1;
+    else goalTotals.minutesMode += 1;
+    goalTotals.metDays30d += progress.metDays;
+    goalTotals.expectedDays30d += progress.expectedDays;
+    goalTotals.eligibleDays30d += progress.eligibleDays;
+
+    bump('daysPerWeek', String(goal.daysPerWeek));
+    bump('preset', goal.preset);
+    bump(
+      'dailyTarget',
+      mode === 'words' ? `words:${goal.newWordsPerDay ?? 0}` : `minutes:${goal.minutesPerDay ?? 0}`
+    );
+
+    if (progress.expectedDays <= 0) {
+      goalTotals.untrackedLearners30d += 1;
+      continue;
+    }
+    goalTotals.trackedLearners30d += 1;
+    const share = progress.metDays / progress.expectedDays;
+    const bucket: GoalAdherenceBucket =
+      share <= 0 ? 'none' : share < 0.5 ? 'low' : share < 0.8 ? 'mid' : share < 1 ? 'high' : 'full';
+    adherenceCounts.set(bucket, (adherenceCounts.get(bucket) ?? 0) + 1);
+  }
+
+  const ADHERENCE_BUCKETS: GoalAdherenceBucket[] = ['full', 'high', 'mid', 'low', 'none'];
+  const goalAdherence = ADHERENCE_BUCKETS.map((bucket) => ({
+    bucket,
+    learners: adherenceCounts.get(bucket) ?? 0,
+  }));
+  const distribution = (dimension: string, compare?: (a: string, b: string) => number): GoalDistributionBucket[] =>
+    Array.from(countBy.get(dimension) ?? [])
+      .map(([key, users]) => ({ key, users }))
+      .sort((a, b) =>
+        compare ? compare(a.key, b.key) : b.users - a.users || a.key.localeCompare(b.key)
+      );
+  const byNumericKey = (a: string, b: string) => Number(a) - Number(b);
+  const byTargetKey = (a: string, b: string) => {
+    const [modeA, valueA] = a.split(':');
+    const [modeB, valueB] = b.split(':');
+    return modeA.localeCompare(modeB) || Number(valueA) - Number(valueB);
+  };
+
+  const countMultiLanguage = (targets: Map<string, Set<string>>) =>
+    Array.from(targets.values()).filter((set) => set.size >= 2).length;
+
+  const languageTargets: LanguageTargetRow[] = Array.from(targetAccumulators.entries())
+    .map(([language, accumulator]) => ({
+      language,
+      learners: accumulator.learners.size,
+      learners30d: accumulator.learners30d.size,
+      reviews: accumulator.reviews,
+      selectedBy: selectedByTarget.get(language) ?? 0,
+    }))
+    .concat(
+      // Languages nobody has studied yet but somebody has set up. Without these
+      // the panel cannot show the gap between choosing a language and starting.
+      Array.from(selectedByTarget.entries())
+        .filter(([language]) => !targetAccumulators.has(language))
+        .map(([language, selectedBy]) => ({
+          language,
+          learners: 0,
+          learners30d: 0,
+          reviews: 0,
+          selectedBy,
+        }))
+    )
+    .sort(
+      (a, b) =>
+        b.learners - a.learners ||
+        b.selectedBy - a.selectedBy ||
+        b.reviews - a.reviews ||
+        a.language.localeCompare(b.language)
+    );
+
+  const languagePairs: LanguagePairRow[] = Array.from(pairAccumulators.values())
+    .map((accumulator) => ({
+      languageFrom: accumulator.from,
+      languageTo: accumulator.to,
+      learners: accumulator.learners.size,
+      learners30d: accumulator.learners30d.size,
+      reviews: accumulator.reviews,
+      selectedBy: selectedByPair.get(`${accumulator.from}>${accumulator.to}`) ?? 0,
+    }))
+    .sort(
+      (a, b) =>
+        b.learners - a.learners ||
+        b.reviews - a.reviews ||
+        a.languageTo.localeCompare(b.languageTo)
+    );
 
   const users: AdminUserRow[] = userRows.map((raw) => {
     const row = raw as Record<string, unknown>;
@@ -717,14 +1198,23 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       deviceCount: numberFromRow(row, 'device_count'),
       gameScore: numberFromRow(row, 'game_score'),
       reviewCount: numberFromRow(row, 'review_count'),
-      activeDays: numberFromRow(row, 'active_days'),
+      activeDays: activeDaysByUser.get(id) ?? numberFromRow(row, 'active_days'),
       studySessions: numberFromRow(row, 'study_sessions'),
       estActiveStudySeconds: numberFromRow(row, 'est_active_study_seconds'),
       activeSeconds30d: userActivityTotals?.get(id)?.activeSeconds ?? 0,
       sessions30d: userActivityTotals?.get(id)?.sessions ?? 0,
       medianSessionSeconds: userActivityTotals?.get(id)?.medianSessionSeconds ?? 0,
       photoAnalyses: numberFromRow(row, 'photo_analyses'),
-      dailyActivity: dailyActivityByUser.get(id) ?? [],
+      selectedLanguageFrom: row.selected_language_from == null ? null : String(row.selected_language_from),
+      selectedLanguageTo: row.selected_language_to == null ? null : String(row.selected_language_to),
+      goal: goalByUser.get(id)?.goal ?? null,
+      goalProgress30d: goalByUser.get(id)?.progress ?? emptyGoalProgress(),
+      studiedLanguages: Array.from(languagesByUser.get(id) ?? [])
+        .map(([language, reviews]) => ({ language, reviews }))
+        .sort((a, b) => b.reviews - a.reviews || a.language.localeCompare(b.language)),
+      dailyActivity: Array.from(dailyActivityByUser.get(id)?.values() ?? []).sort((a, b) =>
+        a.date.localeCompare(b.date)
+      ),
     };
   });
 
@@ -802,6 +1292,7 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       total: numberFromRow(registration, 'registered_total'),
       email: numberFromRow(registration, 'registered_email'),
       google: numberFromRow(registration, 'registered_google'),
+      apple: numberFromRow(registration, 'registered_apple'),
       other: numberFromRow(registration, 'registered_other'),
       anonymous: numberFromRow(registration, 'anonymous_total'),
       weekly: zeroFillWeeks<UsageWeekBucket>(starts, registrationWeekMap, { count: 0 }),
@@ -841,6 +1332,21 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       usersWithActivity: activityTotals?.usersWithActivity ?? 0,
       medianSessionSeconds: activityTotals?.medianSessionSeconds ?? 0,
       bySurface: activityTotals?.bySurface ?? [],
+    },
+    languages: {
+      learners: allLearners.size,
+      learners30d: allLearners30d.size,
+      multiLanguageLearners: countMultiLanguage(targetsByUser),
+      multiLanguageLearners30d: countMultiLanguage(targetsByUser30d),
+      targets: languageTargets,
+      pairs: languagePairs,
+    },
+    goals: {
+      ...goalTotals,
+      adherence: goalAdherence,
+      daysPerWeek: distribution('daysPerWeek', byNumericKey),
+      dailyTarget: distribution('dailyTarget', byTargetKey),
+      presets: distribution('preset'),
     },
     content: {
       totalLists: numberFromRow(content, 'total_lists'),

@@ -51,14 +51,14 @@ beforeEach(() => {
 });
 
 describe('TypingChallengeGame', () => {
-  it('calls onResult(2) when exact match is submitted', () => {
+  it('calls onResult(1) when exact match is submitted', () => {
     const onResult = vi.fn();
     render(
       <TypingChallengeGame words={WORDS} role="knownLanguage" onResult={onResult} />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
     fireEvent.click(screen.getByText('Check'));
-    expect(onResult).toHaveBeenCalledWith(2);
+    expect(onResult).toHaveBeenCalledWith(1);
   });
 
   it('plays the learning-language audio when an exact answer is checked with sound enabled', async () => {

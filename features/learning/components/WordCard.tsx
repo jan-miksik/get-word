@@ -17,6 +17,7 @@ import {
   AddressFormCounterpart,
 } from './word-card/AddressFormChip';
 import { StageBadge } from './StageBadge';
+import { ContinueButton } from './ContinueButton';
 import { CardTopControls } from './CardTopControls';
 import { useCardAudio } from './card-audio/useCardAudio';
 import {
@@ -41,6 +42,16 @@ interface WordCardProps {
   onReallyKnown?: () => void;
   onCustomStage?: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   onUnknown: () => void;
+  /**
+   * Turns the verdict row into a single "continue".
+   *
+   * A practice card asks the learner to look, not to judge: nothing it reports
+   * would move an interval, so offering "I know it" / "forgotten" would be
+   * asking for a decision the card is going to throw away. Set only where the
+   * answer is genuinely not recorded; everywhere else the two buttons are the
+   * whole point of the card.
+   */
+  onContinue?: () => void;
   onMemoryHookChange: (hook: string) => void;
   isMoved?: boolean;
   isEditMode?: boolean;
@@ -68,6 +79,7 @@ export const WordCard = memo(function WordCard({
   onReallyKnown,
   onCustomStage,
   onUnknown,
+  onContinue,
   onMemoryHookChange,
   isMoved,
   isEditMode = false,
@@ -221,7 +233,7 @@ export const WordCard = memo(function WordCard({
   // At 60 days the next "OK" would only book another 60 days, so the retire
   // option is surfaced on the card itself rather than buried in the popover.
   const showFullyKnownOffer =
-    hasCustomStageActions && isTopStage(stageIndex) && Boolean(progress.nextDueAt);
+    !onContinue && hasCustomStageActions && isTopStage(stageIndex) && Boolean(progress.nextDueAt);
   const retireWord = () => {
     if (onCustomStage) onCustomStage(TOP_STAGE_INDEX, { noRepeat: true });
     else onReallyKnown?.();
@@ -427,6 +439,11 @@ export const WordCard = memo(function WordCard({
               className={useMobileCustomActionOnly ? 'max-md:hidden' : ''}
             />
           )}
+          {onContinue ? (
+            <div className="mx-auto w-full max-w-[22rem]">
+              <ContinueButton variant="slab" onClick={onContinue} />
+            </div>
+          ) : (
           <div
             className={[
               'card-actions-row',
@@ -480,6 +497,7 @@ export const WordCard = memo(function WordCard({
               />
             )}
           </div>
+          )}
         </div>
       </div>
     </article>

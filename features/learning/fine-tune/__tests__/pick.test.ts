@@ -10,9 +10,8 @@ const word = (id: string, cz: string, vi: string): NormalizedWord => ({
 });
 
 /**
- * A pool with no near-twins at all, so band II/III always has to degrade.
- * The words must not share a prefix either — a common stem alone is enough to
- * reach band II.
+ * A pool with no near-twins at all. The words must not share a prefix either —
+ * a common stem alone is enough to reach band II.
  */
 const STEMS = [
   'pes', 'stul', 'kolo', 'mesto', 'ryba', 'chleb', 'zahrada', 'oblak',
@@ -185,13 +184,15 @@ describe('pickExerciseForWord — determinism and fallbacks', () => {
   });
 });
 
-describe('pickExerciseForWord — similarity degradation', () => {
-  it('keeps the option count and lowers the band when no twins exist', () => {
+describe('pickExerciseForWord — minimum similarity', () => {
+  it('invents near-twins instead of lowering a 7-day word below III', () => {
     const pool = distinctPool(12);
-    const config = configWithStage(5, stage({ choice: { weight: 1, variants: ['6:III:foreign'] } }));
+    const config = configWithStage(4, stage({
+      choice: { weight: 1, variants: ['6:III:foreign'] },
+    }));
     const exercise = pickExerciseForWord({
       word: pool[0],
-      stageIndex: 5,
+      stageIndex: 4,
       knownCount: 3,
       unknownCount: 0,
       config,
@@ -201,9 +202,9 @@ describe('pickExerciseForWord — similarity degradation', () => {
 
     expect(exercise.method).toBe('choice');
     if (exercise.method !== 'choice') return;
-    expect(exercise.distractors).toHaveLength(5);
     expect(exercise.requestedBand).toBe('III');
-    expect(exercise.effectiveBand).toBe('I');
+    expect(exercise.effectiveBand).toBe('III');
+    expect(exercise.distractors.some((entry) => entry.id.startsWith('invented:'))).toBe(true);
   });
 
   it('keeps the requested band when twins are available', () => {
@@ -231,16 +232,16 @@ describe('pickExerciseForWord — similarity degradation', () => {
     expect(exercise.distractors).toHaveLength(2);
   });
 
-  it('measures similarity on the side the options are written in', () => {
+  it('rejects a variant when the displayed side cannot meet its requested band', () => {
     // Near-twins on the known side only. Asking for foreign options therefore
     // has nothing hard to offer, even though the same pool is band III the
     // other way round.
     const pool = [
-      word('a', 'fér', 'aaa-jedna'),
-      word('b', 'fén', 'bbb-dve'),
-      word('c', 'fůr', 'ccc-tri'),
-      word('d', 'zcela-jine', 'ddd-ctyri'),
-      word('e', 'naprosto-odlisne', 'eee-pet'),
+      word('a', 'fér', 'aaa jedna'),
+      word('b', 'fén', 'bbb dve'),
+      word('c', 'fůr', 'ccc tri'),
+      word('d', 'zcela-jine', 'ddd ctyri'),
+      word('e', 'naprosto-odlisne', 'eee pet'),
     ];
     const resolve = (variants: ChoiceVariant[]) => {
       const exercise = pickExerciseForWord({
@@ -252,14 +253,15 @@ describe('pickExerciseForWord — similarity degradation', () => {
         distractorPool: pool,
         role: 'knownLanguage',
       });
-      if (exercise.method !== 'choice') throw new Error('expected a choice exercise');
       return exercise;
     };
 
-    expect(resolve(['3:III:known']).effectiveBand).toBe('III');
+    const known = resolve(['3:III:known']);
+    expect(known.method).toBe('choice');
+    if (known.method !== 'choice') return;
+    expect(known.effectiveBand).toBe('III');
     const foreign = resolve(['3:III:foreign']);
-    expect(foreign.effectiveBand).toBe('I');
-    expect(foreign.optionsSide).toBe('foreign');
+    expect(foreign).toEqual({ method: 'reveal', variant: 'foreign' });
   });
 });
 
@@ -354,8 +356,34 @@ describe('pickExerciseForWord — assembly', () => {
       };
     };
 
-    expect(confusableCount('letters:II')).toEqual({ similar: 3, total: 3, band: 'II' });
+    // II stays a lighter board than III: fewer tiles, all of them confusable.
+    expect(confusableCount('letters:II')).toEqual({ similar: 2, total: 2, band: 'II' });
     expect(confusableCount('letters:III')).toEqual({ similar: 5, total: 5, band: 'III' });
+  });
+
+  it('uses another method rather than lowering an assembly variant below its band', () => {
+    const pool = [
+      word('a', 'known phrase', 'alpha beta'),
+      word('b', 'other one', 'gamma delta'),
+      word('c', 'another one', 'epsilon zeta'),
+      word('d', 'last one', 'theta iota'),
+    ];
+    const config = configWithStage(3, stage({
+      assembly: { weight: 1, variants: ['words:III'] },
+      typing: { weight: 1, variants: ['50:90'] },
+    }));
+
+    const exercise = pickExerciseForWord({
+      word: pool[0],
+      stageIndex: 3,
+      knownCount: 2,
+      unknownCount: 0,
+      config,
+      distractorPool: pool,
+      role: 'knownLanguage',
+    });
+
+    expect(exercise).toEqual({ method: 'typing', variant: '50:90' });
   });
 });
 
@@ -385,6 +413,19 @@ describe('pickMatchRound', () => {
     expect(round).not.toBeNull();
     expect([2, 3, 4, 5, 6]).toContain(round!.words.length);
     expect(round!.words[0].id).toBe(pool[0].id);
+  });
+
+  it('skips a 7-day round when the pool cannot meet level III', () => {
+    const pool = distinctPool(12);
+    expect(
+      pickMatchRound({
+        anchor: pool[0],
+        stageIndex: 4,
+        config: DEFAULT_FINE_TUNE_CONFIG,
+        pool,
+        seed: 7,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -427,12 +468,12 @@ describe('pickExerciseForWord — invented lookalikes', () => {
     expect(exercise.distractors).toHaveLength(4);
   });
 
-  it('caps invented options at two and never lets them take the whole round', () => {
+  it('caps invented options at two even when a small round needs both of them', () => {
     for (const variant of ['3:III:foreign', '5:III:foreign', '8:III:foreign'] as ChoiceVariant[]) {
       const exercise = chooseWith(variant, vietnamesePool());
       const invented = inventedIn(exercise);
       expect(invented.length).toBeLessThanOrEqual(2);
-      expect(invented.length).toBeLessThan(exercise.distractors.length);
+      expect(exercise.effectiveBand).toBe('III');
     }
   });
 
@@ -442,15 +483,15 @@ describe('pickExerciseForWord — invented lookalikes', () => {
       // 'foreign' options for this role read the to-side, so the lookalike is
       // built from 'người' rather than from the Czech prompt.
       expect(entry.vi).not.toBe('người');
-      expect(entry.vi.normalize('NFD').replace(/[̀-ͯ]/g, ''))
-        .toBe('người'.normalize('NFD').replace(/[̀-ͯ]/g, ''));
+      expect(similarityBandForTerms(entry.vi, 'người')).toBe('III');
     }
   });
 
-  it('leaves the easier bands to real vocabulary', () => {
-    for (const variant of ['5:II:foreign', '5:I:foreign'] as ChoiceVariant[]) {
-      expect(inventedIn(chooseWith(variant, vietnamesePool()))).toHaveLength(0);
-    }
+  it('invents for II when needed, but leaves band I to real vocabulary', () => {
+    const bandTwo = chooseWith('5:II:foreign', vietnamesePool());
+    expect(bandTwo.effectiveBand).toBe('II');
+    expect(inventedIn(bandTwo).length).toBeGreaterThan(0);
+    expect(inventedIn(chooseWith('5:I:foreign', vietnamesePool()))).toHaveLength(0);
   });
 
   it('never invents a spelling that is a word in the list', () => {
@@ -474,7 +515,7 @@ describe('pickExerciseForWord — invented lookalikes', () => {
     }
   });
 
-  it('stays out of matching rounds, which need two real sides', () => {
+  it('skips matching rather than inventing entries that need two real sides', () => {
     const config = configWithStage(5, stage({ match: { variants: ['4:III'] } }));
     const round = pickMatchRound({
       anchor: vietnamesePool()[0],
@@ -483,6 +524,6 @@ describe('pickExerciseForWord — invented lookalikes', () => {
       pool: vietnamesePool(),
       seed: 7,
     });
-    expect(round?.words.every((entry) => !entry.id.startsWith('invented:'))).toBe(true);
+    expect(round).toBeNull();
   });
 });

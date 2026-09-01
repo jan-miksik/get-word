@@ -17,7 +17,7 @@ const PREVIOUS_WEEK = '2026-07-06';
 const OLDEST_WEEK = '2026-04-27'; // 11 weeks before current
 
 function mockAllQueries({
-  registrations = [{ registered_total: 10, registered_email: 6, registered_google: 3, registered_other: 1, anonymous_total: 40 }],
+  registrations = [{ registered_total: 10, registered_email: 6, registered_google: 3, registered_apple: 2, registered_other: 1, anonymous_total: 40 }],
   registrationsWeekly = [] as Record<string, unknown>[],
   activity = [{ dau: 3, wau: 8, mau: 20, yau: 30, mau_registered: 9, mau_anonymous: 11, yau_registered: 14, yau_anonymous: 16 }],
   deviceSummary = [{ active_devices_30d: 12, known_devices_30d: 9, ios_users_30d: 3, android_users_30d: 4, mobile_users_30d: 7, desktop_users_30d: 2, multi_device_users_30d: 2 }],
@@ -27,6 +27,9 @@ function mockAllQueries({
   studyWeekly = [] as Record<string, unknown>[],
   content = [{ total_lists: 12, public_lists: 5, total_subscriptions: 25 }],
   topLists = [] as Record<string, unknown>[],
+  studiedLanguages = [] as Record<string, unknown>[],
+  selectedLanguages = [] as Record<string, unknown>[],
+  goals = [] as Record<string, unknown>[],
   retention = [{ d1_eligible: 10, d1_returned: 6, d7_eligible: 9, d7_returned: 4, d30_eligible: 8, d30_returned: 2 }],
   activityHeatmap = [] as Record<string, unknown>[],
   photo = [{ total_analyses: 0, photo_users: 0, repeat_users: 0, first_event_at: null }] as Record<string, unknown>[],
@@ -36,6 +39,8 @@ function mockAllQueries({
   uiLanguageRequests = [] as Record<string, unknown>[],
   users = [] as Record<string, unknown>[],
   userDaily = [] as Record<string, unknown>[],
+  userPresenceDays = [] as Record<string, unknown>[],
+  userActiveDays = [] as Record<string, unknown>[],
   // Measured-activity rollups; the two queries run after the user list.
   activitySessions = [
     { active_seconds: 0, sessions: 0, users_with_activity: 0, median_session_seconds: 0 },
@@ -57,6 +62,9 @@ function mockAllQueries({
     .mockResolvedValueOnce(activityHeatmap)
     .mockResolvedValueOnce(content)
     .mockResolvedValueOnce(topLists)
+    .mockResolvedValueOnce(studiedLanguages)
+    .mockResolvedValueOnce(selectedLanguages)
+    .mockResolvedValueOnce(goals)
     .mockResolvedValueOnce(retention)
     .mockResolvedValueOnce(photo)
     .mockResolvedValueOnce(photoWeekly)
@@ -64,7 +72,9 @@ function mockAllQueries({
     .mockResolvedValueOnce(googleApi)
     .mockResolvedValueOnce(uiLanguageRequests)
     .mockResolvedValueOnce(users)
-    .mockResolvedValueOnce(userDaily);
+    .mockResolvedValueOnce(userDaily)
+    .mockResolvedValueOnce(userPresenceDays)
+    .mockResolvedValueOnce(userActiveDays);
 
   const activityError = () =>
     Promise.reject(new Error('relation "activity_segments" does not exist'));
@@ -106,14 +116,15 @@ describe('getUsageStats', () => {
 
     const stats = await getUsageStats();
 
-    // 19 pre-existing + 2 app-wide activity rollups. The per-user activity
+    // 24 panel queries + 2 app-wide activity rollups. The per-user activity
     // query short-circuits without hitting the database when no users match.
-    expect(mockExecute).toHaveBeenCalledTimes(21);
+    expect(mockExecute).toHaveBeenCalledTimes(26);
     expect(stats.generatedAt).toBe(NOW.toISOString());
     expect(stats.registrations).toMatchObject({
       total: 10,
       email: 6,
       google: 3,
+      apple: 2,
       other: 1,
       anonymous: 40,
     });
@@ -485,7 +496,221 @@ describe('getUsageStats', () => {
       estActiveStudySeconds: 120,
       photoAnalyses: 2,
     });
-    expect(row.dailyActivity).toEqual([{ date: '2026-07-02', count: 3 }]);
+    expect(row.dailyActivity).toEqual([
+      { date: '2026-07-02', count: 3, activeSeconds: 0 },
+    ]);
+  });
+
+  it('folds studied languages into targets, directions and per-user rows', async () => {
+    const alice = '11111111-1111-1111-1111-111111111111';
+    const bob = '22222222-2222-2222-2222-222222222222';
+    mockAllQueries({
+      studiedLanguages: [
+        // Alice learns English from two mother tongues: one learner of English,
+        // two directions. Summing the directions would count her twice.
+        { user_id: alice, language_from: 'cs', language_to: 'en', reviews: 10, reviews_30d: 4 },
+        { user_id: alice, language_from: 'vi', language_to: 'en', reviews: 5, reviews_30d: 0 },
+        { user_id: alice, language_from: 'cs', language_to: 'de', reviews: 2, reviews_30d: 0 },
+        { user_id: bob, language_from: 'cs', language_to: 'en', reviews: 7, reviews_30d: 7 },
+      ],
+      selectedLanguages: [
+        { language_from: 'cs', language_to: 'en', users: 9 },
+        // Nobody has studied Spanish yet; it must still be visible as demand.
+        { language_from: 'cs', language_to: 'es', users: 3 },
+      ],
+      users: [
+        {
+          id: alice,
+          email: 'a@example.com',
+          first_seen_at: '2026-07-01T00:00:00.000Z',
+          registered_at: null,
+          last_seen_at: null,
+          selected_language_from: 'cs',
+          selected_language_to: 'en',
+        },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.languages).toMatchObject({
+      learners: 2,
+      learners30d: 2,
+      multiLanguageLearners: 1,
+      multiLanguageLearners30d: 0,
+    });
+    // Studied languages rank above set-up-only ones however popular the latter.
+    expect(stats.languages.targets).toEqual([
+      { language: 'en', learners: 2, learners30d: 2, reviews: 22, selectedBy: 9 },
+      { language: 'de', learners: 1, learners30d: 0, reviews: 2, selectedBy: 0 },
+      { language: 'es', learners: 0, learners30d: 0, reviews: 0, selectedBy: 3 },
+    ]);
+    expect(stats.languages.pairs[0]).toEqual({
+      languageFrom: 'cs',
+      languageTo: 'en',
+      learners: 2,
+      learners30d: 2,
+      reviews: 17,
+      selectedBy: 9,
+    });
+    expect(stats.users[0].studiedLanguages).toEqual([
+      { language: 'en', reviews: 15 },
+      { language: 'de', reviews: 2 },
+    ]);
+    expect(stats.users[0]).toMatchObject({
+      selectedLanguageFrom: 'cs',
+      selectedLanguageTo: 'en',
+    });
+  });
+
+  it('measures goals against the prorated weekly promise, not the calendar', async () => {
+    const four = '11111111-1111-1111-1111-111111111111';
+    const seven = '22222222-2222-2222-2222-222222222222';
+    const off = '33333333-3333-3333-3333-333333333333';
+    mockAllQueries({
+      goals: [
+        {
+          user_id: four,
+          enabled: true,
+          goal_mode: 'minutes',
+          goal_preset: 'medium',
+          goal_days_per_week: 4,
+          goal_minutes_per_day: 10,
+          goal_new_words_per_day: null,
+          effective_from_day: '2026-07-01',
+          // 28 tracked days at 4/7 of a day each = 16 promised days.
+          eligible_days: 28,
+          met_days: 16,
+          expected_days: 16,
+          last_met_day: '2026-07-14',
+        },
+        {
+          user_id: seven,
+          enabled: true,
+          goal_mode: 'words',
+          goal_preset: 'custom',
+          goal_days_per_week: 7,
+          goal_minutes_per_day: null,
+          goal_new_words_per_day: 5,
+          effective_from_day: '2026-07-05',
+          eligible_days: 10,
+          met_days: 2,
+          expected_days: 10,
+          last_met_day: '2026-07-06',
+        },
+        {
+          // Set a goal, then switched it off: reported, but not a promise.
+          user_id: off,
+          enabled: false,
+          goal_mode: 'minutes',
+          goal_preset: 'light',
+          goal_days_per_week: 2,
+          goal_minutes_per_day: 5,
+          goal_new_words_per_day: null,
+          effective_from_day: '2026-06-01',
+          eligible_days: 0,
+          met_days: 0,
+          expected_days: 0,
+          last_met_day: null,
+        },
+      ],
+      users: [{ id: four, email: 'a@example.com', first_seen_at: '2026-07-01T00:00:00.000Z' }],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.goals).toMatchObject({
+      enabled: 2,
+      disabled: 1,
+      minutesMode: 1,
+      wordsMode: 1,
+      metDays30d: 18,
+      expectedDays30d: 26,
+      trackedLearners30d: 2,
+      untrackedLearners30d: 0,
+    });
+    // Studying every promised day is 100 %, even though it was 28 calendar days.
+    expect(stats.goals.adherence).toEqual([
+      { bucket: 'full', learners: 1 },
+      { bucket: 'high', learners: 0 },
+      { bucket: 'mid', learners: 0 },
+      { bucket: 'low', learners: 1 },
+      { bucket: 'none', learners: 0 },
+    ]);
+    expect(stats.goals.daysPerWeek).toEqual([
+      { key: '4', users: 1 },
+      { key: '7', users: 1 },
+    ]);
+    expect(stats.goals.dailyTarget).toEqual([
+      { key: 'minutes:10', users: 1 },
+      { key: 'words:5', users: 1 },
+    ]);
+    expect(stats.users[0].goal).toEqual({
+      enabled: true,
+      mode: 'minutes',
+      preset: 'medium',
+      daysPerWeek: 4,
+      minutesPerDay: 10,
+      newWordsPerDay: null,
+      effectiveFromDay: '2026-07-01',
+    });
+    expect(stats.users[0].goalProgress30d).toEqual({
+      eligibleDays: 28,
+      metDays: 16,
+      expectedDays: 16,
+      lastMetDay: '2026-07-14',
+    });
+  });
+
+  it('leaves a user without a goal null rather than inventing an empty one', async () => {
+    mockAllQueries({
+      users: [{ id: '11111111-1111-1111-1111-111111111111', email: 'a@example.com', first_seen_at: '2026-07-01T00:00:00.000Z' }],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.users[0].goal).toBeNull();
+    expect(stats.users[0].goalProgress30d).toEqual({
+      eligibleDays: 0,
+      metDays: 0,
+      expectedDays: 0,
+      lastMetDay: null,
+    });
+    expect(stats.goals.enabled).toBe(0);
+  });
+
+  it('counts a day in the app with no answered card as an active day', async () => {
+    const id = '11111111-1111-1111-1111-111111111111';
+    mockAllQueries({
+      users: [{ id, email: 'a@example.com', first_seen_at: '2026-07-01T00:00:00.000Z', active_days: 1 }],
+      userDaily: [{ user_id: id, day: '2026-07-02', reviews: 3 }],
+      userPresenceDays: [
+        { user_id: id, day: '2026-07-02', active_seconds: 300 },
+        { user_id: id, day: '2026-07-03', active_seconds: 90 },
+      ],
+      userActiveDays: [{ user_id: id, active_days: 2 }],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.users[0].activeDays).toBe(2);
+    expect(stats.users[0].dailyActivity).toEqual([
+      { date: '2026-07-02', count: 3, activeSeconds: 300 },
+      { date: '2026-07-03', count: 0, activeSeconds: 90 },
+    ]);
+  });
+
+  it('falls back to the review-only active-day count when segments are unavailable', async () => {
+    const id = '11111111-1111-1111-1111-111111111111';
+    mockAllQueries({
+      users: [{ id, email: 'a@example.com', first_seen_at: '2026-07-01T00:00:00.000Z', active_days: 4 }],
+      userPresenceDays: [],
+      userActiveDays: [],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.users[0].activeDays).toBe(4);
   });
 
   it('maps measured activity onto user rows and the app-wide panel', async () => {
@@ -654,6 +879,35 @@ describe('estimated study time', () => {
     // nobody spent.
     expect(sessionQuery?.text).toContain(
       'lead(answered_at) OVER ( PARTITION BY user_id, session_no ORDER BY answered_at )',
+    );
+  });
+});
+
+describe('goal adherence query', () => {
+  beforeEach(() => {
+    mockExecute.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('builds the denominator from calendar days rather than sparse day snapshots', async () => {
+    mockAllQueries();
+
+    await getUsageStats();
+
+    const goalQuery = mockExecute.mock.calls
+      .map((call) => describeQuery(call[0]))
+      .find((query) => query.text.includes('versioned_days'));
+
+    expect(goalQuery?.text).toContain('generate_series');
+    expect(goalQuery?.text).toContain('LEFT JOIN user_day_stats');
+    expect(goalQuery?.text).toContain("goal_status = 'nothing_due'");
+    expect(goalQuery?.text).not.toContain(
+      "count(*) FILTER (WHERE d.snapshot_created_at IS NOT NULL AND d.goal_status = 'active'",
     );
   });
 });

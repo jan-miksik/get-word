@@ -244,6 +244,11 @@ export function WordChatFlow({
             {t('wordChat.readyMadeAction')}
           </button>
         ) : null}
+        <button type="button" onClick={chat.startManualEntry}
+          disabled={chat.busy !== null}
+          className="onboarding-option w-full rounded-xl px-5 py-3 text-sm font-bold disabled:opacity-50">
+          {t('wordChat.manualStart')}
+        </button>
         <div className="flex justify-center">
           <button
             type="button"
@@ -331,9 +336,9 @@ export function WordChatFlow({
         />
       ) : null}
 
-      {chat.error ? (
-        <div className="flex flex-wrap items-center gap-2" role="alert">
-          <p className="onboarding-error text-sm">{chat.error}</p>
+      {chat.error || (chat.recoveryRequired && chat.step === 'chat') ? (
+        <div className="flex flex-wrap items-center gap-2" role={chat.error ? 'alert' : 'group'}>
+          {chat.error ? <p className="onboarding-error text-sm">{chat.error}</p> : null}
           {chat.canRetry ? (
             <button
               type="button"
@@ -342,6 +347,19 @@ export function WordChatFlow({
               className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
             >
               {t('wordChat.retry')}
+            </button>
+          ) : null}
+          {chat.canContinueToProposal ? (
+            <button type="button" onClick={() => void chat.continueToProposal()}
+              disabled={chat.busy !== null}
+              className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+              {t('wordChat.continueToProposal')}
+            </button>
+          ) : null}
+          {onUseReadyMade ? (
+            <button type="button" onClick={onUseReadyMade} disabled={chat.busy !== null}
+              className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+              {t('wordChat.readyMadeAction')}
             </button>
           ) : null}
         </div>

@@ -1329,6 +1329,48 @@ export const contentQualityDismissals = pgTable(
   ],
 ).enableRLS();
 
+// Append-only history of what an EDITOR did to a pool pair: verdicts,
+// suggestions, and audio recorded or replaced. The pool row itself keeps only
+// the last state, so without this there is no way to see that a pair was
+// marked ok, then re-recorded twice, and by whom.
+//
+// Scans and LLM audits are deliberately NOT logged here — they run over
+// thousands of pairs at a time and would bury the handful a human caused.
+//
+// The pool's privacy rule holds: the only user id is the editor, never an
+// author, and `detail` carries counts of affected items — never an item id, a
+// list id, or an owner id.
+export const contentQualityEvents = pgTable(
+  "content_quality_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Cascade like dismissals. Purge is existence-based, so a pair vanishing
+    // means nobody studies it anywhere any more.
+    poolKey: text("pool_key")
+      .notNull()
+      .references(() => contentQualityReviews.poolKey, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    /** 'known' | 'target' for audio actions, null for verdicts. */
+    side: text("side"),
+    detail: jsonb("detail").notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("content_quality_events_pool_key_idx").on(table.poolKey, table.createdAt),
+    check(
+      "content_quality_events_action_check",
+      sql`${table.action} in ('verdict', 'suggestion', 'audio_filled', 'audio_replaced')`,
+    ),
+    check(
+      "content_quality_events_side_check",
+      sql`${table.side} is null or ${table.side} in ('known', 'target')`,
+    ),
+  ],
+).enableRLS();
+
 // Durable record that a deleted user's Supabase auth identity still needs to be
 // removed. Created inside the account-deletion DB transaction (so it commits
 // atomically with the data erasure and survives a crash before the external

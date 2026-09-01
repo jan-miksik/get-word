@@ -14,7 +14,7 @@ import {
 } from '@/packages/domain/goals/goal';
 
 const DIAL_MIN = 1;
-const DIAL_MAX = 30;
+const DIAL_MAX = 20;
 const ARC_START_DEGREES = 120;
 const ARC_DEGREES = 300;
 const RING_RADIUS = 82;
@@ -415,7 +415,9 @@ export function StudyGoalPicker({
             {`${t('goal.estimateWords', {
               fresh: newWordsPerDay,
               review: estimate.desiredReviewTarget,
-            })} · ${t('goal.estimateMonthly', { count: monthly })}`}
+            })} · ${t('goal.estimateMinutes', { count: estimate.minutesPerDay })}`}
+            <br />
+            {t('goal.estimateMonthly', { count: monthly })}
           </p>
 
           <button

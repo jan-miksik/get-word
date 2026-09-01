@@ -42,7 +42,7 @@ describe('StudyGoalPicker circular dial', () => {
     expect(screen.getByRole('button', { name: 'Sun' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('maps the start and end of the pointer arc to 1 and 30', () => {
+  it('maps the start and end of the pointer arc to 1 and 20', () => {
     const rect = { left: 0, top: 0, width: 200, height: 200 };
     const point = (degrees: number) => {
       const radians = degrees * Math.PI / 180;
@@ -52,16 +52,16 @@ describe('StudyGoalPicker circular dial', () => {
     const end = point(60);
 
     expect(goalDialValueFromPoint(rect, ...start)).toBe(1);
-    expect(goalDialValueFromPoint(rect, ...end)).toBe(30);
+    expect(goalDialValueFromPoint(rect, ...end)).toBe(20);
   });
 
   it('supports keyboard control without a scroll position', () => {
     const { slider, valueInput } = renderPicker({ newWordsPerDay: 10 });
 
     fireEvent.keyDown(slider(), { key: 'End' });
-    expect(valueInput()).toHaveValue('30');
+    expect(valueInput()).toHaveValue('20');
     fireEvent.keyDown(slider(), { key: 'ArrowLeft' });
-    expect(valueInput()).toHaveValue('29');
+    expect(valueInput()).toHaveValue('19');
     fireEvent.keyDown(slider(), { key: 'Home' });
     expect(valueInput()).toHaveValue('1');
   });
@@ -141,12 +141,12 @@ describe('StudyGoalPicker circular dial', () => {
     }));
   });
 
-  it('estimates reviews and monthly words without a time target', () => {
+  it('estimates reviews, a rough daily time, and monthly words', () => {
     renderPicker({ newWordsPerDay: 5 });
 
     expect(screen.getByText(/5 new \+ ~12 reviews/)).toBeInTheDocument();
+    expect(screen.getByText(/~\d+ min a day/i)).toBeInTheDocument();
     expect(screen.getByText(/a month/i)).toBeInTheDocument();
-    expect(screen.queryByText(/min a day/i)).not.toBeInTheDocument();
   });
 
   it('clears the number on focus so the next keystroke replaces the goal', () => {

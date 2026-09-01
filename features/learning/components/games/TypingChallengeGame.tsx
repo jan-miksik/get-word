@@ -104,7 +104,8 @@ export function TypingChallengeGame({
     const r = matchAnswerAgainstCandidates(value, answerCandidates);
     setMatchedAnswer(r.matchedAnswer);
     setResult(r.verdict);
-    const delta = r.verdict === 'exact' ? 2 : r.verdict === 'close' ? 1 : 0;
+    // Exact and close both count as one right answer; only a miss scores nothing.
+    const delta = r.verdict === 'exact' || r.verdict === 'close' ? 1 : 0;
     if (delta > 0 && soundEnabled) {
       void playClip(learningAudioSrcs);
     }

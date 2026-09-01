@@ -22,16 +22,7 @@ import {
 import { wordChatErrorResponse } from "../errors";
 
 export const runtime = "nodejs";
-
-function streamErrorEvent(err: unknown) {
-  console.error("[word-chat] stream failed", err);
-  return {
-    type: "error",
-    error: "The word chat could not answer just now. Please try again.",
-    code: "WORD_CHAT_TEMPORARY",
-    retryable: true,
-  };
-}
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
@@ -74,6 +65,7 @@ export async function POST(request: NextRequest) {
 
     const brief = await loadLearnerBrief({ userId: user.id, languageFrom, languageTo });
     if (body.stream === true) {
+      const streamAbort = new AbortController();
       const stream = await streamChatTurn({
         userId: user.id,
         sessionId,
@@ -87,12 +79,13 @@ export async function POST(request: NextRequest) {
         messages,
         model: canDebug ? resolveSelectedModel(body.model, WORD_CHAT_CHAT_MODEL) : undefined,
         includeRequest: canDebug,
-        signal: request.signal,
+        signal: AbortSignal.any([request.signal, streamAbort.signal]),
       });
       const encoder = new TextEncoder();
       let done = false;
       return new Response(
         new ReadableStream<Uint8Array>({
+          cancel() { done = true; streamAbort.abort(); },
           async start(controller) {
             const send = (event: unknown) => {
               if (done) return;
@@ -112,16 +105,17 @@ export async function POST(request: NextRequest) {
                   content_mode: event.contentMode,
                   language_change: event.languageChange,
                   metadata_valid: event.metadataValid,
+                  ...(event.recoveryRequired ? { recovery_required: true } : {}),
                   diagnostics: canDebug ? serializeDiagnostics(event.diagnostics) : null,
                 });
-                done = true;
                 break;
               }
             } catch (err) {
-              send(streamErrorEvent(err));
+              const response = wordChatErrorResponse(err, { includeDetail: canDebug });
+              send({ type: "error", status: response.status, ...await response.json() });
             } finally {
+              if (!done) controller.close();
               done = true;
-              controller.close();
             }
           },
         }),
@@ -148,10 +142,12 @@ export async function POST(request: NextRequest) {
       messages,
       model: canDebug ? resolveSelectedModel(body.model, WORD_CHAT_CHAT_MODEL) : undefined,
       includeRequest: canDebug,
+      signal: request.signal,
     });
 
     return NextResponse.json({
       reply: result.reply,
+      ...(result.recoveryRequired ? { recovery_required: true } : {}),
       suggestions: result.suggestions,
       ready_to_propose: result.readyToPropose,
       content_mode: result.contentMode,

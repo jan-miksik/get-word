@@ -49,6 +49,14 @@ export class OpenRouterChatError extends Error {
   }
 }
 
+/** A successful provider response whose generated content cannot be consumed. */
+export class OpenRouterContentError extends OpenRouterChatError {
+  constructor(readonly reason: 'empty_content' | 'invalid_json' | 'truncated', message: string) {
+    super(message, true);
+    this.name = 'OpenRouterContentError';
+  }
+}
+
 export type OpenRouterContentPart =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } };
@@ -107,6 +115,10 @@ async function callOnce(options: OpenRouterChatOptions): Promise<{ content: stri
     options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );
 
+  const cleanup = () => {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", abortFromParent);
+  };
   let res: Response;
   try {
     options.onAttemptStart?.();
@@ -129,6 +141,7 @@ async function callOnce(options: OpenRouterChatOptions): Promise<{ content: stri
       }),
     });
   } catch (err) {
+    cleanup();
     if (err instanceof Error && err.name === "AbortError") {
       throw new OpenRouterChatError("OpenRouter request timed out.", true, undefined, "transport");
     }
@@ -138,49 +151,53 @@ async function callOnce(options: OpenRouterChatOptions): Promise<{ content: stri
       undefined,
       "transport",
     );
+  }
+
+  try {
+    if (!res.ok) {
+      const detail = await res
+        .text()
+        .catch(() => `${res.status} ${res.statusText}`);
+      throw new OpenRouterChatError(
+        `OpenRouter API error: ${res.status} ${detail.slice(0, 200)}`,
+        isRetryableStatus(res.status),
+        res.status,
+      );
+    }
+
+    const data = await res.json().catch((err: unknown) => {
+      if (controller.signal.aborted) {
+        throw new OpenRouterChatError("OpenRouter response body timed out.", true, undefined, "transport");
+      }
+      if (err instanceof SyntaxError) return null;
+      throw new OpenRouterChatError("OpenRouter response body could not be read.", true, undefined, "transport");
+    });
+    const choice = data?.choices?.[0];
+    const meta: OpenRouterChatMeta = {
+      id: typeof data?.id === "string" ? data.id : undefined,
+      usage: data?.usage && typeof data.usage === "object"
+        ? data.usage as Record<string, unknown>
+        : undefined,
+    };
+    options.onResponse?.(meta);
+
+    // A truncated response cannot be reliably repaired: the JSON is cut mid-item.
+    // Surface it as retryable so a fresh attempt (or smaller batch) can recover.
+    if (choice?.finish_reason === "length") {
+      throw new OpenRouterContentError("truncated", "OpenRouter response was truncated (hit token limit).");
+    }
+
+    const content = choice?.message?.content;
+    if (typeof content !== "string" || content.trim() === "") {
+      throw new OpenRouterContentError("empty_content", "OpenRouter returned no content.");
+    }
+    return {
+      content,
+      meta,
+    };
   } finally {
-    clearTimeout(timeout);
-    options.signal?.removeEventListener("abort", abortFromParent);
+    cleanup();
   }
-
-  if (!res.ok) {
-    const detail = await res
-      .text()
-      .catch(() => `${res.status} ${res.statusText}`);
-    throw new OpenRouterChatError(
-      `OpenRouter API error: ${res.status} ${detail.slice(0, 200)}`,
-      isRetryableStatus(res.status),
-      res.status,
-    );
-  }
-
-  const data = await res.json().catch(() => null);
-  const choice = data?.choices?.[0];
-  const meta: OpenRouterChatMeta = {
-    id: typeof data?.id === "string" ? data.id : undefined,
-    usage: data?.usage && typeof data.usage === "object"
-      ? data.usage as Record<string, unknown>
-      : undefined,
-  };
-  options.onResponse?.(meta);
-
-  // A truncated response cannot be reliably repaired: the JSON is cut mid-item.
-  // Surface it as retryable so a fresh attempt (or smaller batch) can recover.
-  if (choice?.finish_reason === "length") {
-    throw new OpenRouterChatError(
-      "OpenRouter response was truncated (hit token limit).",
-      true,
-    );
-  }
-
-  const content = choice?.message?.content;
-  if (typeof content !== "string" || content.trim() === "") {
-    throw new OpenRouterChatError("OpenRouter returned no content.", true);
-  }
-  return {
-    content,
-    meta,
-  };
 }
 
 export type OpenRouterStreamEvent =
@@ -195,7 +212,7 @@ function parseStreamEvent(raw: string): OpenRouterStreamEvent[] {
   try {
     data = JSON.parse(trimmed);
   } catch {
-    throw new OpenRouterChatError("OpenRouter stream returned malformed JSON.", true);
+    throw new OpenRouterContentError("invalid_json", "OpenRouter stream returned malformed JSON.");
   }
 
   const payload = data as {
@@ -221,10 +238,7 @@ function parseStreamEvent(raw: string): OpenRouterStreamEvent[] {
   const events: OpenRouterStreamEvent[] = [];
   for (const choice of payload.choices ?? []) {
     if (choice.finish_reason === "length") {
-      throw new OpenRouterChatError(
-        "OpenRouter stream was truncated (hit token limit).",
-        true,
-      );
+      throw new OpenRouterContentError("truncated", "OpenRouter stream was truncated (hit token limit).");
     }
     const content = choice.delta?.content ?? choice.message?.content;
     if (typeof content === "string" && content) {
@@ -383,6 +397,11 @@ export async function streamOpenRouterCompletion(
         }
         if (sawDone) options.onResponse?.(lastMeta);
         yield { type: "done", meta: lastMeta };
+      } catch (err) {
+        if (err instanceof OpenRouterChatError) throw err;
+        // Headers can arrive successfully before a socket fails or the body
+        // times out. Give callers the same retry classification as fetch errors.
+        throw new OpenRouterChatError("OpenRouter stream could not be read.", true, undefined, "transport");
       } finally {
         cleanup();
         if (!sawDone) controller.abort();
@@ -420,7 +439,7 @@ export async function callOpenRouterChatParsedWithMeta<T>(
       const { content, meta } = await callOnce(options);
       return { value: parse(content), meta };
     } catch (err) {
-      if (!(err instanceof OpenRouterChatError) || !err.retryable) throw err;
+      if (!(err instanceof OpenRouterChatError) || !err.retryable || options.signal?.aborted) throw err;
       lastError = err;
       if (attempt < maxAttempts - 1) {
         await new Promise((resolve) =>

@@ -63,6 +63,7 @@ import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list
 import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
 import { resolveStreakData } from '@/features/learning/goals/streakWeek';
+import { ProgressOverviewPanel } from '@/features/learning/components/progress/ProgressOverviewPanel';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
 import { hasIntroducedWord, type StudyGoalVersion, type StudyPacing } from '@/packages/domain/goals/goal';
 import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
@@ -648,7 +649,42 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // on. The block behind this is the one way to: existing exercises over words
   // they already have, with nothing written back. It is built from the study
   // scope, so category filters apply to it exactly as they do to the deck.
-  const quickPractice = useQuickPractice({ words: filteredWords });
+  // A practice card is the study card with its schedule wiring cut, so it still
+  // reads the display settings the learner chose for the deck. Nothing that
+  // writes is in here — that is the whole distinction the block rests on.
+  const practiceCardSettings = useMemo(() => ({
+    progress,
+    showEnglish,
+    showCategoryBadges,
+    showPronunciation,
+    categoryOrder,
+    studyNotesEnabled,
+    studyNoteMinimizeFromStage,
+    typingPrefillPunctuation,
+    typingPlayAudioAfterCheck,
+    typingCheckButtonEnabled,
+  }), [
+    categoryOrder,
+    progress,
+    showCategoryBadges,
+    showEnglish,
+    showPronunciation,
+    studyNoteMinimizeFromStage,
+    studyNotesEnabled,
+    typingCheckButtonEnabled,
+    typingPlayAudioAfterCheck,
+    typingPrefillPunctuation,
+  ]);
+  // A practice block writes no spaced-repetition stage, but a correct answer
+  // still earns its point — the same one a session card gives, never negative,
+  // so the score cannot fall on a bonus round.
+  const addPracticeScore = useCallback(
+    (points: number) => {
+      if (points > 0) setGameScore((prev) => Math.max(0, prev + points));
+    },
+    [setGameScore],
+  );
+  const quickPractice = useQuickPractice({ words: filteredWords, progress, role });
   const timePracticeWords = useMemo(() => {
     const introduced = filteredWords.filter((word) => hasIntroducedWord(progress[word.id]));
     // Prefer genuine review material. A completely new learner who skipped an
@@ -659,7 +695,12 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   );
   // Review time is allowed to continue without moving SRS once every due card
   // has been answered. Even one word can support a typing card.
-  const timeQuickPractice = useQuickPractice({ words: timePracticeWords, minimumWords: 1 });
+  const timeQuickPractice = useQuickPractice({
+    words: timePracticeWords,
+    progress,
+    role,
+    minimumWords: 1,
+  });
 
   const shouldShowAddWordsPrompt = useMemo(
     () =>
@@ -1086,6 +1127,16 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                   }}
                 />
               ) : undefined}
+              // Mounted only once the learner has been there, and kept mounted
+              // afterwards, so the overview costs nothing on a session that
+              // never opens it and nothing to reopen.
+              progressContent={visitedSurfaces.has('progress') ? (
+                <ProgressOverviewPanel
+                  progressStats={progressStats}
+                  goalDay={goalDay}
+                  streak={streak}
+                />
+              ) : undefined}
               practice={
                 timeQuickPractice.rounds ? {
                   run: (
@@ -1093,8 +1144,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                       rounds={timeQuickPractice.rounds}
                       index={timeQuickPractice.index}
                       role={role}
+                      settings={practiceCardSettings}
                       onAdvance={timeQuickPractice.advance}
                       onFinish={timeQuickPractice.finish}
+                      onScore={addPracticeScore}
                     />
                   ),
                   done: timeQuickPractice.index,
@@ -1106,8 +1159,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                       rounds={quickPractice.rounds}
                       index={quickPractice.index}
                       role={role}
+                      settings={practiceCardSettings}
                       onAdvance={quickPractice.advance}
                       onFinish={quickPractice.finish}
+                      onScore={addPracticeScore}
                     />
                   ),
                   done: quickPractice.index,
@@ -1115,7 +1170,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                 } : null
               }
               categories={categories}
-              progressStats={progressStats}
               phrasesCallbackRef={phrasesCallbackRef}
               phrasesScrollElement={phrasesScrollElement}
               filteredWords={filteredWords}

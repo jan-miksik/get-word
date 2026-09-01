@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import type { MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
+import type { LearningRole } from '@/features/learning/state/learningRole';
+import type { ProgressData } from '@/features/sync/contracts';
 import {
   buildQuickPracticeBlock,
   canQuickPractice,
   QUICK_PRACTICE_BLOCK_ROUNDS,
+  rankPracticeWords,
+  type PracticeStep,
 } from './rounds';
 
 /**
@@ -23,24 +26,31 @@ import {
  */
 export function useQuickPractice({
   words,
+  role,
+  progress,
   minimumWords,
 }: {
   words: NormalizedWord[];
+  /** Which side the learner already knows; the assembly cards need it. */
+  role: LearningRole;
+  /** Used only to choose a useful free-practice pool; never changed here. */
+  progress?: Record<string, ProgressData>;
   minimumWords?: number;
 }) {
-  const [rounds, setRounds] = useState<MiniGameConfig[] | null>(null);
+  const [rounds, setRounds] = useState<PracticeStep[] | null>(null);
   const [index, setIndex] = useState(0);
   const [seed, setSeed] = useState(1);
 
-  const available = useMemo(() => canQuickPractice(words, minimumWords), [minimumWords, words]);
+  const rankedWords = useMemo(() => rankPracticeWords(words, progress), [progress, words]);
+  const available = useMemo(() => canQuickPractice(rankedWords, minimumWords), [minimumWords, rankedWords]);
 
   const start = useCallback(() => {
-    const next = buildQuickPracticeBlock({ words, seed });
+    const next = buildQuickPracticeBlock({ words: rankedWords, role, seed });
     // An empty block would open a run with nothing in it; the offer that led
     // here was simply stale.
     setIndex(0);
     setRounds(next.length > 0 ? next : null);
-  }, [seed, words]);
+  }, [rankedWords, role, seed]);
 
   const finish = useCallback(() => {
     setRounds(null);

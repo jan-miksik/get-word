@@ -1,4 +1,10 @@
-export type AppSurface = 'study' | 'chat' | 'photo';
+export type AppSurface = 'study' | 'chat' | 'photo' | 'progress';
+
+const APP_SURFACES: readonly AppSurface[] = ['study', 'chat', 'photo', 'progress'];
+
+export function isAppSurface(value: unknown): value is AppSurface {
+  return typeof value === 'string' && (APP_SURFACES as readonly string[]).includes(value);
+}
 
 export const APP_SURFACE_HISTORY_KEY = 'getWordSurface';
 export const APP_SURFACE_HISTORY_MARKER = 'get-word-surface-v1';
@@ -18,8 +24,19 @@ export function parseAppSurface(
   const surface = url.searchParams.get('surface');
   if (surface === 'chat') return 'chat';
   if (surface === 'photo') return photoEnabled ? 'photo' : 'study';
+  if (surface === 'progress') return 'progress';
   if (!surface && url.searchParams.get('wordChat') === '1') return 'chat';
   return 'study';
+}
+
+/**
+ * The nav entry a surface belongs under. The photo lab is a tab of the
+ * add-words screen rather than a destination of its own, so the top bar and
+ * the menu keep naming that errand while the camera is up — the learner is
+ * still inside "Add words", just on another tab of it.
+ */
+export function appSurfaceSection(surface: AppSurface): AppSurface {
+  return surface === 'photo' ? 'chat' : surface;
 }
 
 export function appSurfaceHref(surface: AppSurface, href: string): string {
@@ -40,10 +57,8 @@ export function readAppSurfaceHistoryEntry(state: unknown): AppSurfaceHistoryEnt
     typeof entry.depth !== 'number' ||
     !Number.isInteger(entry.depth) ||
     entry.depth < 0 ||
-    (entry.baseSurface !== 'study' &&
-      entry.baseSurface !== 'chat' &&
-      entry.baseSurface !== 'photo') ||
-    (entry.surface !== 'study' && entry.surface !== 'chat' && entry.surface !== 'photo')
+    !isAppSurface(entry.baseSurface) ||
+    !isAppSurface(entry.surface)
   ) {
     return null;
   }

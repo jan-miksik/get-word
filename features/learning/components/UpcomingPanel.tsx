@@ -6,8 +6,6 @@ import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { useWordStream } from '@/features/learning/hooks/useWordStream';
 import { includePersonalWordsForActivePair } from '@/features/learning/state/personal-overview';
-import { ProgressStatsContent } from './progress/ProgressStatsContent';
-import type { ProgressStats } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressData } from '@/features/sync/contracts';
 import type { Role } from '@/features/learning/state';
@@ -15,16 +13,8 @@ import type { Role } from '@/features/learning/state';
 interface UpcomingPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  progressStats: ProgressStats;
-  /**
-   * A request to open the panel at one section, from `useMenuPanels`. The panel
-   * stays mounted between visits, so `progressExpanded` survives a close — an
-   * "expand initially" flag would only ever fire on the first mount. Reacting to
-   * the changing `requestId` makes the streak chip work on every tap, including
-   * after the learner has collapsed the section by hand.
-   */
-  focusSection?: string | null;
-  focusRequestId?: number;
+  /** Opens the learning overview surface; absent where surfaces cannot swap. */
+  onOpenProgress?: () => void;
 }
 
 function formatRelativeDue(nextDueAt: number | undefined, now: number): string | null {
@@ -117,7 +107,7 @@ function Section({
   );
 }
 
-export function UpcomingPanel({ isOpen, onClose, progressStats, focusSection = null, focusRequestId }: UpcomingPanelProps) {
+export function UpcomingPanel({ isOpen, onClose, onOpenProgress }: UpcomingPanelProps) {
   const { t } = useI18n();
   const {
     filteredWords,
@@ -163,16 +153,6 @@ export function UpcomingPanel({ isOpen, onClose, progressStats, focusSection = n
     [newWords, priorityDueCount, priorityWords],
   );
 
-  // Initialized collapsed; intentionally not reset when the panel closes,
-  // so it stays expanded for the rest of the session once opened.
-  const [progressExpanded, setProgressExpanded] = useState(false);
-  // Adjusted during render rather than in an effect: this derives state from a
-  // changed prop, so an effect would only add a wasted second pass.
-  const [handledFocusRequestId, setHandledFocusRequestId] = useState<number | undefined>(undefined);
-  if (focusRequestId !== undefined && focusRequestId !== handledFocusRequestId) {
-    setHandledFocusRequestId(focusRequestId);
-    if (focusSection === 'progress') setProgressExpanded(true);
-  }
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isOpen) return;
@@ -232,28 +212,20 @@ export function UpcomingPanel({ isOpen, onClose, progressStats, focusSection = n
             </button>
           </div>
           <div className="flex-1 overflow-y-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="mb-3">
+            {/* The tallies moved to a surface of their own, so this is a way in
+                rather than a second copy of them. */}
+            {onOpenProgress ? (
               <button
                 type="button"
-                onClick={() => setProgressExpanded((v) => !v)}
-                aria-expanded={progressExpanded}
-                aria-controls="upcoming-progress-stats"
-                className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[10px] border-2 border-ink bg-paper-hi text-[0.875rem] font-semibold text-ink cursor-pointer"
+                onClick={onOpenProgress}
+                className="mb-3 flex w-full cursor-pointer items-center justify-between gap-2 rounded-[10px] border-2 border-ink bg-paper-hi px-2.5 py-1.5 text-[0.875rem] font-semibold text-ink"
               >
                 <span>📊 {t('progress.title')}</span>
-                <span
-                  aria-hidden
-                  className={`text-[0.75rem] transition-transform duration-150 ${progressExpanded ? 'rotate-90' : ''}`}
-                >
+                <span aria-hidden className="text-[0.75rem]">
                   ▸
                 </span>
               </button>
-              {progressExpanded && (
-                <div id="upcoming-progress-stats" className="mt-2">
-                  <ProgressStatsContent progressStats={progressStats} />
-                </div>
-              )}
-            </div>
+            ) : null}
             {total === 0 ? (
               <p className="m-0 text-text-soft">{t('upcoming.empty')}</p>
             ) : (

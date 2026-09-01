@@ -4,7 +4,7 @@ import { localDayKeyAt } from '@/lib/local-day';
 import type { NormalizedWord } from '@/lib/words';
 import { hasIntroducedWord } from '@/packages/domain/goals/goal';
 
-export type TimedPhaseKind = 'new' | 'review';
+type TimedPhaseKind = 'new' | 'review';
 
 export interface TimedReinforcementSnapshot {
   phase: number;

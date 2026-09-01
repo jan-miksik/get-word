@@ -202,6 +202,30 @@ describe('TopMenu', () => {
     expect(onSurfaceChange).toHaveBeenCalledWith('study');
   });
 
+  it('keeps Add words lit while the photo tab of it is showing', () => {
+    const onSurfaceChange = vi.fn();
+    render(
+      <TopMenu
+        showAll={false}
+        onShowAll={vi.fn()}
+        onMenuAction={vi.fn()}
+        categoryCount={0}
+        categoryActive={false}
+        quickAddEnabled
+        activeSurface="photo"
+        onSurfaceChange={onSurfaceChange}
+      />
+    );
+
+    // The camera is a tab of Add words, so the learner is still inside that
+    // errand — but pressing the shortcut is a move back to the typing tab.
+    const chat = screen.getByRole('link', { name: /Add your own words/i });
+    expect(chat).toHaveAttribute('aria-current', 'page');
+
+    fireEvent.click(chat);
+    expect(onSurfaceChange).toHaveBeenCalledWith('chat');
+  });
+
   it('confirms school membership and links teachers to the dashboard', () => {
     render(
       <TopMenu

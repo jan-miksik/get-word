@@ -3,8 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/features/shared/http/api-runtime';
 import type {
+  QualityAudioMode,
+  QualityEvent,
+  QualityHistoryResponse,
   QualityPoolQuery,
   QualityPoolResponse,
+  QualityVoiceRequest,
+  QualityVoicesResponse,
 } from '@/features/admin/quality-types';
 
 export type QualityPoolLoadState =
@@ -140,16 +145,65 @@ export function useQualityPool() {
     [load],
   );
 
+  /**
+   * Record one side of a pair.
+   *
+   * `mode: 'replace'` is the only call in the pool that overwrites a clip a
+   * learner already has, and it is deliberately per-pair — the bulk buttons
+   * below stay on the gap-filling path.
+   */
   const generateAudio = useCallback(
-    async (poolKey: string, side: 'known' | 'target') => {
-      const result = (await postJson('/api/admin/quality/audio', { poolKey, side })) as {
-        linked_items?: number;
-      };
+    async (
+      poolKey: string,
+      side: 'known' | 'target',
+      options?: { mode?: QualityAudioMode; voice?: QualityVoiceRequest },
+    ) => {
+      const result = (await postJson('/api/admin/quality/audio', {
+        poolKey,
+        side,
+        mode: options?.mode ?? 'fill',
+        voice: options?.voice ?? { mode: 'auto' },
+      })) as { linked_items?: number; replaced_items?: number; voice_id?: string | null };
       await load();
       return result;
     },
     [load],
   );
+
+  /**
+   * The Chirp3-HD voices for one language, fetched on demand and remembered
+   * for the life of the page. A pool page mixes languages row by row, so this
+   * is per language rather than one catalog-wide fetch, and the same language
+   * is not requested again for every row that uses it.
+   */
+  const [voicesByLanguage, setVoicesByLanguage] = useState<
+    Record<string, QualityVoicesResponse>
+  >({});
+
+  const loadVoices = useCallback(
+    async (language: string) => {
+      if (voicesByLanguage[language]) return voicesByLanguage[language];
+      const response = await apiFetch(
+        `/api/admin/quality/voices?language=${encodeURIComponent(language)}`,
+        { credentials: 'same-origin' },
+      );
+      if (!response.ok) return null;
+      const payload = (await response.json()) as QualityVoicesResponse;
+      setVoicesByLanguage((previous) => ({ ...previous, [language]: payload }));
+      return payload;
+    },
+    [voicesByLanguage],
+  );
+
+  /** One pair's editor history, newest first. Fetched only when opened. */
+  const loadHistory = useCallback(async (poolKey: string): Promise<QualityEvent[]> => {
+    const response = await apiFetch(
+      `/api/admin/quality/${encodeURIComponent(poolKey)}/history`,
+      { credentials: 'same-origin' },
+    );
+    if (!response.ok) throw new Error('Failed to load the history');
+    return ((await response.json()) as QualityHistoryResponse).events;
+  }, []);
 
   /**
    * Run one action over many pairs, one request at a time.
@@ -243,6 +297,9 @@ export function useQualityPool() {
     pagination,
     saveVerdict,
     generateAudio,
+    loadVoices,
+    voicesByLanguage,
+    loadHistory,
     generateAudioBulk,
     markOkBulk,
     auditPairs,

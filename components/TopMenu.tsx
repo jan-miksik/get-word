@@ -1,7 +1,5 @@
 'use client';
 
-import { StreakDays } from '@/features/learning/components/goals/StreakDays';
-import type { StreakChipData } from '@/features/learning/goals/streakWeek';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -13,6 +11,7 @@ import { SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
 import {
   CategoryIcon,
   MenuIcon,
+  ProgressIcon,
   SchoolIcon,
   SettingsIcon,
   StarIcon,
@@ -22,7 +21,7 @@ import {
   WordChatIcon,
   WordListsIcon,
 } from '@/components/icons/AppIcons';
-import type { AppSurface } from '@/features/workspace/surface-history';
+import { appSurfaceSection, type AppSurface } from '@/features/workspace/surface-history';
 import { apiFetch } from '@/features/shared/http/api-runtime';
 import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
 import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
@@ -31,6 +30,7 @@ import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 
 const STUDY_SURFACE_HREF = '/';
 const CHAT_SURFACE_HREF = '/?surface=chat';
+const PROGRESS_SURFACE_HREF = '/?surface=progress';
 
 interface TopMenuProps {
   onShowAll: () => void;
@@ -39,10 +39,6 @@ interface TopMenuProps {
   categoryCount: number;
   categoryActive: boolean;
   score?: number;
-  /** The study series and its week; absent when no goal is active. */
-  streak?: StreakChipData | null;
-  /** Opens the progress surface. Without it the chip is display-only. */
-  onOpenStreak?: () => void;
   /** Rendered in center of bar (e.g. repeat count or Sign in button) */
   centerContent?: ReactNode;
   /** When logged in, rendered at top of menu dropdown */
@@ -70,58 +66,6 @@ interface TopMenuProps {
   activeSurface?: AppSurface;
   /** Switches workspace content while keeping the app shell mounted. */
   onSurfaceChange?: (surface: AppSurface) => void;
-}
-
-/**
- * The study series, sitting where a number the learner acts on belongs.
- *
- * Deliberately not a flame: a badge asserts a number, while seven segments show
- * what it is made of. `StreakDays` draws the week and the chip owns the figure,
- * so the count appears exactly once.
- */
-function StreakChip({ streak, onOpen }: { streak: StreakChipData; onOpen?: () => void }) {
-  const { t } = useI18n();
-  // The chip shows the strict daily figure while it is running, and falls back
-  // to the weekly one when it is not — a learner keeping a four-day goal on
-  // scattered days is doing exactly what they promised, and an empty chip would
-  // read as failure. The week beside it makes clear which number is which.
-  const showDaily = streak.dailyStreak > 0;
-  const value = showDaily ? streak.dailyStreak : streak.weeklyStreak;
-  const label = showDaily
-    ? t('goal.streakAria', { count: streak.dailyStreak })
-    : t('goal.streakWeeksLabel', { count: streak.weeklyStreak });
-  const title = streak.weekTarget > 0
-    ? `${label} — ${t('goal.streakWeekProgress', { count: streak.keptThisWeek, target: streak.weekTarget })}`
-    : label;
-
-  const content = (
-    <>
-      <StreakDays days={streak.days} size="compact" />
-      <span className="stat-chip-copy">
-        <span className="stat-chip-value">{value}</span>
-        {showDaily ? null : (
-          <span className="text-[0.6875rem] font-bold opacity-70" aria-hidden>t</span>
-        )}
-      </span>
-    </>
-  );
-
-  if (!onOpen) {
-    return <span className="stat-chip" aria-label={label} title={title}>{content}</span>;
-  }
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      // `.stat-chip` carries the padding and shape; the button's own chrome has
-      // to be cleared or it renders a default border and background over it.
-      className="stat-chip cursor-pointer appearance-none border-0 bg-transparent"
-      aria-label={label}
-      title={title}
-    >
-      {content}
-    </button>
-  );
 }
 
 function shortenListName(name: string): string {
@@ -194,8 +138,10 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
 // invisible until hover. The `--tm-*` vars are scoped to `.top-menu`.
 const QUICK_ADD_BUTTON_CLASS =
   'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[var(--tm-ink-soft)] transition-colors hover:bg-[var(--tm-surface)] hover:text-[var(--tm-ink)]';
+// The active surface is a filled disc, ringed in paper so it reads as a lit
+// button sitting on the bar rather than a blob of accent.
 const QUICK_ADD_BUTTON_ACTIVE_CLASS =
-  '!bg-[var(--tm-accent)] !text-[var(--tm-surface)] shadow-[0_2px_0_rgba(42,34,24,0.18)]';
+  '!border-2 !border-solid !border-[var(--tm-surface)] !bg-[var(--tm-accent)] !text-[var(--tm-surface)] shadow-[0_2px_0_rgba(42,34,24,0.18)]';
 
 interface SurfaceNavLinkProps {
   href: string;
@@ -218,7 +164,12 @@ function SurfaceNavLink({
   onSurfaceChange,
   children,
 }: SurfaceNavLinkProps) {
-  const current = activeSurface === surface;
+  // The photo lab lives on the add-words screen, so that button stays lit while
+  // the camera tab is up (see `appSurfaceSection`). Pressing it there is still a
+  // move — back to the typing tab — so the click guard asks the narrower
+  // question of whether this is literally the surface showing.
+  const current = appSurfaceSection(activeSurface) === surface;
+  const here = activeSurface === surface;
   return (
     <a
       href={href}
@@ -236,7 +187,7 @@ function SurfaceNavLink({
         if (event.defaultPrevented || event.button !== 0) return;
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        if (current) return;
+        if (here) return;
         if (onSurfaceChange) onSurfaceChange(surface);
         else onOpen?.();
       }}
@@ -253,12 +204,13 @@ interface QuickAddButtonsProps {
 }
 
 /**
- * The app's surfaces as icons: studying itself, flanked by the two ways new
- * words get into it. Study sits in the middle so the app's main screen is the
- * one under the centre of the bar — a learner who wandered into the chat or the
- * photo lab needs the way back to be as obvious as the way in, and the Back
- * button inside those screens is the only other route. Behind a settings toggle
- * while we decide whether the top bar is where they belong.
+ * The app's surfaces as icons: studying itself, flanked by where words come
+ * from and where the day's progress is read. Study sits in the middle so the
+ * app's main screen is the one under the centre of the bar — a learner who
+ * wandered into the chat, the photo lab or the overview needs the way back to
+ * be as obvious as the way in, and the Back button inside those screens is the
+ * only other route. Behind a settings toggle while we decide whether the top
+ * bar is where they belong.
  */
 function SurfaceNavButtons({
   onOpenWordChat,
@@ -287,6 +239,15 @@ function SurfaceNavButtons({
         onSurfaceChange={onSurfaceChange}
       >
         <StudyIcon size={25} />
+      </SurfaceNavLink>
+      <SurfaceNavLink
+        href={PROGRESS_SURFACE_HREF}
+        surface="progress"
+        activeSurface={activeSurface}
+        label={t('progress.title')}
+        onSurfaceChange={onSurfaceChange}
+      >
+        <ProgressIcon size={25} />
       </SurfaceNavLink>
     </nav>
   );
@@ -707,6 +668,19 @@ function MenuDropdown({
       active: false,
       badge: null,
     },
+    // A surface, not a link: the overview opens in place, so the header, the
+    // menu and the study state behind it all stay where they are.
+    {
+      kind: 'surface',
+      icon: <ProgressIcon size={15} />,
+      label: t('progress.title'),
+      href: PROGRESS_SURFACE_HREF,
+      surface: 'progress',
+      onSelect: () => {
+        if (onSurfaceChange) onSurfaceChange('progress');
+        else window.location.assign(PROGRESS_SURFACE_HREF);
+      },
+    },
     {
       kind: 'link',
       icon: <WordListsIcon size={15} />,
@@ -787,7 +761,8 @@ function MenuDropdown({
             )}
             {items.map((item) => {
               if (item.kind === 'surface') {
-                const current = item.surface === activeSurface;
+                const current = item.surface === appSurfaceSection(activeSurface);
+                const here = item.surface === activeSurface;
                 return (
                   <a
                     key={item.label}
@@ -799,7 +774,7 @@ function MenuDropdown({
                       if (event.defaultPrevented || event.button !== 0) return;
                       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                       event.preventDefault();
-                      if (!current) item.onSelect();
+                      if (!here) item.onSelect();
                       setOpen(false);
                     }}
                   >
@@ -915,8 +890,6 @@ export function TopMenu({
   categoryActive,
   score,
   centerContent,
-  streak,
-  onOpenStreak,
   accountSlot,
   lists,
   activeListId,
@@ -945,9 +918,6 @@ export function TopMenu({
       >
         <div className="top-menu-stats">
           {score !== undefined && <ScoreBadge score={score} />}
-          {streak && (streak.dailyStreak > 0 || streak.weeklyStreak > 0) && (
-            <StreakChip streak={streak} onOpen={onOpenStreak} />
-          )}
           {centerContent}
         </div>
       </div>

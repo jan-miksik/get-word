@@ -105,6 +105,8 @@ export type ProposalResult = {
 };
 
 export type ChatTurnResult = {
+  /** A local reply asks the learner to explicitly confirm the next step. */
+  recoveryRequired?: boolean;
   reply: string;
   /** Short follow-up suggestions rendered as tappable chips. */
   suggestions: string[];

@@ -16,9 +16,12 @@ import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning
 import type { LearningStreamGroup } from '@/features/learning/types';
 import type { SessionFlowState } from '@/features/learning/session/flow';
 import type { NormalizedWord } from '@/lib/words';
-import type { ProgressStats } from '@/lib/progress-stats';
 import type { ViewMode } from '../app-state/types';
-import { AppSurfacePanel, type AppSurface } from '@/features/workspace/public.client';
+import {
+  AppSurfacePanel,
+  appSurfaceSection,
+  type AppSurface,
+} from '@/features/workspace/public.client';
 
 interface LearningStudyContentProps {
   viewMode: ViewMode;
@@ -56,6 +59,8 @@ interface LearningStudyContentProps {
    * photo both survive a detour back to studying.
    */
   chatContent?: React.ReactNode;
+  /** The learning overview, mounted once the learner has opened it. */
+  progressContent?: React.ReactNode;
   /**
    * The bonus block, when one is running: the round itself, plus how far the
    * block has got so the study area can pace it on its own rail.
@@ -74,7 +79,6 @@ interface LearningStudyContentProps {
     timed?: boolean;
   } | null;
   categories: Array<{ name: string; count: number }>;
-  progressStats: ProgressStats;
   phrasesCallbackRef: (node: HTMLElement | null) => void;
   phrasesScrollElement: HTMLElement | null;
   filteredWords: NormalizedWord[];
@@ -133,7 +137,7 @@ interface LearningStudyContentProps {
   } | null;
   /** How far the day's plan fell short of the goal for want of words. */
   shortfall?: number;
-  /** The study series, for the closing card and the header chip alike. */
+  /** The study series, shown on the closing card at the end of a day. */
   streak?: StreakChipData | null;
   onToggleShowNotReady: () => void;
 }
@@ -156,9 +160,9 @@ export function LearningStudyContent({
   activeSurface = 'study',
   onSurfaceChange,
   chatContent,
+  progressContent,
   practice = null,
   categories,
-  progressStats,
   phrasesCallbackRef,
   phrasesScrollElement,
   filteredWords,
@@ -264,8 +268,6 @@ export function LearningStudyContent({
       activeSurface={activeSurface}
       onSurfaceChange={onSurfaceChange}
       categories={categories}
-      progressStats={progressStats}
-      streak={streak}
     >
       <main
         className="app-workspace-main relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
@@ -371,10 +373,19 @@ export function LearningStudyContent({
         {chatContent ? (
           <AppSurfacePanel
             surface="chat"
-            active={activeSurface !== 'study'}
+            active={appSurfaceSection(activeSurface) === 'chat'}
             label={t('addWords.title')}
           >
             {chatContent}
+          </AppSurfacePanel>
+        ) : null}
+        {progressContent ? (
+          <AppSurfacePanel
+            surface="progress"
+            active={activeSurface === 'progress'}
+            label={t('progress.title')}
+          >
+            {progressContent}
           </AppSurfacePanel>
         ) : null}
       </main>

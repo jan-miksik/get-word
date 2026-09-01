@@ -80,7 +80,6 @@ export function TiltChoiceGame({
   promptMode = 'text',
   soundEnabled = false,
   topControls,
-  level = 1,
   stageIndex,
   onResult,
   isActive = true,
@@ -155,9 +154,9 @@ export function TiltChoiceGame({
         // Audio is best-effort and never blocks recording the answer.
         void playUserInitiatedAudio(audioRef, option.answerAudioSrcs).catch(() => undefined);
       }
-      onResult?.(option.isCorrect ? (level === 2 ? 2 : 1) : -1);
+      onResult?.(option.isCorrect ? 1 : 0);
     },
-    [level, onResult, optionForSide, setFillTransforms, soundEnabled],
+    [onResult, optionForSide, setFillTransforms, soundEnabled],
   );
 
   const startFall = useCallback(

@@ -1,7 +1,7 @@
 import type { Accent } from './tokens';
 
 /**
- * Seventeen candidate button languages for the app, dev-only.
+ * Twenty-one candidate button languages for the app, dev-only.
  *
  * `duo` is the baseline: it is what the app already draws today
  * (`ContinueButton`'s `lift` variant and every `StudyOptionButton`), and it is
@@ -13,7 +13,12 @@ import type { Accent } from './tokens';
  * sticker, and a press that knows where your thumb landed. The third batch
  * (`stencil` … `circle`) stops being polite about it — a misregistered riso
  * pass, a page that turns, a torn edge, a hold-to-confirm sweep, and a
- * teacher's pen looping around the label.
+ * teacher's pen looping around the label. The fourth batch (`plain` …
+ * `outline`) goes the other way and stops decorating entirely: four resting
+ * shapes with nothing on them, all pressing with the one movement from
+ * section 3 — an even 96 % shrink and a darker fill. They sit second in the
+ * list, right behind today's button, because that is the comparison that
+ * matters.
  *
  * Every personality reads the same nine skin variables and only decides
  * *geometry and press physics*. That split is the actual proposal — tone and
@@ -22,6 +27,10 @@ import type { Accent } from './tokens';
  */
 export type PersonalityKey =
   | 'duo'
+  | 'plain'
+  | 'pill'
+  | 'square'
+  | 'outline'
   | 'letterpress'
   | 'stamp'
   | 'ruled'
@@ -45,8 +54,8 @@ export type Personality = {
   pitch: string;
   /** Honest note on what this costs or risks. */
   caveat: string;
-  /** Which round this was drawn in; 1 is the original six. */
-  batch?: 2 | 3;
+  /** Which round this was drawn in; 1 is the original six, 4 the plain set. */
+  batch?: 2 | 3 | 4;
   /** Needs its label as a `data-label` attribute (the riso overprint). */
   needsLabelAttr?: boolean;
   /** Needs the hand-drawn annotation SVG rendered inside the button. */
@@ -61,6 +70,42 @@ export const PERSONALITIES: Personality[] = [
       'Tvrdý spodní stín, tučné verzálky. Fyzické, čitelné, okamžitě srozumitelné.',
     caveat:
       'Je to doslova Duolingo. Tenhle tvar má obsazený — na hřišti hraček nevyhrajeme.',
+  },
+  {
+    key: 'plain',
+    label: 'Prostý blok',
+    batch: 4,
+    pitch:
+      'Barevný obdélník a nic dalšího — žádný stín, žádné verzálky, žádný trik. Stisk je jediné, co se hýbe: rovnoměrné zmenšení na 96 % a tmavší odstín.',
+    caveat:
+      'Nemá vlastní znak. Vypadá jako tlačítko z každé druhé aplikace — což je zároveň důvod, proč se v něm nedá udělat chyba.',
+  },
+  {
+    key: 'pill',
+    label: 'Pilulka',
+    batch: 4,
+    pitch:
+      'Totéž, jen dokulata. Plný poloměr je měkčí a lépe snáší krátký popisek — a v aplikaci už tenhle tvar žije ve štítcích a filtrech, takže se nic nového neučí.',
+    caveat:
+      'Pod sebou ve sloupci možností vypadají pilulky jako seznam štítků, ne jako odpovědi. Chce to spíš na akce než na výběr.',
+  },
+  {
+    key: 'square',
+    label: 'Ostrý blok',
+    batch: 4,
+    pitch:
+      'Poloměr 4 px místo 14. Ostřejší, tiskovější, blíž papíru než plastu — a jediné, čím se liší od Prostého bloku, je jedno číslo. Stisk stejný.',
+    caveat:
+      'Ostré rohy sedí ke kartotéce a razítku, ale bijí se s kulatými kartami, které aplikace kreslí dnes. Buď se změní obojí, nebo nic.',
+  },
+  {
+    key: 'outline',
+    label: 'Obrys',
+    batch: 4,
+    pitch:
+      'Papír a vlasová linka, text inkoustem. Klidová podoba nic nekřičí, stisk ji zalije barvou a zmenší. Nejtišší způsob, jak mít tlačítko, které je pořád vidět.',
+    caveat:
+      'Na papírovém pozadí je kontrast slabý — jako hlavní akce potřebuje buď silnější linku, nebo zůstat u sekundárních.',
   },
   {
     key: 'letterpress',
@@ -964,6 +1009,55 @@ export const BUTTON_CSS = `
   display: none;
 }
 
+/* ── 18.–21. Prosté — jeden pohyb, jeden odstín ──────────────── */
+/* The whole batch differs only in resting shape; the press is the even-shrink
+   variant from section 3, written down once. */
+.ds-btn--plain,
+.ds-btn--pill,
+.ds-btn--square,
+.ds-btn--outline {
+  --btn-press-scale: 0.96;
+  background: var(--btn-bg);
+  font-weight: 800;
+  transition:
+    transform 110ms cubic-bezier(0.2, 0, 0, 1),
+    background-color 110ms ease-out,
+    color 110ms ease-out,
+    box-shadow 110ms ease-out;
+}
+.ds-btn--plain {
+  border-radius: 14px;
+}
+.ds-btn--pill {
+  border-radius: 999px;
+}
+.ds-btn--square {
+  border-radius: 4px;
+}
+.ds-btn--outline {
+  border-radius: 12px;
+  background: var(--btn-paper);
+  color: var(--btn-ink);
+  box-shadow: inset 0 0 0 1.5px var(--btn-line);
+}
+
+.ds-btn--plain:active:not(:disabled),
+.ds-btn--plain[data-pressed='true']:not(:disabled),
+.ds-btn--pill:active:not(:disabled),
+.ds-btn--pill[data-pressed='true']:not(:disabled),
+.ds-btn--square:active:not(:disabled),
+.ds-btn--square[data-pressed='true']:not(:disabled),
+.ds-btn--outline:active:not(:disabled),
+.ds-btn--outline[data-pressed='true']:not(:disabled) {
+  transform: scale(var(--btn-press-scale));
+  background: var(--btn-bg-press);
+  color: var(--btn-fg-press);
+}
+.ds-btn--outline:active:not(:disabled),
+.ds-btn--outline[data-pressed='true']:not(:disabled) {
+  box-shadow: inset 0 0 0 1.5px var(--btn-line-press);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ds-btn,
   .ds-btn > .ds-btn__label {
@@ -990,6 +1084,18 @@ export const BUTTON_CSS = `
   .ds-btn--leaf:hover:not(:disabled),
   .ds-btn--leaf:active:not(:disabled),
   .ds-btn--leaf[data-pressed='true']:not(:disabled) {
+    transform: none;
+  }
+  /* The plain batch has nothing but the shrink and the shade; without motion
+     the shade carries it alone. */
+  .ds-btn--plain:active:not(:disabled),
+  .ds-btn--plain[data-pressed='true']:not(:disabled),
+  .ds-btn--pill:active:not(:disabled),
+  .ds-btn--pill[data-pressed='true']:not(:disabled),
+  .ds-btn--square:active:not(:disabled),
+  .ds-btn--square[data-pressed='true']:not(:disabled),
+  .ds-btn--outline:active:not(:disabled),
+  .ds-btn--outline[data-pressed='true']:not(:disabled) {
     transform: none;
   }
   /* Hold still has to take 900 ms — it is a safety delay, not decoration. */

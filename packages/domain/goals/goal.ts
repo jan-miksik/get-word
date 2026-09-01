@@ -12,7 +12,7 @@ export const SESSION_ITEMS_MAX = 150;
  * choice costs in time rather than refusing it.
  */
 export const MAX_NEW_WORD_GOAL = 1000;
-export const MAX_GOAL_MINUTES = 8 * 60;
+const MAX_GOAL_MINUTES = 8 * 60;
 
 export type GoalPreset = 'light' | 'medium' | 'intense' | 'custom';
 export type GoalMode = 'words' | 'minutes';

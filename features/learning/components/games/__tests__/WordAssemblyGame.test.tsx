@@ -33,7 +33,26 @@ describe('WordAssemblyGame', () => {
       />,
     );
 
-    expect(container.querySelector('article')).toHaveClass('mx-auto', 'max-w-2xl');
+    expect(container.querySelector('article')).toHaveClass('mx-auto', 'max-w-2xl', 'flex-1');
+  });
+
+  it('keeps the mobile action dock below the tile content', () => {
+    const { container } = render(
+      <WordAssemblyGame
+        word={WORD}
+        role="knownLanguage"
+        variant="words"
+        answerParts={['con', 'chó']}
+        distractorParts={['mèo']}
+        onOutcome={vi.fn()}
+      />,
+    );
+
+    const content = container.querySelector('[data-assembly-content]');
+    const dock = container.querySelector('[data-assembly-action-dock]');
+    expect(content?.nextElementSibling).toBe(dock);
+    expect(dock).toHaveClass('shrink-0');
+    expect(dock).toContainElement(screen.getByRole('button', { name: 'Check' }));
   });
 
   it('shows only the circular mark after a correct assembly', () => {
@@ -365,7 +384,12 @@ describe('WordAssemblyGame answer audio', () => {
     assemble(['con', 'chó']);
 
     const audioButton = screen.getByRole('button', { name: 'Play audio' });
-    expect(audioButton).toHaveClass('h-16', 'w-16', 'absolute', 'right-0');
+    const audioRow = audioButton.parentElement;
+    expect(audioButton).toHaveClass('h-16', 'w-16');
+    expect(audioButton).not.toHaveClass('absolute');
+    expect(audioRow).toHaveAttribute('data-assembly-audio-row');
+    expect(audioRow).toHaveClass('w-full', 'justify-end');
+    expect(audioRow?.parentElement).toHaveAttribute('data-assembly-action-dock');
     fireEvent.click(audioButton);
     await waitFor(() => expect(playCalls).toBe(1));
     expect(audioSources).toContain('/speech/vi/con-cho.mp3');

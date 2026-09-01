@@ -68,11 +68,34 @@ describe('useAppSurface', () => {
     expect(window.location.search).toBe('');
   });
 
+  it('keeps a directly loaded overview link addressable', async () => {
+    // The URL, the history entry and the rendered surface have to agree, or a
+    // shared link would show the overview while Back and a refresh disagreed
+    // about where the learner is.
+    window.history.replaceState({}, '', '/?surface=progress');
+    const { result } = renderHook(() => useAppSurface(true));
+
+    await waitFor(() => expect(result.current.activeSurface).toBe('progress'));
+    expect(window.location.search).toBe('?surface=progress');
+    expect(window.history.state[APP_SURFACE_HISTORY_KEY]).toMatchObject({
+      depth: 0,
+      baseSurface: 'progress',
+      surface: 'progress',
+    });
+  });
+
   it('normalizes invalid and disabled photo surfaces to study', async () => {
     window.history.replaceState({}, '', '/?surface=invalid');
     const invalid = renderHook(() => useAppSurface(true));
     await waitFor(() => expect(window.location.search).toBe(''));
     invalid.unmount();
+
+    // `?surface=study` is study spelled the long way; its canonical address
+    // carries no query, so it is normalized like an unknown name.
+    window.history.replaceState({}, '', '/?surface=study');
+    const spelledOut = renderHook(() => useAppSurface(true));
+    await waitFor(() => expect(window.location.search).toBe(''));
+    spelledOut.unmount();
 
     window.history.replaceState({}, '', '/?surface=photo');
     const disabled = renderHook(() => useAppSurface(false));

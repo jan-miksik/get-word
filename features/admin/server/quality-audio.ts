@@ -29,21 +29,54 @@ export type AudioSide = 'known' | 'target';
 /** What "no explicit voice" looks like to `computeContentHash` and to Google. */
 const DEFAULT_VOICE_ID = 'default';
 
+/**
+ * Which voice to record with.
+ *
+ * `auto` is the deterministic Chirp3-HD pick — the same text always maps to
+ * the same voice, which is what keeps the content hash reusable across the
+ * list editor, the photo lab and here.
+ *
+ * That determinism is exactly why re-recording needs the other two. Asking
+ * again for the same text under `auto` produces the same hash, finds the same
+ * asset and changes nothing audible. `random` picks a Chirp3-HD voice at
+ * random, avoiding the ones the pair already uses, so "record it again" gives
+ * a genuinely different reading; `explicit` lets the editor name the voice.
+ */
+export type PoolVoiceChoice =
+  | { kind: 'auto' }
+  | { kind: 'random' }
+  | { kind: 'explicit'; voiceId: string };
+
+/**
+ * `fill` records only where a clip is missing — the original behaviour, and
+ * the only safe one for a bulk run.
+ *
+ * `replace` relinks every equivalent item, including the ones that already
+ * have a playable clip. It changes what learners hear, so it is a deliberate
+ * per-pair action, never a side effect of filling gaps.
+ */
+export type AudioMode = 'fill' | 'replace';
+
 export interface GenerateAudioOptions {
   poolKey: string;
   side: AudioSide;
   userId: string;
-  voiceId?: string;
+  mode?: AudioMode;
+  voice?: PoolVoiceChoice;
 }
 
 export interface GenerateAudioOutcome {
   generated: boolean;
   linkedItems: number;
+  /** Of `linkedItems`, how many had a playable clip that was swapped out. */
+  replacedItems: number;
   /** Items under this pool key whose own text was not audio-equivalent. */
   skippedItems: number;
   /** Items left alone because they already had a playable clip. */
   keptItems: number;
   contentHash: string | null;
+  /** The voice that was actually used, for the history entry. */
+  voiceId: string | null;
   error?: string;
 }
 
@@ -53,6 +86,10 @@ function textFor(item: PoolItem, side: AudioSide): string {
 
 function languageFor(item: PoolItem, side: AudioSide): string {
   return side === 'known' ? item.languageFrom : item.languageTo;
+}
+
+function assetFor(item: PoolItem, side: AudioSide) {
+  return side === 'known' ? item.knownAsset : item.targetAsset;
 }
 
 /**
@@ -126,6 +163,11 @@ export function mayLink(itemText: string, canonical: string): boolean {
  * An unreachable voice catalog is NOT the same answer: it degrades to the
  * default voice and lets the attempt proceed, because a fetch that failed says
  * nothing about what Google can speak.
+ *
+ * `avoid` only applies to a random pick: it holds the voices the pair is
+ * already recorded in, so pressing "record again" twice does not land on the
+ * same narrator. When avoiding them would leave nothing, the full set is used
+ * — a language with one Chirp3-HD voice still gets recorded.
  */
 export type PoolVoiceResolution =
   | { supported: true; voiceId: string }
@@ -134,16 +176,31 @@ export type PoolVoiceResolution =
 export async function resolvePoolVoice(
   text: string,
   language: string,
-  explicitVoiceId?: string,
+  choice: PoolVoiceChoice = { kind: 'auto' },
+  avoid: (string | null)[] = [],
 ): Promise<PoolVoiceResolution> {
-  const explicit = explicitVoiceId?.trim();
-  if (explicit) return { supported: true, voiceId: explicit };
+  if (choice.kind === 'explicit') {
+    const explicit = choice.voiceId.trim();
+    if (explicit) return { supported: true, voiceId: explicit };
+  }
 
   const catalog = await getGoogleVoicesForLanguage(language).catch(() => null);
   if (catalog === null) return { supported: true, voiceId: DEFAULT_VOICE_ID };
   if (catalog.length === 0) return { supported: false };
 
-  return { supported: true, voiceId: pickVoiceForText(text, filterChirp3HdVoices(catalog)) };
+  const chirp3Hd = filterChirp3HdVoices(catalog);
+  if (choice.kind !== 'random') {
+    return { supported: true, voiceId: pickVoiceForText(text, chirp3Hd) };
+  }
+
+  // Chirp3-HD is the mix the rest of the app records in; fall back to the whole
+  // catalog only for a language that has none of them.
+  const pool = chirp3Hd.length > 0 ? chirp3Hd : catalog;
+  const used = new Set(avoid.filter((voice): voice is string => Boolean(voice)));
+  const candidates = pool.filter((voice) => !used.has(voice));
+  const from = candidates.length > 0 ? candidates : pool;
+
+  return { supported: true, voiceId: from[Math.floor(Math.random() * from.length)] };
 }
 
 /**
@@ -168,16 +225,20 @@ export function hasUsableAudio(item: PoolItem, side: AudioSide): boolean {
 export async function generatePoolAudio(
   options: GenerateAudioOptions,
 ): Promise<GenerateAudioOutcome> {
-  const { poolKey, side, userId, voiceId } = options;
+  const { poolKey, side, userId } = options;
+  const mode: AudioMode = options.mode ?? 'fill';
+  const choice: PoolVoiceChoice = options.voice ?? { kind: 'auto' };
 
   const items = await getPoolItems(poolKey);
   if (items.length === 0) {
     return {
       generated: false,
       linkedItems: 0,
+      replacedItems: 0,
       skippedItems: 0,
       keptItems: 0,
       contentHash: null,
+      voiceId: null,
       error: 'No eligible items for this pair.',
     };
   }
@@ -187,22 +248,27 @@ export async function generatePoolAudio(
     return {
       generated: false,
       linkedItems: 0,
+      replacedItems: 0,
       skippedItems: items.length,
       keptItems: 0,
       contentHash: null,
+      voiceId: null,
       error: 'Nothing to speak on this side.',
     };
   }
 
   const language = languageFor(items[0], side);
-  const voice = await resolvePoolVoice(canonical, language, voiceId);
+  const currentVoices = items.map((item) => assetFor(item, side)?.voiceId ?? null);
+  const voice = await resolvePoolVoice(canonical, language, choice, currentVoices);
   if (!voice.supported) {
     return {
       generated: false,
       linkedItems: 0,
+      replacedItems: 0,
       skippedItems: 0,
       keptItems: 0,
       contentHash: null,
+      voiceId: null,
       error: `Google has no text-to-speech voice for "${language}".`,
     };
   }
@@ -243,9 +309,11 @@ export async function generatePoolAudio(
       return {
         generated: false,
         linkedItems: 0,
+        replacedItems: 0,
         skippedItems: 0,
         keptItems: 0,
         contentHash: hash,
+        voiceId: voice.voiceId,
         error: result.error ?? 'Audio generation failed.',
       };
     }
@@ -255,18 +323,24 @@ export async function generatePoolAudio(
       return {
         generated: false,
         linkedItems: 0,
+        replacedItems: 0,
         skippedItems: 0,
         keptItems: 0,
         contentHash: hash,
+        voiceId: voice.voiceId,
         error: 'Audio was generated but the asset could not be found.',
       };
     }
   }
 
   const equivalent = items.filter((item) => mayLink(textFor(item, side), canonical));
-  // Fill gaps only. An item that already has a playable clip keeps it — the
-  // editor is repairing missing audio, not replacing what learners have.
-  const linkable = equivalent.filter((item) => !hasUsableAudio(item, side));
+  // `fill` repairs missing audio: an item that already has a playable clip
+  // keeps it. `replace` is the editor deciding the existing recording is not
+  // good enough, so it relinks those too — the one path in the pool that
+  // changes what a learner already hears.
+  const linkable =
+    mode === 'replace' ? equivalent : equivalent.filter((item) => !hasUsableAudio(item, side));
+  const replaced = linkable.filter((item) => hasUsableAudio(item, side));
 
   await batchLinkAudioToItems(
     linkable.map((item) => ({
@@ -280,8 +354,10 @@ export async function generatePoolAudio(
   return {
     generated: true,
     linkedItems: linkable.length,
+    replacedItems: replaced.length,
     skippedItems: items.length - equivalent.length,
     keptItems: equivalent.length - linkable.length,
     contentHash: hash,
+    voiceId: voice.voiceId,
   };
 }

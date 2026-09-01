@@ -4,6 +4,8 @@ import {
   buildQuickPracticeBlock,
   canQuickPractice,
   QUICK_PRACTICE_BLOCK_ROUNDS,
+  rankPracticeWords,
+  type PracticeStep,
 } from '../rounds';
 
 const makeWord = (id: string): NormalizedWord => ({
@@ -17,72 +19,101 @@ const makeWord = (id: string): NormalizedWord => ({
 const words = (count: number, prefix = 'w') =>
   Array.from({ length: count }, (_, index) => makeWord(`${prefix}${index}`));
 
+const build = (scope: NormalizedWord[], seed: number, size?: number) =>
+  buildQuickPracticeBlock({ words: scope, role: 'knownLanguage', seed, ...(size ? { size } : {}) });
+
+/** What a card is asking, whichever kind of card it turned out to be. */
+const methodOf = (step: PracticeStep): string =>
+  step.kind === 'game' ? step.config.gameType : step.exercise.method;
+
+/** The word a card is about; a game round anchors on its first word. */
+const anchorOf = (step: PracticeStep): string =>
+  step.kind === 'game' ? step.config.words[0].id : step.word.id;
+
+const wordsOf = (step: PracticeStep): NormalizedWord[] =>
+  step.kind === 'game' ? step.config.words : [step.word];
+
 describe('buildQuickPracticeBlock', () => {
   it('fills a whole block from the study scope', () => {
-    const rounds = buildQuickPracticeBlock({ words: words(30), seed: 7 });
-
-    expect(rounds).toHaveLength(QUICK_PRACTICE_BLOCK_ROUNDS);
+    expect(build(words(30), 7)).toHaveLength(QUICK_PRACTICE_BLOCK_ROUNDS);
   });
 
-  it('mixes the exercises instead of asking the same one ten times', () => {
-    const rounds = buildQuickPracticeBlock({ words: words(30), seed: 7 });
-    const types = new Set(rounds.map((round) => round.gameType));
+  it('asks in every way the app can, instead of ten of the same question', () => {
+    const methods = new Set(build(words(30), 7).map(methodOf));
 
-    expect(types).toEqual(new Set(['multipleChoice', 'matching', 'bubbleChoice']));
+    expect(methods).toEqual(
+      new Set(['reveal', 'choice', 'typing', 'assembly', 'matching', 'bubbleChoice']),
+    );
   });
 
-  it('anchors every round on a word the learner actually has', () => {
+  it('never deals more than one field of bubbles', () => {
+    for (let seed = 1; seed <= 25; seed += 1) {
+      const bubbles = build(words(30), seed).filter((step) => methodOf(step) === 'bubbleChoice');
+
+      expect(bubbles.length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('opens on an ordinary card rather than on the bubble field', () => {
+    for (let seed = 1; seed <= 25; seed += 1) {
+      expect(methodOf(build(words(30), seed)[0])).not.toBe('bubbleChoice');
+    }
+  });
+
+  it('anchors every card on a word the learner actually has', () => {
     const scope = words(12);
     const ids = new Set(scope.map((word) => word.id));
-    const rounds = buildQuickPracticeBlock({ words: scope, seed: 3 });
 
-    for (const round of rounds) {
-      expect(ids.has(round.words[0].id)).toBe(true);
-      expect(round.words.every((word) => ids.has(word.id))).toBe(true);
+    for (const step of build(scope, 3)) {
+      expect(ids.has(anchorOf(step))).toBe(true);
+      expect(wordsOf(step).every((word) => ids.has(word.id))).toBe(true);
     }
   });
 
   it('works through the scope before repeating a word', () => {
-    const rounds = buildQuickPracticeBlock({ words: words(QUICK_PRACTICE_BLOCK_ROUNDS), seed: 5 });
-    const anchors = rounds.map((round) => round.words[0].id);
+    const anchors = build(words(QUICK_PRACTICE_BLOCK_ROUNDS), 5).map(anchorOf);
 
     expect(new Set(anchors).size).toBe(anchors.length);
   });
 
-  it('degrades to what a small scope can supply instead of dropping rounds', () => {
-    const rounds = buildQuickPracticeBlock({ words: words(4), seed: 2 });
+  it('degrades to what a small scope can supply instead of dropping cards', () => {
+    const steps = build(words(4), 2);
 
-    expect(rounds).toHaveLength(QUICK_PRACTICE_BLOCK_ROUNDS);
+    expect(steps).toHaveLength(QUICK_PRACTICE_BLOCK_ROUNDS);
     // Four words cannot fill an eight-bubble field, so the round shrinks
     // rather than the block losing its turn.
-    expect(rounds.every((round) => round.words.length >= 3)).toBe(true);
+    expect(steps.every((step) => wordsOf(step).length >= 2 || step.kind === 'exercise')).toBe(true);
   });
 
-  it('skips rows that are missing a side, so no round can ask about a blank', () => {
+  it('skips rows that are missing a side, so no card can ask about a blank', () => {
     const broken: NormalizedWord = { id: 'blank', cz: 'known', vi: '   ', en: '', category: [] };
-    const rounds = buildQuickPracticeBlock({ words: [broken, ...words(8)], seed: 4 });
+    const steps = build([broken, ...words(8)], 4);
 
-    expect(rounds.every((round) => round.words.every((word) => word.id !== 'blank'))).toBe(true);
+    expect(steps.every((step) => wordsOf(step).every((word) => word.id !== 'blank'))).toBe(true);
   });
 
-  it('falls back to typing cards for a one-word practice scope', () => {
-    const single = buildQuickPracticeBlock({ words: words(1), seed: 1 });
+  it('still fills a block for a one-word scope, with the cards that need no pool', () => {
+    const single = build(words(1), 1);
+
     expect(single).toHaveLength(QUICK_PRACTICE_BLOCK_ROUNDS);
-    expect(single.every((round) => round.gameType === 'typing')).toBe(true);
+    expect(single.every((step) => step.kind === 'exercise')).toBe(true);
+    expect(new Set(single.map(methodOf))).toEqual(new Set(['reveal', 'typing', 'assembly']));
   });
 
   it('reshuffles between blocks but holds still within one', () => {
     const scope = words(16);
-    const first = buildQuickPracticeBlock({ words: scope, seed: 1 });
-    const again = buildQuickPracticeBlock({ words: scope, seed: 1 });
-    const later = buildQuickPracticeBlock({ words: scope, seed: 2 });
+    const first = build(scope, 1);
+    const again = build(scope, 1);
+    const later = build(scope, 2);
 
-    expect(first.map((round) => round.words[0].id)).toEqual(
-      again.map((round) => round.words[0].id),
-    );
-    expect(first.map((round) => round.words[0].id)).not.toEqual(
-      later.map((round) => round.words[0].id),
-    );
+    expect(first.map(anchorOf)).toEqual(again.map(anchorOf));
+    expect(first.map(anchorOf)).not.toEqual(later.map(anchorOf));
+  });
+
+  it('gives up rather than looping when no card can be built at all', () => {
+    const blank: NormalizedWord = { id: 'blank', cz: '', vi: '', en: '', category: [] };
+
+    expect(build([blank], 1)).toEqual([]);
   });
 });
 
@@ -98,5 +129,28 @@ describe('canQuickPractice', () => {
     const broken: NormalizedWord = { id: 'blank', cz: 'known', vi: '', en: '', category: [] };
 
     expect(canQuickPractice([broken, ...words(3)])).toBe(false);
+  });
+});
+
+describe('rankPracticeWords', () => {
+  it('leads with never-answered and then least recently answered words', () => {
+    const scope = words(4);
+    const ranked = rankPracticeWords(scope, {
+      w0: { stageIndex: 5, knownCount: 4, unknownCount: 0, lastKnownAt: 600 },
+      w1: { stageIndex: 3, knownCount: 2, unknownCount: 0, lastKnownAt: 100 },
+      w2: { stageIndex: 1, knownCount: 1, unknownCount: 1, lastUnknownAt: 300 },
+    });
+
+    expect(ranked.map((word) => word.id)).toEqual(['w3', 'w1', 'w2', 'w0']);
+  });
+
+  it('uses lower stages as the tie-breaker for words seen at the same time', () => {
+    const scope = words(2);
+    const ranked = rankPracticeWords(scope, {
+      w0: { stageIndex: 4, knownCount: 2, unknownCount: 0, lastKnownAt: 100 },
+      w1: { stageIndex: 1, knownCount: 1, unknownCount: 0, lastKnownAt: 100 },
+    });
+
+    expect(ranked.map((word) => word.id)).toEqual(['w1', 'w0']);
   });
 });

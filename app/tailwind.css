@@ -43,6 +43,8 @@
   --color-paper-edge: var(--paper-edge);
   --color-ink-faint: var(--ink-faint);
 
+  --color-grey-line: var(--grey-line);
+
   --color-ink-900: var(--ink-900);
   --color-ink-850: var(--ink-850);
   --color-ink-800: var(--ink-800);

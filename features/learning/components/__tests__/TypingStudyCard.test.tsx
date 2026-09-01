@@ -426,6 +426,20 @@ describe('TypingStudyCard', () => {
     expect(onScore).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the centred blue continue control for practice and advances the round', () => {
+    const { onOutcome } = renderCard({ practice: true });
+    fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
+
+    const continueButton = screen.getByRole('button', { name: 'Continue' });
+    expect(continueButton).toHaveAttribute('data-continue-variant', 'slab');
+    expect(document.querySelector('[data-typing-secondary-actions]')).toBeNull();
+
+    fireEvent.click(continueButton);
+    expect(onOutcome).toHaveBeenCalledOnce();
+    expect(onOutcome).toHaveBeenCalledWith('known');
+  });
+
   it('plays the word audio after checking only when enabled', () => {
     renderCard({ playAudioAfterCheck: true });
     fireEvent.change(input(), { target: { value: 'conchó' } });

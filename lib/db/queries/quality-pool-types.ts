@@ -17,6 +17,8 @@ type PoolAudioAsset = {
   hash: string | null;
   size: number | null;
   storage: string | null;
+  /** The voice that produced it; null on assets predating the column. */
+  voice: string | null;
 };
 
 /**
@@ -134,6 +136,8 @@ type PoolItemAsset = {
   contentHash: string;
   storageType: string;
   storageRef: string;
+  /** The voice that produced the clip; null on assets predating the column. */
+  voiceId: string | null;
 };
 
 export type PoolItem = {

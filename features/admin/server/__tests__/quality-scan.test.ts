@@ -218,7 +218,7 @@ describe('audio heuristics', () => {
           failedCount: 0,
           pendingCount: 0,
           legacyCount: 0,
-          assets: [{ id: 'a1', hash: 'h1', size: 500, storage: 'object_store' }],
+          assets: [{ id: 'a1', hash: 'h1', size: 500, storage: 'object_store', voice: null }],
         },
       }),
       NO_CORPUS,

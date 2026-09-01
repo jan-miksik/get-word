@@ -12,10 +12,14 @@ import {
 import {
   hasAudioGap,
   type QualityAudioFilter,
+  type QualityAudioMode,
   type QualityAudioSide,
+  type QualityEvent,
   type QualityPoolRow,
   type QualitySort,
   type QualityVerdict,
+  type QualityVoiceRequest,
+  type QualityVoicesResponse,
 } from '@/features/admin/quality-types';
 import type { QualityFlagCode } from '@/lib/quality-flags';
 import type { I18nKey } from '@/lib/i18n/locales/en';
@@ -166,6 +170,9 @@ function AdminQualityPoolContent() {
     pagination,
     saveVerdict,
     generateAudio,
+    loadVoices,
+    voicesByLanguage,
+    loadHistory,
     generateAudioBulk,
     markOkBulk,
     auditPairs,
@@ -576,11 +583,17 @@ function AdminQualityPoolContent() {
                     {expanded.has(row.pool_key) && (
                       <tr className="border-t border-border-subtle bg-background-elevated/40">
                         <td colSpan={7} className="px-3 py-3">
-                          <RowDetail row={row} />
+                          <RowDetail row={row} loadHistory={loadHistory} />
                           <RowActions
                             row={row}
                             busy={busyKey === row.pool_key}
-                            onGenerateAudio={(side) => runAction(row.pool_key, () => generateAudio(row.pool_key, side))}
+                            voicesByLanguage={voicesByLanguage}
+                            loadVoices={loadVoices}
+                            onGenerateAudio={(side, options) =>
+                              runAction(row.pool_key, () =>
+                                generateAudio(row.pool_key, side, options),
+                              )
+                            }
                             onSaveVerdict={(input) => runAction(row.pool_key, () => saveVerdict(row.pool_key, input))}
                           />
                         </td>
@@ -640,12 +653,19 @@ type VerdictInput = {
 function RowActions({
   row,
   busy,
+  voicesByLanguage,
+  loadVoices,
   onGenerateAudio,
   onSaveVerdict,
 }: {
   row: QualityPoolRow;
   busy: boolean;
-  onGenerateAudio: (side: 'known' | 'target') => void;
+  voicesByLanguage: Record<string, QualityVoicesResponse>;
+  loadVoices: (language: string) => Promise<QualityVoicesResponse | null>;
+  onGenerateAudio: (
+    side: 'known' | 'target',
+    options?: { mode?: QualityAudioMode; voice?: QualityVoiceRequest },
+  ) => void;
   onSaveVerdict: (input: VerdictInput) => void;
 }) {
   const { t } = useI18n();
@@ -661,27 +681,32 @@ function RowActions({
 
   return (
     <div className="mt-3 flex flex-col gap-3 border-t border-border-subtle pt-3">
+      <div className="flex flex-col gap-2">
+        <AudioSideActions
+          side="known"
+          language={row.language_from}
+          label={t('adminQuality.sideKnown')}
+          hasGap={knownIncomplete}
+          hasRecording={row.known.ready_count > 0}
+          busy={busy}
+          voices={voicesByLanguage[row.language_from] ?? null}
+          loadVoices={loadVoices}
+          onGenerateAudio={onGenerateAudio}
+        />
+        <AudioSideActions
+          side="target"
+          language={row.language_to}
+          label={t('adminQuality.sideTarget')}
+          hasGap={targetIncomplete}
+          hasRecording={row.target.ready_count > 0}
+          busy={busy}
+          voices={voicesByLanguage[row.language_to] ?? null}
+          loadVoices={loadVoices}
+          onGenerateAudio={onGenerateAudio}
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
-        {knownIncomplete && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onGenerateAudio('known')}
-            className="rounded-md border border-border-subtle px-3 py-1.5 text-xs text-text disabled:opacity-40"
-          >
-            {t('adminQuality.actionGenerateKnown')}
-          </button>
-        )}
-        {targetIncomplete && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onGenerateAudio('target')}
-            className="rounded-md border border-border-subtle px-3 py-1.5 text-xs text-text disabled:opacity-40"
-          >
-            {t('adminQuality.actionGenerateTarget')}
-          </button>
-        )}
         <button
           type="button"
           disabled={busy}
@@ -734,7 +759,130 @@ function RowActions({
   );
 }
 
-function RowDetail({ row }: { row: QualityPoolRow }) {
+/**
+ * The voice a recording should use.
+ *
+ * `auto` is deliberately the default and deliberately cannot re-record: the
+ * deterministic pick maps a text to one fixed voice, so asking again produces
+ * the identical content hash and the identical clip. Re-recording therefore
+ * needs either the random mix or a named voice, and the button says so instead
+ * of running a request that changes nothing.
+ */
+type VoiceSelectionValue = 'auto' | 'random' | string;
+
+function toVoiceRequest(value: VoiceSelectionValue): QualityVoiceRequest {
+  if (value === 'auto') return { mode: 'auto' };
+  if (value === 'random') return { mode: 'random' };
+  return { mode: 'explicit', voiceId: value };
+}
+
+/**
+ * Recording controls for one side of a pair.
+ *
+ * Two actions, kept apart because their blast radius differs. "Record what is
+ * missing" only fills gaps and is safe. "Record again" relinks every item that
+ * shares the pair — it changes what learners already hear, so it asks first.
+ *
+ * The voice list is fetched only when the editor opens the dropdown: the page
+ * shows many languages at once and almost no row needs a voice named by hand.
+ */
+function AudioSideActions({
+  side,
+  language,
+  label,
+  hasGap,
+  hasRecording,
+  busy,
+  voices,
+  loadVoices,
+  onGenerateAudio,
+}: {
+  side: 'known' | 'target';
+  language: string;
+  label: string;
+  hasGap: boolean;
+  hasRecording: boolean;
+  busy: boolean;
+  voices: QualityVoicesResponse | null;
+  loadVoices: (language: string) => Promise<QualityVoicesResponse | null>;
+  onGenerateAudio: (
+    side: 'known' | 'target',
+    options?: { mode?: QualityAudioMode; voice?: QualityVoiceRequest },
+  ) => void;
+}) {
+  const { t } = useI18n();
+  const [selection, setSelection] = useState<VoiceSelectionValue>('auto');
+
+  const canReplace = hasRecording && selection !== 'auto';
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-text-soft">
+      <span className="min-w-24 text-text">
+        {label} ({language})
+      </span>
+
+      <select
+        value={selection}
+        onFocus={() => {
+          if (!voices) void loadVoices(language);
+        }}
+        onChange={(event) => setSelection(event.target.value)}
+        className="rounded-md border border-border-subtle bg-background px-2 py-1 text-xs text-text"
+      >
+        <option value="auto">{t('adminQuality.voiceAuto')}</option>
+        <option value="random">{t('adminQuality.voiceRandom')}</option>
+        {(voices?.voices ?? []).map((voice) => (
+          <option key={voice} value={voice}>
+            {voice}
+          </option>
+        ))}
+      </select>
+
+      {hasGap && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            onGenerateAudio(side, { mode: 'fill', voice: toVoiceRequest(selection) })
+          }
+          className="rounded-md border border-border-subtle px-3 py-1.5 text-xs text-text disabled:opacity-40"
+        >
+          {t('adminQuality.actionGenerateMissing')}
+        </button>
+      )}
+
+      {hasRecording && (
+        <button
+          type="button"
+          disabled={busy || !canReplace}
+          onClick={() => {
+            if (!window.confirm(t('adminQuality.actionReRecordConfirm'))) return;
+            onGenerateAudio(side, { mode: 'replace', voice: toVoiceRequest(selection) });
+          }}
+          className="rounded-md border border-border-subtle px-3 py-1.5 text-xs text-text disabled:opacity-40"
+        >
+          {t('adminQuality.actionReRecord')}
+        </button>
+      )}
+
+      {hasRecording && !canReplace && (
+        <span className="text-text-soft/70">{t('adminQuality.actionReRecordHint')}</span>
+      )}
+
+      {voices?.supported === false && (
+        <span className="text-text-soft/70">{t('adminQuality.voiceUnsupported')}</span>
+      )}
+    </div>
+  );
+}
+
+function RowDetail({
+  row,
+  loadHistory,
+}: {
+  row: QualityPoolRow;
+  loadHistory: (poolKey: string) => Promise<QualityEvent[]>;
+}) {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -760,17 +908,137 @@ function RowDetail({ row }: { row: QualityPoolRow }) {
       <div className="flex flex-wrap gap-4">
         {row.known.assets.map((asset) =>
           asset.content_hash ? (
-            <AudioPreview key={asset.id} hash={asset.content_hash} label={row.text_known} />
+            <AudioPreview
+              key={asset.id}
+              hash={asset.content_hash}
+              label={row.text_known}
+              voice={asset.voice_id}
+            />
           ) : null,
         )}
         {row.target.assets.map((asset) =>
           asset.content_hash ? (
-            <AudioPreview key={asset.id} hash={asset.content_hash} label={row.text_target} />
+            <AudioPreview
+              key={asset.id}
+              hash={asset.content_hash}
+              label={row.text_target}
+              voice={asset.voice_id}
+            />
           ) : null,
         )}
       </div>
+
+      <HistoryPanel poolKey={row.pool_key} loadHistory={loadHistory} />
     </div>
   );
+}
+
+/**
+ * What editors did to this pair, newest first.
+ *
+ * Collapsed and fetched on open: a history is read one pair at a time, and
+ * folding it into the corpus-wide listing would cost every page load for
+ * something most rows never show. Only editor actions are recorded — the scan
+ * and the LLM audit touch thousands of pairs a run and would bury them.
+ */
+function HistoryPanel({
+  poolKey,
+  loadHistory,
+}: {
+  poolKey: string;
+  loadHistory: (poolKey: string) => Promise<QualityEvent[]>;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [events, setEvents] = useState<QualityEvent[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (!next || events !== null) return;
+    try {
+      setEvents(await loadHistory(poolKey));
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  };
+
+  return (
+    <div className="border-t border-border-subtle pt-2">
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        className="text-xs text-text-soft underline-offset-2 hover:underline"
+      >
+        {open ? t('adminQuality.historyHide') : t('adminQuality.historyShow')}
+      </button>
+
+      {open && (
+        <div className="mt-2 text-xs text-text-soft">
+          {failed && <p className="m-0">{t('adminQuality.historyError')}</p>}
+          {!failed && events === null && <p className="m-0">{t('adminQuality.historyLoading')}</p>}
+          {!failed && events?.length === 0 && (
+            <p className="m-0">{t('adminQuality.historyEmpty')}</p>
+          )}
+          {!failed && events && events.length > 0 && (
+            <ul className="m-0 list-none space-y-1 p-0">
+              {events.map((event) => (
+                <li key={event.id} className="flex flex-wrap gap-2">
+                  <span className="tabular-nums text-text-soft/70">
+                    {new Date(event.created_at).toLocaleString()}
+                  </span>
+                  <span className="text-text">{t(HISTORY_LABELS[event.action])}</span>
+                  {event.side && <span>({event.side})</span>}
+                  <span className="text-text-soft/70">{describeEventDetail(event)}</span>
+                  {event.actor && <span className="text-text-soft/70">— {event.actor}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const HISTORY_LABELS: Record<QualityEvent['action'], I18nKey> = {
+  verdict: 'adminQuality.historyVerdict',
+  suggestion: 'adminQuality.historySuggestion',
+  audio_filled: 'adminQuality.historyAudioFilled',
+  audio_replaced: 'adminQuality.historyAudioReplaced',
+};
+
+/**
+ * The parts of `detail` worth reading at a glance, as plain text.
+ *
+ * Deliberately not translated field by field: these are voice ids, counts and
+ * the editor's own suggestion, and a localized sentence around each would say
+ * less than the values do.
+ */
+function describeEventDetail(event: QualityEvent): string {
+  const detail = event.detail;
+  const parts: string[] = [];
+  const push = (key: string, prefix = '') => {
+    const value = detail[key];
+    if (value === null || value === undefined || value === '') return;
+    parts.push(`${prefix}${String(value)}`);
+  };
+
+  push('verdict');
+  push('suggested_target', '→ ');
+  push('note', '· ');
+  push('voice_id');
+  // Symbols rather than words: this line is assembled from raw values in every
+  // locale, and a half-translated sentence around them would read worse.
+  if (typeof detail.linked_items === 'number') {
+    parts.push(`${detail.linked_items}×`);
+  }
+  if (typeof detail.replaced_items === 'number' && detail.replaced_items > 0) {
+    parts.push(`↺${detail.replaced_items}`);
+  }
+  return parts.join(' ');
 }
 
 /**
@@ -778,10 +1046,20 @@ function RowDetail({ row }: { row: QualityPoolRow }) {
  * id — hence `asset.content_hash` here, with `asset.id` used only as the React
  * key. An asset whose hash is null has nothing to play and is skipped.
  */
-function AudioPreview({ hash, label }: { hash: string; label: string }) {
+function AudioPreview({
+  hash,
+  label,
+  voice,
+}: {
+  hash: string;
+  label: string;
+  /** Null on clips recorded before media_assets tracked the voice. */
+  voice: string | null;
+}) {
   return (
     <span className="flex items-center gap-2 text-xs text-text-soft">
       <span>{label}</span>
+      {voice && <span className="text-text-soft/70">{voice}</span>}
       <audio controls preload="none" src={`/api/audio/${hash}`} className="h-8" />
     </span>
   );

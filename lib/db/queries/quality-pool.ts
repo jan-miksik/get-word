@@ -20,3 +20,4 @@ export type {
 } from './quality-pool-types';
 export * from './quality-pool-writes';
 export * from './quality-pool-suggestions';
+export * from './quality-pool-events';

@@ -30,6 +30,7 @@ function serializeSide(side: PoolAudioSide, text: string): QualityAudioSide {
       content_hash: asset.hash,
       size_bytes: asset.size,
       storage: asset.storage,
+      voice_id: asset.voice,
       suspicious: isSuspiciousSizeForText(asset.size, text),
     })),
   };

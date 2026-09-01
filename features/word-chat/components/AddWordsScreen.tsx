@@ -218,17 +218,17 @@ export function AddWordsScreen({
   const fullHeight = !photoTabActive && step === 'chat';
 
   const tabs: { id: AddWordsTab; label: string; icon: ReactNode }[] = [
-    { id: 'manual', label: t('addWords.tabManual'), icon: <PencilIcon size={15} /> },
+    { id: 'manual', label: t('addWords.tabManual'), icon: <PencilIcon size={16} /> },
     ...(photoTabAvailable
       ? [
           {
             id: 'photo' as const,
             label: t('addWords.tabPhoto'),
-            icon: <PhotoLabIcon size={15} />,
+            icon: <PhotoLabIcon size={16} />,
           },
         ]
       : []),
-    { id: 'ai', label: t('addWords.tabAi'), icon: <RobotIcon size={15} /> },
+    { id: 'ai', label: t('addWords.tabAi'), icon: <RobotIcon size={16} /> },
   ];
 
   return (
@@ -299,44 +299,62 @@ export function AddWordsScreen({
           </div>
 
           {showTabs ? (
-            // A tab strip, not three buttons: the ways in are one choice among
-            // siblings, so they share a baseline and the active one is marked by
-            // an underline rather than by being filled in like an action.
+            // Keep the translated tab inside the scrollport, but clip its
+            // painted sides at the shared baseline. One continuous line covers
+            // the inactive tabs' corners; the selected tab covers that line.
             <div
-              role="tablist"
-              aria-label={t('addWords.title')}
-              className="-mx-1 flex items-stretch gap-1 overflow-x-auto border-b-2 border-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_16%,transparent)] px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="-mx-1 -mb-[3px] overflow-x-auto pb-[3px] pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              {tabs.map((tab) => {
-                const selected = tab.id === activeTab;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    onClick={() => selectTab(tab.id)}
-                    className={[
-                      // The 2px pull-down parks each tab's own bottom border on
-                      // the strip's line, so the selected one reads as sitting
-                      // on the surface below instead of floating above it.
-                      'relative -mb-[2px] inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2',
-                      'whitespace-nowrap rounded-t-lg border-b-[3px] bg-transparent px-3 py-2',
-                      'text-xs font-extrabold transition-[color,border-color,background] duration-150',
-                      selected
-                        ? 'border-[color:var(--ob-accent,var(--sea))] text-[color:var(--ob-accent,var(--sea))]'
-                        : [
-                            'border-transparent text-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_68%,transparent)]',
-                            'hover:bg-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_6%,transparent)]',
-                            'hover:text-[color:var(--ob-ink,var(--ink))]',
-                          ].join(' '),
-                    ].join(' ')}
-                  >
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
+              <div
+                role="tablist"
+                aria-label={t('addWords.title')}
+                className="relative isolate flex min-w-max items-end gap-1 px-1 [clip-path:inset(-4px_0_0)] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-0 before:z-1 before:border-b-2 before:border-ink/72 before:bg-paper"
+              >
+                {tabs.map((tab) => {
+                  const selected = tab.id === activeTab;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      onClick={() => selectTab(tab.id)}
+                      className={[
+                        // Equal boxes keep the row stable; only the selected tab
+                        // translates down across the sheet's edge.
+                        'relative inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2',
+                        'whitespace-nowrap rounded-t-[14px] border-x-2 border-t-4 border-b-0 px-3.5 py-2',
+                        'text-[13px] font-extrabold duration-150',
+                        'transition-[color,border-color,background-color,translate] motion-reduce:transition-none',
+                        selected
+                          ? [
+                              // Lower the cap and label; the row clips the sides
+                              // at the baseline without closing the bottom.
+                              'z-10 translate-y-[3px] bg-[var(--ob-surface)]',
+                              'border-x-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_72%,transparent)]',
+                              'border-t-[color:var(--ob-accent,var(--sea))]',
+                              'text-[color:var(--ob-ink,var(--ink))]',
+                            ].join(' ')
+                          : [
+                              // Filed behind: a tinted card, a lighter edge, and
+                              // its bottom sitting on the line rather than over it.
+                              'bg-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_9%,var(--ob-surface))]',
+                              'border-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_30%,transparent)]',
+                              // The row paints the bottom edge over these sides,
+                              // avoiding diagonal joins between border colours.
+                              'text-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_62%,transparent)]',
+                              'hover:bg-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_15%,var(--ob-surface))]',
+                              'hover:border-[color:color-mix(in_srgb,var(--ob-ink,var(--ink))_48%,transparent)]',
+                              'hover:text-[color:var(--ob-ink,var(--ink))]',
+                            ].join(' '),
+                      ].join(' ')}
+                    >
+                      {tab.icon}
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : headerBackAction ? (
             // Back, and nothing else. There used to be a three-dot step rail

@@ -12,9 +12,15 @@ import {
   TrendBars,
 } from '@/components/stats/StatsPrimitives';
 import { useAdminStats } from '@/features/admin/client/useAdminStats';
-import type { AdminUserRow, DeviceFormFactor, DevicePlatform } from '@/features/admin/types';
+import type {
+  AdminUserRow,
+  DeviceFormFactor,
+  DevicePlatform,
+  GoalAdherenceBucket,
+} from '@/features/admin/types';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
+import { pluralForm } from '@/lib/i18n/plural';
 
 type SortDirection = 'asc' | 'desc';
 type UserSortKey =
@@ -29,8 +35,103 @@ type UserSortKey =
   | 'medianSessionSeconds'
   | 'photoAnalyses'
   | 'gameScore'
-  | 'deviceCount';
+  | 'deviceCount'
+  | 'goalMetDays30d'
+  | 'goalAdherence30d';
 type ListSortKey = 'name' | 'subscriberCount' | 'activeSubscriberCount';
+
+/**
+ * Columns of the "who to write to" table, beside the always-present handle.
+ *
+ * The reader picks which of these show; the choice is per-browser and survives
+ * a reload. Everything is on by default — hiding a column somebody relies on
+ * without being asked would be worse than a wide table.
+ */
+interface UserColumn {
+  key: string;
+  label: string;
+  hint?: string;
+  sortKey?: UserSortKey;
+  align?: 'right';
+  render: (user: AdminUserRow) => React.ReactNode;
+}
+
+const USER_COLUMNS_STORAGE_KEY = 'get-word-admin-stats-hidden-columns';
+
+/** "word/day" inflects in Czech and Ukrainian; "min/day" does not. */
+const GOAL_WORDS_PER_DAY_LABEL = {
+  one: 'adminStats.goalWordsPerDayOne',
+  few: 'adminStats.goalWordsPerDayFew',
+  many: 'adminStats.goalWordsPerDayMany',
+} as const;
+
+function readHiddenColumns(): string[] {
+  // The dashboard renders "loading" until a client fetch resolves, so no
+  // server-rendered markup depends on this. It still has to survive being
+  // called with no `window` at all.
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(USER_COLUMNS_STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    return Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Label/count list, the shape the device breakdowns already use. */
+function BreakdownPanel({
+  title,
+  rows,
+  emptyLabel,
+}: {
+  title: string;
+  rows: { key: string; label: string; value: string | number }[];
+  emptyLabel: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-background-elevated p-4">
+      <h3 className="text-sm font-medium text-text-soft mb-2">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-text-soft">{emptyLabel}</p>
+      ) : (
+        <div className="space-y-1 text-sm">
+          {rows.map((row) => (
+            <div key={row.key} className="flex items-center justify-between gap-3">
+              <span>{row.label}</span>
+              <span className="tabular-nums text-text-soft">{row.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Rows a long breakdown table shows before the reader asks for the rest. */
+const GOOGLE_API_VISIBLE_ROWS = 5;
+const LANGUAGE_VISIBLE_ROWS = 10;
+
+function ShowMoreToggle({
+  expanded,
+  hiddenCount,
+  onToggle,
+  showAllLabel,
+  showLessLabel,
+}: {
+  expanded: boolean;
+  hiddenCount: number;
+  onToggle: () => void;
+  showAllLabel: string;
+  showLessLabel: string;
+}) {
+  if (hiddenCount <= 0) return null;
+  return (
+    <button type="button" className="mt-2 text-xs text-accent underline" onClick={onToggle}>
+      {expanded ? showLessLabel : showAllLabel}
+    </button>
+  );
+}
 
 function SortHeader({
   active,
@@ -86,6 +187,29 @@ function AdminStatsContent() {
     key: 'subscriberCount',
     direction: 'desc',
   });
+  const [userLanguageFilter, setUserLanguageFilter] = useState<string>('all');
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>(readHiddenColumns);
+  const [showAllGoogleApi, setShowAllGoogleApi] = useState(false);
+  const [showAllLanguageTargets, setShowAllLanguageTargets] = useState(false);
+  const [showAllLanguagePairs, setShowAllLanguagePairs] = useState(false);
+
+  const persistHiddenColumns = (next: string[]) => {
+    setHiddenColumns(next);
+    try {
+      window.localStorage.setItem(USER_COLUMNS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // A browser refusing storage still gets the choice for this session.
+    }
+  };
+
+  const toggleColumn = (key: string) =>
+    persistHiddenColumns(
+      hiddenColumns.includes(key)
+        ? hiddenColumns.filter((entry) => entry !== key)
+        : [...hiddenColumns, key]
+    );
+
+  const resetColumns = () => persistHiddenColumns([]);
 
   const revealEmail = (handle: string) =>
     setRevealedEmails((prev) => new Set(prev).add(handle));
@@ -180,6 +304,52 @@ function AdminStatsContent() {
     }
   };
 
+  const goalWordsLabel = (count: number) =>
+    t(pluralForm(GOAL_WORDS_PER_DAY_LABEL, language, count), { count });
+
+  const adherenceBucketLabel = (bucket: GoalAdherenceBucket) => {
+    switch (bucket) {
+      case 'full':
+        return t('adminStats.goalsBucketFull');
+      case 'high':
+        return t('adminStats.goalsBucketHigh');
+      case 'mid':
+        return t('adminStats.goalsBucketMid');
+      case 'low':
+        return t('adminStats.goalsBucketLow');
+      case 'none':
+        return t('adminStats.goalsBucketNone');
+    }
+  };
+
+  const goalPresetLabel = (preset: string) => {
+    switch (preset) {
+      case 'light':
+        return t('adminStats.goalsPresetLight');
+      case 'medium':
+        return t('adminStats.goalsPresetMedium');
+      case 'intense':
+        return t('adminStats.goalsPresetIntense');
+      case 'custom':
+        return t('adminStats.goalsPresetCustom');
+      default:
+        return preset;
+    }
+  };
+
+  /** Distribution keys are `minutes:10` / `words:5`, mode included on purpose. */
+  const dailyTargetLabel = (key: string) => {
+    const [mode, value] = key.split(':');
+    return mode === 'words'
+      ? goalWordsLabel(Number(value))
+      : t('adminStats.goalMinutesPerDay', { count: Number(value) });
+  };
+
+  const languageLabel = (code: string) =>
+    getLocalizedLanguageName(code, language) ?? code;
+  const languageWithFlag = (code: string) =>
+    `${getLanguageFlag(code) ?? '🌐'} ${languageLabel(code)}`;
+
   const toggleUserSort = (key: UserSortKey) =>
     setUserSort((prev) => ({
       key,
@@ -266,6 +436,13 @@ function AdminStatsContent() {
         return user.gameScore;
       case 'deviceCount':
         return user.deviceCount;
+      case 'goalMetDays30d':
+        return user.goalProgress30d.metDays;
+      case 'goalAdherence30d':
+        // Accounts with nothing to measure sort below 0 %, not above it.
+        return user.goalProgress30d.expectedDays > 0
+          ? user.goalProgress30d.metDays / user.goalProgress30d.expectedDays
+          : -1;
     }
   };
   const visibleUsers = stats.users
@@ -278,12 +455,232 @@ function AdminStatsContent() {
         userPlatformFilter === 'all' || user.lastDevicePlatform === userPlatformFilter;
       const matchesFormFactor =
         userFormFactorFilter === 'all' || user.lastDeviceFormFactor === userFormFactorFilter;
-      return matchesSearch && matchesPlatform && matchesFormFactor;
+      // Filters on the studied language, not the selected one: the question is
+      // who is learning a language, not who has it configured.
+      const matchesLanguage =
+        userLanguageFilter === 'all' ||
+        user.studiedLanguages.some((entry) => entry.language === userLanguageFilter);
+      return matchesSearch && matchesPlatform && matchesFormFactor && matchesLanguage;
     })
     .sort((a, b) => {
       const result = valueForUserSort(a) - valueForUserSort(b);
       return userSort.direction === 'asc' ? result : -result;
     });
+
+  const formatGoal = (goal: AdminUserRow['goal']) => {
+    if (!goal) return t('adminStats.userGoalNone');
+    const size =
+      goal.mode === 'words'
+        ? goalWordsLabel(goal.newWordsPerDay ?? 0)
+        : t('adminStats.goalMinutesPerDay', { count: goal.minutesPerDay ?? 0 });
+    const label = t('adminStats.goalSummary', { size, days: goal.daysPerWeek });
+    return goal.enabled ? label : t('adminStats.goalDisabledSummary', { goal: label });
+  };
+  const adherenceOf = (user: AdminUserRow) =>
+    user.goalProgress30d.expectedDays > 0
+      ? user.goalProgress30d.metDays / user.goalProgress30d.expectedDays
+      : null;
+  const formatPercent = (share: number) => `${Math.round(share * 100)}%`;
+
+  const userColumns: UserColumn[] = [
+    {
+      key: 'lastSeenAt',
+      label: t('adminStats.userLastSeen'),
+      sortKey: 'lastSeenAt',
+      render: (user) => <span className="text-text-soft">{formatDate(user.lastSeenAt)}</span>,
+    },
+    {
+      key: 'firstSeenAt',
+      label: t('adminStats.userFirstSeen'),
+      sortKey: 'firstSeenAt',
+      render: (user) => <span className="text-text-soft">{formatDate(user.firstSeenAt)}</span>,
+    },
+    {
+      key: 'device',
+      label: t('adminStats.userDevice'),
+      render: (user) => (
+        <span className="text-text-soft">
+          {platformLabel(user.lastDevicePlatform)} / {formFactorLabel(user.lastDeviceFormFactor)}
+        </span>
+      ),
+    },
+    {
+      key: 'languages',
+      label: t('adminStats.userLanguages'),
+      hint: t('adminStats.userLanguagesHint'),
+      render: (user) =>
+        user.studiedLanguages.length > 0 ? (
+          <span
+            title={user.studiedLanguages
+              .map((entry) =>
+                t('adminStats.userLanguageEntry', {
+                  language: languageLabel(entry.language),
+                  reviews: entry.reviews,
+                })
+              )
+              .join('\n')}
+          >
+            {user.studiedLanguages.map((entry) => (
+              <span key={entry.language} className="mr-2">
+                {getLanguageFlag(entry.language) ?? '🌐'}
+                <span className="ml-0.5 font-mono text-[10px]">{entry.language}</span>
+              </span>
+            ))}
+          </span>
+        ) : user.selectedLanguageTo ? (
+          <span className="text-text-soft" title={t('adminStats.userLanguagesSelectedOnly')}>
+            ({getLanguageFlag(user.selectedLanguageTo) ?? '🌐'}
+            <span className="ml-0.5 font-mono text-[10px]">{user.selectedLanguageTo}</span>)
+          </span>
+        ) : (
+          <span className="text-text-soft">—</span>
+        ),
+    },
+    {
+      key: 'goal',
+      label: t('adminStats.userGoal'),
+      hint: t('adminStats.userGoalHint'),
+      render: (user) => (
+        <span className={user.goal?.enabled ? undefined : 'text-text-soft'}>
+          {formatGoal(user.goal)}
+        </span>
+      ),
+    },
+    {
+      key: 'goalMetDays30d',
+      label: t('adminStats.userGoalMetDays'),
+      hint: t('adminStats.userGoalMetDaysHint'),
+      sortKey: 'goalMetDays30d',
+      align: 'right',
+      render: (user) =>
+        user.goalProgress30d.expectedDays > 0
+          ? t('adminStats.userGoalMetOfExpected', {
+              met: user.goalProgress30d.metDays,
+              expected: Math.round(user.goalProgress30d.expectedDays),
+            })
+          : '—',
+    },
+    {
+      key: 'goalAdherence30d',
+      label: t('adminStats.userGoalAdherence'),
+      hint: t('adminStats.userGoalAdherenceHint'),
+      sortKey: 'goalAdherence30d',
+      align: 'right',
+      render: (user) => {
+        const share = adherenceOf(user);
+        return share === null ? '—' : formatPercent(share);
+      },
+    },
+    {
+      key: 'deviceCount',
+      label: t('adminStats.userDeviceCount'),
+      hint: t('adminStats.userDeviceCountHint'),
+      sortKey: 'deviceCount',
+      align: 'right',
+      render: (user) => user.deviceCount,
+    },
+    {
+      key: 'gameScore',
+      label: t('adminStats.userGameScore'),
+      hint: t('adminStats.userGameScoreHint'),
+      sortKey: 'gameScore',
+      align: 'right',
+      render: (user) => user.gameScore,
+    },
+    {
+      key: 'reviewCount',
+      label: t('adminStats.userReviews'),
+      hint: t('adminStats.userReviewsHint'),
+      sortKey: 'reviewCount',
+      align: 'right',
+      render: (user) => user.reviewCount,
+    },
+    {
+      key: 'activeDays',
+      label: t('adminStats.userActiveDays'),
+      hint: t('adminStats.userActiveDaysHint'),
+      sortKey: 'activeDays',
+      align: 'right',
+      render: (user) => user.activeDays,
+    },
+    {
+      key: 'studySessions',
+      label: t('adminStats.userSessions'),
+      hint: t('adminStats.userSessionsHint'),
+      sortKey: 'studySessions',
+      align: 'right',
+      render: (user) => user.studySessions,
+    },
+    {
+      key: 'estActiveStudySeconds',
+      label: t('adminStats.userStudyTime'),
+      hint: t('adminStats.userStudyTimeHint'),
+      sortKey: 'estActiveStudySeconds',
+      align: 'right',
+      render: (user) => formatStudyTime(user.estActiveStudySeconds),
+    },
+    {
+      key: 'activeSeconds30d',
+      label: t('adminStats.userActiveTime'),
+      hint: t('adminStats.userActiveTimeHint'),
+      sortKey: 'activeSeconds30d',
+      align: 'right',
+      render: (user) => formatStudyTime(user.activeSeconds30d),
+    },
+    {
+      key: 'sessions30d',
+      label: t('adminStats.userActiveSessions'),
+      hint: t('adminStats.userActiveSessionsHint'),
+      sortKey: 'sessions30d',
+      align: 'right',
+      render: (user) => user.sessions30d || '—',
+    },
+    {
+      key: 'medianSessionSeconds',
+      label: t('adminStats.userMedianSession'),
+      hint: t('adminStats.userMedianSessionHint'),
+      sortKey: 'medianSessionSeconds',
+      align: 'right',
+      render: (user) => formatStudyTime(user.medianSessionSeconds),
+    },
+    {
+      key: 'photoAnalyses',
+      label: t('adminStats.userPhotos'),
+      sortKey: 'photoAnalyses',
+      align: 'right',
+      render: (user) => user.photoAnalyses,
+    },
+    {
+      key: 'email',
+      label: t('adminStats.userEmail'),
+      render: (user) =>
+        revealedEmails.has(user.handle) ? (
+          <span className="select-all">{user.email}</span>
+        ) : (
+          <button
+            type="button"
+            className="text-accent underline"
+            onClick={() => revealEmail(user.handle)}
+          >
+            {t('adminStats.revealEmail')}
+          </button>
+        ),
+    },
+  ];
+  const visibleColumns = userColumns.filter((column) => !hiddenColumns.includes(column.key));
+
+  const visibleLanguageTargets = showAllLanguageTargets
+    ? stats.languages.targets
+    : stats.languages.targets.slice(0, LANGUAGE_VISIBLE_ROWS);
+  const visibleLanguagePairs = showAllLanguagePairs
+    ? stats.languages.pairs
+    : stats.languages.pairs.slice(0, LANGUAGE_VISIBLE_ROWS);
+  const visibleGoogleApiSources = showAllGoogleApi
+    ? stats.googleApi.sources
+    : stats.googleApi.sources.slice(0, GOOGLE_API_VISIBLE_ROWS);
+  const languageFilterOptions = stats.languages.targets
+    .filter((target) => target.learners > 0)
+    .map((target) => target.language);
 
   return (
     <div className="min-h-screen bg-background text-text">
@@ -320,6 +717,7 @@ function AdminStatsContent() {
             <StatCard label={t('adminStats.registeredTotal')} value={stats.registrations.total} highlight />
             <StatCard label={t('adminStats.providerEmail')} value={stats.registrations.email} />
             <StatCard label={t('adminStats.providerGoogle')} value={stats.registrations.google} />
+            <StatCard label={t('adminStats.providerApple')} value={stats.registrations.apple} />
             <StatCard label={t('adminStats.providerOther')} value={stats.registrations.other} />
             <StatCard
               label={t('adminStats.anonymous')}
@@ -461,6 +859,254 @@ function AdminStatsContent() {
               partial: week.partial,
             }))}
           />
+        </Section>
+
+        <Section
+          title={t('adminStats.sectionLanguages')}
+          note={t('adminStats.languagesNote')}
+        >
+          <CardGrid>
+            <StatCard
+              label={t('adminStats.languagesLearners')}
+              value={stats.languages.learners}
+              highlight
+              note={t('adminStats.languagesLearners30d', { count: stats.languages.learners30d })}
+            />
+            <StatCard
+              label={t('adminStats.languagesMulti')}
+              value={stats.languages.multiLanguageLearners}
+              note={
+                stats.languages.learners > 0
+                  ? t('adminStats.languagesMultiShare', {
+                      percent: Math.round(
+                        (stats.languages.multiLanguageLearners / stats.languages.learners) * 100
+                      ),
+                    })
+                  : undefined
+              }
+            />
+            <StatCard
+              label={t('adminStats.languagesMulti30d')}
+              value={stats.languages.multiLanguageLearners30d}
+            />
+            <StatCard
+              label={t('adminStats.languagesDistinctTargets')}
+              value={stats.languages.targets.filter((target) => target.learners > 0).length}
+              note={t('adminStats.languagesDistinctPairs', { count: stats.languages.pairs.length })}
+            />
+          </CardGrid>
+
+          {stats.languages.targets.length === 0 ? (
+            <p className="text-sm text-text-soft">{t('adminStats.noData')}</p>
+          ) : (
+            <>
+              <div>
+                <h3 className="text-sm font-medium text-text-soft mb-2">
+                  {t('adminStats.languagesTargets')}
+                </h3>
+                <div className="overflow-x-auto rounded-lg border border-border-subtle">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-text-soft bg-background-elevated">
+                        <th className="px-3 py-2 font-medium">
+                          {t('adminStats.languagesLanguage')}
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          {t('adminStats.languagesLearnersColumn')}
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          {t('adminStats.languagesLearners30dColumn')}
+                        </th>
+                        <th
+                          className="px-3 py-2 font-medium text-right"
+                          title={t('adminStats.languagesSelectedHint')}
+                        >
+                          {t('adminStats.languagesSelected')}
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          {t('adminStats.languagesReviews')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleLanguageTargets.map((target) => (
+                        <tr key={target.language} className="border-t border-border-subtle">
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className="mr-1">{getLanguageFlag(target.language) ?? '🌐'}</span>
+                            {languageLabel(target.language)}
+                            <span className="ml-1 font-mono text-[10px] text-text-soft">
+                              {target.language}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{target.learners}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{target.learners30d}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-text-soft">
+                            {target.selectedBy}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{target.reviews}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <ShowMoreToggle
+                  expanded={showAllLanguageTargets}
+                  hiddenCount={stats.languages.targets.length - LANGUAGE_VISIBLE_ROWS}
+                  onToggle={() => setShowAllLanguageTargets((previous) => !previous)}
+                  showAllLabel={t('adminStats.languagesShowAll', {
+                    count: stats.languages.targets.length,
+                  })}
+                  showLessLabel={t('adminStats.languagesShowTop', { count: LANGUAGE_VISIBLE_ROWS })}
+                />
+              </div>
+
+              {stats.languages.pairs.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-text-soft mb-2">
+                    {t('adminStats.languagesPairs')}
+                  </h3>
+                  <div className="overflow-x-auto rounded-lg border border-border-subtle">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-text-soft bg-background-elevated">
+                          <th className="px-3 py-2 font-medium">
+                            {t('adminStats.languagesDirection')}
+                          </th>
+                          <th className="px-3 py-2 font-medium text-right">
+                            {t('adminStats.languagesLearnersColumn')}
+                          </th>
+                          <th className="px-3 py-2 font-medium text-right">
+                            {t('adminStats.languagesLearners30dColumn')}
+                          </th>
+                          <th
+                            className="px-3 py-2 font-medium text-right"
+                            title={t('adminStats.languagesSelectedHint')}
+                          >
+                            {t('adminStats.languagesSelected')}
+                          </th>
+                          <th className="px-3 py-2 font-medium text-right">
+                            {t('adminStats.languagesReviews')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleLanguagePairs.map((pair) => (
+                          <tr
+                            key={`${pair.languageFrom}>${pair.languageTo}`}
+                            className="border-t border-border-subtle"
+                          >
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {languageWithFlag(pair.languageFrom)} →{' '}
+                              {languageWithFlag(pair.languageTo)}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">{pair.learners}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{pair.learners30d}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-text-soft">
+                              {pair.selectedBy}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">{pair.reviews}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <ShowMoreToggle
+                    expanded={showAllLanguagePairs}
+                    hiddenCount={stats.languages.pairs.length - LANGUAGE_VISIBLE_ROWS}
+                    onToggle={() => setShowAllLanguagePairs((previous) => !previous)}
+                    showAllLabel={t('adminStats.languagesShowAll', {
+                      count: stats.languages.pairs.length,
+                    })}
+                    showLessLabel={t('adminStats.languagesShowTop', {
+                      count: LANGUAGE_VISIBLE_ROWS,
+                    })}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </Section>
+
+        <Section title={t('adminStats.sectionGoals')} note={t('adminStats.goalsNote')}>
+          <CardGrid>
+            <StatCard
+              label={t('adminStats.goalsEnabled')}
+              value={stats.goals.enabled}
+              highlight
+              note={
+                stats.goals.disabled > 0
+                  ? t('adminStats.goalsDisabledNote', { count: stats.goals.disabled })
+                  : undefined
+              }
+            />
+            <StatCard
+              label={t('adminStats.goalsAdherence')}
+              value={
+                stats.goals.expectedDays30d > 0
+                  ? formatPercent(stats.goals.metDays30d / stats.goals.expectedDays30d)
+                  : '—'
+              }
+              note={t('adminStats.goalsAdherenceNote', {
+                met: stats.goals.metDays30d,
+                expected: Math.round(stats.goals.expectedDays30d),
+              })}
+            />
+            <StatCard
+              label={t('adminStats.goalsFullyKept')}
+              value={stats.goals.adherence.find((row) => row.bucket === 'full')?.learners ?? 0}
+              note={t('adminStats.goalsTrackedNote', { count: stats.goals.trackedLearners30d })}
+            />
+            <StatCard
+              label={t('adminStats.goalsModeMinutes')}
+              value={stats.goals.minutesMode}
+              note={t('adminStats.goalsModeWordsNote', { count: stats.goals.wordsMode })}
+            />
+            <StatCard
+              label={t('adminStats.goalsUntracked')}
+              value={stats.goals.untrackedLearners30d}
+              note={t('adminStats.goalsUntrackedNote')}
+            />
+          </CardGrid>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <BreakdownPanel
+              title={t('adminStats.goalsAdherenceBreakdown')}
+              emptyLabel={t('adminStats.noData')}
+              rows={stats.goals.adherence
+                .filter((row) => row.learners > 0)
+                .map((row) => ({
+                  key: row.bucket,
+                  label: adherenceBucketLabel(row.bucket),
+                  value: row.learners,
+                }))}
+            />
+            <BreakdownPanel
+              title={t('adminStats.goalsDaysPerWeek')}
+              emptyLabel={t('adminStats.noData')}
+              rows={stats.goals.daysPerWeek.map((bucket) => ({
+                key: bucket.key,
+                label: t('adminStats.goalsDaysPerWeekValue', { count: Number(bucket.key) }),
+                value: bucket.users,
+              }))}
+            />
+            <BreakdownPanel
+              title={t('adminStats.goalsDailyTarget')}
+              emptyLabel={t('adminStats.noData')}
+              rows={stats.goals.dailyTarget.map((bucket) => ({
+                key: bucket.key,
+                label: dailyTargetLabel(bucket.key),
+                value: bucket.users,
+              }))}
+            />
+            <BreakdownPanel
+              title={t('adminStats.goalsPresets')}
+              emptyLabel={t('adminStats.noData')}
+              rows={stats.goals.presets.map((bucket) => ({
+                key: bucket.key,
+                label: goalPresetLabel(bucket.key),
+                value: bucket.users,
+              }))}
+            />
+          </div>
         </Section>
 
         <Section
@@ -683,7 +1329,7 @@ function AdminStatsContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {stats.googleApi.sources.map((row) => (
+                  {visibleGoogleApiSources.map((row) => (
                     <tr
                       key={`${row.scope}:${row.source}:${row.model ?? ''}`}
                       className="border-t border-border-subtle"
@@ -704,6 +1350,15 @@ function AdminStatsContent() {
               </table>
             </div>
           )}
+          <ShowMoreToggle
+            expanded={showAllGoogleApi}
+            hiddenCount={stats.googleApi.sources.length - GOOGLE_API_VISIBLE_ROWS}
+            onToggle={() => setShowAllGoogleApi((previous) => !previous)}
+            showAllLabel={t('adminStats.googleApiShowAll', {
+              count: stats.googleApi.sources.length,
+            })}
+            showLessLabel={t('adminStats.googleApiShowTop', { count: GOOGLE_API_VISIBLE_ROWS })}
+          />
         </Section>
 
         <Section
@@ -860,7 +1515,7 @@ function AdminStatsContent() {
             <p className="text-sm text-text-soft">{t('adminStats.usersEmpty')}</p>
           ) : (
             <>
-              <div className="grid gap-3 rounded-lg border border-border-subtle bg-background-elevated p-3 text-sm sm:grid-cols-3">
+              <div className="grid gap-3 rounded-lg border border-border-subtle bg-background-elevated p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                 <label className="space-y-1">
                   <span className="block text-xs text-text-soft">{t('adminStats.userFilterSearch')}</span>
                   <input
@@ -903,6 +1558,50 @@ function AdminStatsContent() {
                     ))}
                   </select>
                 </label>
+                <label className="space-y-1">
+                  <span className="block text-xs text-text-soft">{t('adminStats.userFilterLanguage')}</span>
+                  <select
+                    value={userLanguageFilter}
+                    onChange={(event) => setUserLanguageFilter(event.target.value)}
+                    className="w-full rounded-md border border-border-subtle bg-background px-3 py-2 text-text"
+                  >
+                    <option value="all">{t('adminStats.filterAll')}</option>
+                    {languageFilterOptions.map((code) => (
+                      <option key={code} value={code}>
+                        {languageLabel(code)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="rounded-lg border border-border-subtle bg-background-elevated p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-xs text-text-soft">
+                    {t('adminStats.userColumnsLabel', {
+                      shown: visibleColumns.length,
+                      total: userColumns.length,
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-xs text-accent underline"
+                    onClick={resetColumns}
+                  >
+                    {t('adminStats.userColumnsReset')}
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+                  {userColumns.map((column) => (
+                    <label key={column.key} className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={hiddenColumns.indexOf(column.key) === -1}
+                        onChange={() => toggleColumn(column.key)}
+                      />
+                      <span>{column.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
               {visibleUsers.length === 0 ? (
                 <p className="text-sm text-text-soft">{t('adminStats.usersFilteredEmpty')}</p>
@@ -912,135 +1611,27 @@ function AdminStatsContent() {
                     <thead>
                       <tr className="text-left text-text-soft bg-background-elevated">
                         <th className="px-3 py-2 font-medium">{t('adminStats.userHandle')}</th>
-                        <th className="px-3 py-2 font-medium">
-                          <SortHeader
-                            active={userSort.key === 'lastSeenAt'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('lastSeenAt')}
+                        {visibleColumns.map((column) => (
+                          <th
+                            key={column.key}
+                            className={`px-3 py-2 font-medium${column.align === 'right' ? ' text-right' : ''}`}
+                            title={column.hint}
                           >
-                            {t('adminStats.userLastSeen')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium">
-                          <SortHeader
-                            active={userSort.key === 'firstSeenAt'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('firstSeenAt')}
-                          >
-                            {t('adminStats.userFirstSeen')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium">{t('adminStats.userDevice')}</th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'deviceCount'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('deviceCount')}
-                            className="justify-end"
-                            title={t('adminStats.userDeviceCountHint')}
-                          >
-                            {t('adminStats.userDeviceCount')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'gameScore'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('gameScore')}
-                            className="justify-end"
-                            title={t('adminStats.userGameScoreHint')}
-                          >
-                            {t('adminStats.userGameScore')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'reviewCount'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('reviewCount')}
-                            className="justify-end"
-                            title={t('adminStats.userReviewsHint')}
-                          >
-                            {t('adminStats.userReviews')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'activeDays'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('activeDays')}
-                            className="justify-end"
-                            title={t('adminStats.userActiveDaysHint')}
-                          >
-                            {t('adminStats.userActiveDays')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'studySessions'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('studySessions')}
-                            className="justify-end"
-                            title={t('adminStats.userSessionsHint')}
-                          >
-                            {t('adminStats.userSessions')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'estActiveStudySeconds'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('estActiveStudySeconds')}
-                            className="justify-end"
-                            title={t('adminStats.userStudyTimeHint')}
-                          >
-                            {t('adminStats.userStudyTime')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'activeSeconds30d'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('activeSeconds30d')}
-                            className="justify-end"
-                            title={t('adminStats.userActiveTimeHint')}
-                          >
-                            {t('adminStats.userActiveTime')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'sessions30d'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('sessions30d')}
-                            className="justify-end"
-                            title={t('adminStats.userActiveSessionsHint')}
-                          >
-                            {t('adminStats.userActiveSessions')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'medianSessionSeconds'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('medianSessionSeconds')}
-                            className="justify-end"
-                            title={t('adminStats.userMedianSessionHint')}
-                          >
-                            {t('adminStats.userMedianSession')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium text-right">
-                          <SortHeader
-                            active={userSort.key === 'photoAnalyses'}
-                            direction={userSort.direction}
-                            onClick={() => toggleUserSort('photoAnalyses')}
-                            className="justify-end"
-                          >
-                            {t('adminStats.userPhotos')}
-                          </SortHeader>
-                        </th>
-                        <th className="px-3 py-2 font-medium">{t('adminStats.userEmail')}</th>
+                            {column.sortKey ? (
+                              <SortHeader
+                                active={userSort.key === column.sortKey}
+                                direction={userSort.direction}
+                                onClick={() => toggleUserSort(column.sortKey as UserSortKey)}
+                                className={column.align === 'right' ? 'justify-end' : ''}
+                                title={column.hint}
+                              >
+                                {column.label}
+                              </SortHeader>
+                            ) : (
+                              column.label
+                            )}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
@@ -1061,56 +1652,56 @@ function AdminStatsContent() {
                                   {user.handle}
                                 </button>
                               </td>
-                              <td className="px-3 py-2 text-text-soft whitespace-nowrap">{formatDate(user.lastSeenAt)}</td>
-                              <td className="px-3 py-2 text-text-soft whitespace-nowrap">{formatDate(user.firstSeenAt)}</td>
-                              <td className="px-3 py-2 text-text-soft whitespace-nowrap">
-                                {platformLabel(user.lastDevicePlatform)} / {formFactorLabel(user.lastDeviceFormFactor)}
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums">{user.deviceCount}</td>
-                              <td className="px-3 py-2 text-right tabular-nums">{user.gameScore}</td>
-                              <td className="px-3 py-2 text-right tabular-nums">{user.reviewCount}</td>
-                              <td className="px-3 py-2 text-right tabular-nums">{user.activeDays}</td>
-                              <td className="px-3 py-2 text-right tabular-nums">{user.studySessions}</td>
-                              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
-                                {formatStudyTime(user.estActiveStudySeconds)}
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums">
-                                {formatStudyTime(user.activeSeconds30d)}
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums">
-                                {user.sessions30d || '—'}
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums">
-                                {formatStudyTime(user.medianSessionSeconds)}
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums">{user.photoAnalyses}</td>
-                              <td className="px-3 py-2 whitespace-nowrap">
-                                {revealedEmails.has(user.handle) ? (
-                                  <span className="select-all">{user.email}</span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="text-accent underline"
-                                    onClick={() => revealEmail(user.handle)}
-                                  >
-                                    {t('adminStats.revealEmail')}
-                                  </button>
-                                )}
-                              </td>
+                              {visibleColumns.map((column) => (
+                                <td
+                                  key={column.key}
+                                  className={`px-3 py-2 whitespace-nowrap${
+                                    column.align === 'right' ? ' text-right tabular-nums' : ''
+                                  }`}
+                                >
+                                  {column.render(user)}
+                                </td>
+                              ))}
                             </tr>
                             {expanded && (
                               <tr className="bg-background-elevated/50">
-                                <td colSpan={15} className="px-3 py-3">
+                                <td colSpan={visibleColumns.length + 1} className="px-3 py-3">
                                   <ActivityHeatmap
                                     compact
-                                    days={user.dailyActivity.map((day) => ({ date: day.date, value: day.count }))}
+                                    days={user.dailyActivity.map((day) => ({
+                                      date: day.date,
+                                      // A day in the app with no card answered is
+                                      // still an active day, so it gets the
+                                      // faintest square rather than none.
+                                      value: day.count > 0 ? day.count : 1,
+                                    }))}
                                     endDate={new Date(stats.generatedAt)}
                                     emptyLabel={t('adminStats.userHeatmapEmpty')}
                                     lessLabel={t('adminStats.heatmapLess')}
                                     moreLabel={t('adminStats.heatmapMore')}
-                                    formatTooltip={(date, value) =>
-                                      t('adminStats.userHeatmapTooltip', { date, count: value })
-                                    }
+                                    formatTooltip={(date) => {
+                                      const day = user.dailyActivity.find(
+                                        (entry) => entry.date === date
+                                      );
+                                      if (!day) {
+                                        return t('adminStats.userHeatmapTooltip', {
+                                          date,
+                                          count: 0,
+                                        });
+                                      }
+                                      return day.count > 0
+                                        ? t('adminStats.userHeatmapTooltip', {
+                                            date,
+                                            count: day.count,
+                                          })
+                                        : t('adminStats.userHeatmapTooltipPresence', {
+                                            date,
+                                            minutes: Math.max(
+                                              1,
+                                              Math.round(day.activeSeconds / 60)
+                                            ),
+                                          });
+                                    }}
                                   />
                                 </td>
                               </tr>

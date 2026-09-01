@@ -166,7 +166,7 @@ describe('audio aggregation', () => {
         target_pending_count: 0,
         target_legacy_count: 1,
         target_assets: [
-          { id: 'asset-1', hash: 'sha-1', size: 5200, storage: 'object_store' },
+          { id: 'asset-1', hash: 'sha-1', size: 5200, storage: 'object_store', voice: null },
         ],
         verdict: 'unreviewed',
         heuristic_flags: [],
@@ -183,7 +183,7 @@ describe('audio aggregation', () => {
     expect(row.known.missingCount).toBe(10);
     expect(row.known.assets).toEqual([]);
     expect(row.target.assets).toEqual([
-      { id: 'asset-1', hash: 'sha-1', size: 5200, storage: 'object_store' },
+      { id: 'asset-1', hash: 'sha-1', size: 5200, storage: 'object_store', voice: null },
     ]);
     expect(row.target.legacyCount).toBe(1);
     expect(row.occurrences).toBe(14);

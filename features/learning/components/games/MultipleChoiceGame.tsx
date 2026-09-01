@@ -81,7 +81,6 @@ export function MultipleChoiceGame({
   promptMode = 'text',
   soundEnabled = false,
   topControls,
-  level = 1,
   difficultyBand,
   stageIndex = 0,
   onResult,
@@ -128,7 +127,9 @@ export function MultipleChoiceGame({
       void playAuto(selectedOption?.answerAudioSrcs ?? []);
     }
     setSelected(optionId);
-    onResult?.(isCorrect ? (level === 2 ? 2 : 1) : -1);
+    // One point for a right answer; a wrong one costs nothing. The score
+    // counts what the learner got, so it never walks backwards.
+    onResult?.(isCorrect ? 1 : 0);
     onOutcome?.(isCorrect ? 'known' : 'unknown');
   };
 
@@ -197,7 +198,6 @@ export function MultipleChoiceGame({
               key={opt.id}
               state={state}
               size={optionSizeForLayout[choiceLayout]}
-              enterIndex={index}
               data-choice-index={index}
               className={
                 choiceLayout === 'cards' && options.length === 5

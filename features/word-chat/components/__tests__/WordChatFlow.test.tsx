@@ -4,6 +4,8 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { useWordChat } from '../../hooks/useWordChat';
 import { WordChatFlow } from '../WordChatFlow';
 
+vi.mock('../ChatStep', () => ({ ChatStep: () => <div /> }));
+
 vi.mock('../../hooks/useWordChat', () => ({
   useWordChat: vi.fn(),
 }));
@@ -105,5 +107,47 @@ describe('WordChatFlow completion', () => {
 
     expect(reset).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('WordChatFlow recovery', () => {
+  it('offers a ready-made list on the first temporary error without erasing the chat', () => {
+    const onUseReadyMade = vi.fn();
+    const continueToProposal = vi.fn();
+    const reset = vi.fn();
+    mockedUseWordChat.mockReturnValue({
+      ...doneChat('success', reset), step: 'chat', busy: null,
+      error: 'Temporary error', canRetry: true, retry: vi.fn(),
+      canContinueToProposal: true, continueToProposal,
+    } as ReturnType<typeof useWordChat>);
+    render(<I18nProvider language="cs"><WordChatFlow languageFrom="cs" languageTo="vi"
+      onLanguagePairChange={vi.fn()} onCommitted={vi.fn()} onUseReadyMade={onUseReadyMade} /></I18nProvider>);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Navrhnout slovíčka z konverzace' }));
+    expect(continueToProposal).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Přidat tento seznam' }));
+    expect(onUseReadyMade).toHaveBeenCalledOnce();
+    expect(reset).not.toHaveBeenCalled();
+  });
+
+  it('shows the continuation button for local recovery even though there is no error', () => {
+    const continueToProposal = vi.fn();
+    mockedUseWordChat.mockReturnValue({
+      ...doneChat('success', vi.fn()), step: 'chat', busy: null, error: null,
+      recoveryRequired: true, canContinueToProposal: true, continueToProposal,
+    } as ReturnType<typeof useWordChat>);
+    renderFlow(vi.fn());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Navrhnout slovíčka z konverzace' }));
+    expect(continueToProposal).toHaveBeenCalledOnce();
+  });
+
+  it('keeps manual entry available during an outage without a ready-made list', () => {
+    const startManualEntry = vi.fn();
+    mockedUseWordChat.mockReturnValue({ ...doneChat('success', vi.fn()), unavailable: true, busy: null, startManualEntry } as ReturnType<typeof useWordChat>);
+    renderFlow(vi.fn());
+    fireEvent.click(screen.getByRole('button', { name: 'Už mám vlastní slovíčka' }));
+    expect(startManualEntry).toHaveBeenCalledOnce();
   });
 });

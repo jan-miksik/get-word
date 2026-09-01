@@ -46,7 +46,7 @@ const sizeClasses: Record<StudyOptionSize, string> = {
 
 const stateClasses: Record<StudyOptionState, string> = {
   idle:
-    'border-ink-faint bg-paper-hi text-ink shadow-[0_3px_0_#D8C9AF] ' +
+    'border-grey-line bg-paper-hi text-ink shadow-[0_3px_0_#D8C9AF] ' +
     'hover:-translate-y-0.5 hover:border-sea hover:shadow-[0_5px_0_#C7B89E] ' +
     'active:translate-y-[2px] active:shadow-none',
   // A picked half stays paper and lifts instead of filling with cold blue: the
@@ -76,7 +76,6 @@ export function StudyOptionButton({
   matchEdge = 'left',
   disabled = false,
   onClick,
-  enterIndex,
   ariaLabel,
   className = '',
   style,
@@ -91,14 +90,11 @@ export function StudyOptionButton({
   matchEdge?: StudyOptionMatchEdge;
   disabled?: boolean;
   onClick?: () => void;
-  /** Staggers the deal-in animation; omit to skip the entrance entirely. */
-  enterIndex?: number;
   ariaLabel?: string;
   className?: string;
   style?: CSSProperties;
   children: ReactNode;
 } & Record<`data-${string}`, string | number | undefined>) {
-  const animate = state === 'idle' && enterIndex !== undefined;
   const hue = state === 'matched' && matchColor ? `var(--match-${matchColor})` : null;
   // The wash is layered over the card's cream rather than replacing the fill.
   // Painting a translucent tint straight onto the button let the sand page
@@ -120,22 +116,20 @@ export function StudyOptionButton({
       {...rest}
       {...noTranslateProps(
         [
-          'group relative flex items-center justify-center overflow-hidden rounded-2xl border-[1.5px]',
+          'group relative flex items-center justify-center overflow-hidden rounded-2xl border-2',
           'font-bold leading-snug',
           'transition-[transform,background-color,border-color,box-shadow,color] duration-200',
           'disabled:cursor-default disabled:opacity-100',
           sizeClasses[size],
           stateClasses[state],
-          animate ? 'motion-safe:animate-deck-enter-rise' : '',
           className,
         ]
           .filter(Boolean)
           .join(' '),
       )}
       style={
-        animate || matchTint
+        matchTint
           ? {
-              ...(animate ? { animationDelay: `${enterIndex! * 55}ms` } : null),
               ...matchTint,
               ...style,
             }

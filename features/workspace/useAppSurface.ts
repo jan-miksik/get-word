@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   APP_SURFACE_HISTORY_MARKER,
   appSurfaceHref,
+  isAppSurface,
   parseAppSurface,
   readAppSurfaceHistoryEntry,
   withAppSurfaceHistoryEntry,
@@ -127,10 +128,14 @@ export function useAppSurface(photoEnabled: boolean) {
 
   useEffect(() => {
     const requestedSurface = new URL(window.location.href).searchParams.get('surface');
+    // Anything the parser cannot honour as a surface of its own: a name it does
+    // not know, or `?surface=study`, which is study spelled the long way and
+    // whose canonical address carries no query at all. A real surface must be
+    // listed here or its direct link would be rewritten to study underneath a
+    // React tree that goes on showing it.
     const invalidSurface =
       requestedSurface !== null &&
-      requestedSurface !== 'chat' &&
-      requestedSurface !== 'photo';
+      (!isAppSurface(requestedSurface) || requestedSurface === 'study');
     const disabledPhoto = requestedSurface === 'photo' && !photoEnabled;
     const canonicalSurface = parseAppSurface(window.location.href, { photoEnabled });
     const current = readAppSurfaceHistoryEntry(window.history.state);

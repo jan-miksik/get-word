@@ -68,7 +68,7 @@ export function SimilarWordsPromptGame({
           {t('game.similarWordsSaved', { count: savedCount })}
         </h2>
         <ContinueButton
-          variant="solid"
+          variant="slab"
           className="max-w-[22rem]"
           onClick={() => {
             onDismiss();

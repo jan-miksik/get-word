@@ -1,235 +1,152 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  streamOpenRouterCompletion: vi.fn(),
-  recordWordChatUsage: vi.fn(),
-  reserveWordChatSpend: vi.fn(async () => ({
-    id: "reservation-1",
-    model: "test/chat",
-    reservedUsd: 0.1,
-    maxAttempts: 2,
-  })),
+  stream: vi.fn(), buffered: vi.fn(), record: vi.fn(),
+  reserve: vi.fn(async () => ({ id: 'reservation-1', model: 'test/chat', reservedUsd: 0.1, maxAttempts: 2 })),
 }));
-
-vi.mock("@/lib/openrouter-chat", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/openrouter-chat")>();
-  return {
-    ...actual,
-    streamOpenRouterCompletion: mocks.streamOpenRouterCompletion,
-  };
-});
-
-vi.mock("../usage", () => ({
+vi.mock('@/lib/openrouter-chat', async (original) => ({
+  ...await original<typeof import('@/lib/openrouter-chat')>(),
+  streamOpenRouterCompletion: mocks.stream,
+  callOpenRouterChatParsedWithMeta: mocks.buffered,
+}));
+vi.mock('../usage', () => ({
   aggregateWordChatUsage: (metas: unknown[]) => metas.at(-1) ?? {},
-  recordWordChatUsage: mocks.recordWordChatUsage,
-  reserveWordChatSpend: mocks.reserveWordChatSpend,
+  recordWordChatUsage: mocks.record,
+  reserveWordChatSpend: mocks.reserve,
 }));
-
-vi.mock("../config", () => ({
-  CHAT_MAX_TOKENS: 600,
-  CHAT_REASONING: { effort: "low", exclude: true },
-  CHAT_RESPONSE_FORMAT: {
-    type: "json_schema",
-    json_schema: {
-      name: "word_chat_turn",
-      strict: true,
-      schema: {
-        type: "object",
-        properties: {
-          readyToPropose: { type: "boolean" },
-          contentMode: { anyOf: [{ type: "string" }, { type: "null" }] },
-          suggestions: { type: "array", items: { type: "string" } },
-          languageChange: { type: "null" },
-          reply: { type: "string" },
-        },
-        required: ["readyToPropose", "contentMode", "suggestions", "languageChange", "reply"],
-        additionalProperties: false,
-      },
-    },
-  },
-  MAX_MESSAGES_PER_SESSION: 12,
-  MAX_USER_MESSAGE_CHARS: 500,
-  OPENROUTER_API_URL: "https://openrouter.test/chat/completions",
-  OPENROUTER_MAX_ATTEMPTS: 2,
+vi.mock('@/lib/rate-limit/daily-bucket', () => ({ parsePositiveIntEnv: (_value: unknown, fallback: number) => fallback }));
+vi.mock('../config', async (original) => ({
+  ...await original<typeof import('../config')>(),
   OPENROUTER_RETRY_BASE_DELAY_MS: 1,
-  OPENROUTER_TIMEOUT_MS: 1_000,
-  WORD_CHAT_CHAT_MODEL: "test/chat",
-  WORD_CHAT_PROVIDER_PREFERENCES: {},
-  estimateCostUsd: () => 0,
-  getServerApiKey: () => process.env.OPENROUTER_SERVER_API_KEY,
+  WORD_CHAT_CHAT_MODEL: 'test/chat',
+  getServerApiKey: () => 'test-key',
 }));
 
-import { OpenRouterChatError } from "@/lib/openrouter-chat";
-import { streamChatTurn } from "../chat";
-import type { WordChatMessage } from "../../types";
+import { OpenRouterChatError } from '@/lib/openrouter-chat';
+import { streamChatTurn } from '../chat';
+import type { WordChatMessage } from '../../types';
 
-async function* modelStream(chunks: string[]) {
-  for (const text of chunks) yield { type: "delta" as const, text };
-  yield { type: "done" as const, meta: { id: "call-1" } };
-}
-
-async function collectTurn(
-  chunks: string[],
-  messages: WordChatMessage[] = [{ role: "user", content: "Kavárna" }],
-) {
-  mocks.streamOpenRouterCompletion.mockResolvedValue(modelStream(chunks));
-  const stream = await streamChatTurn({
-    userId: "user-1",
-    sessionId: "session-1",
-    languageFrom: "cs",
-    languageTo: "vi",
-    chatLanguage: "cs",
-    addressRegister: "casual",
-    salutationGender: "neutral",
-    languageLevel: "A0",
-    brief: null,
-    messages,
+const input = {
+  userId: 'user-1', sessionId: 'session-1', languageFrom: 'cs', languageTo: 'vi', chatLanguage: 'cs',
+  addressRegister: 'casual' as const, salutationGender: 'neutral' as const, languageLevel: 'A0' as const, brief: null,
+  messages: [{ role: 'user', content: 'časté slova' }] as WordChatMessage[],
+};
+const answeredFollowUp: WordChatMessage[] = [...input.messages,
+  { role: 'assistant', content: 'Běžná konverzace, cestování nebo nakupování?' },
+  { role: 'user', content: 'nakupování' },
+];
+const reply = { reply: 'Jaký obchod?', readyToPropose: false, contentMode: null, suggestions: ['Potraviny'], languageChange: null };
+function streamReply(content: string) {
+  mocks.stream.mockImplementation(async (options) => {
+    options.onAttemptStart();
+    return (async function* () {
+      yield { type: 'delta', text: content.slice(0, 20) };
+      yield { type: 'delta', text: content.slice(20) };
+      options.onResponse({ usage: { prompt_tokens: 10, completion_tokens: 20 } });
+    })();
   });
+}
+async function collect(overrides: Partial<Parameters<typeof streamChatTurn>[0]> = {}) {
   const events = [];
-  for await (const event of stream) events.push(event);
+  for await (const event of await streamChatTurn({ ...input, ...overrides })) events.push(event);
   return events;
 }
 
-/** A transcript in which the learner has already answered one follow-up. */
-const answeredFollowUp: WordChatMessage[] = [
-  { role: "user", content: "Kavárna" },
-  { role: "assistant", content: "S kým tam nejčastěji mluvíte?" },
-  { role: "user", content: "Se stálými zákazníky." },
-];
-
-describe("streamChatTurn", () => {
+describe('chat reliability', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.streamOpenRouterCompletion.mockReset();
-    mocks.recordWordChatUsage.mockReset();
-    mocks.reserveWordChatSpend.mockClear();
-    process.env.OPENROUTER_SERVER_API_KEY = "test-key";
+    mocks.record.mockReset();
+    mocks.buffered.mockReset();
+    mocks.buffered.mockImplementation(async (options, parse) => {
+      options.onAttemptStart();
+      options.onResponse({ usage: { prompt_tokens: 11, completion_tokens: 21 } });
+      return { value: parse(JSON.stringify(reply)), meta: {} };
+    });
+    streamReply(JSON.stringify(reply));
   });
 
-  it("does not expose a reply when gate metadata is invalid", async () => {
-    await expect(
-      collectTurn(['{"readyToPropose":true,"contentMode":null,"suggestions":[],"languageChange":null,"reply":"Hotovo"}']),
-    ).rejects.toBeInstanceOf(OpenRouterChatError);
-    expect(mocks.streamOpenRouterCompletion).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reasoning: { effort: "low", exclude: true },
-        responseFormat: expect.objectContaining({ type: "json_schema" }),
-      }),
-    );
-  });
-
-  it("keeps a partial visible reply only after valid gate metadata", async () => {
-    const events = await collectTurn(['{"readyToPropose":false,"contentMode":null,"suggestions":[],"languageChange":null,"reply":"Skoro hot']);
-
+  it('finishes the reported shopping conversation without another paid retry', async () => {
+    const events = await collect({ messages: answeredFollowUp });
     expect(events).toEqual([
-      { type: "delta", text: "Skoro hot" },
-      expect.objectContaining({
-        type: "done",
-        reply: "Skoro hot",
-        suggestions: [],
-        readyToPropose: false,
-        metadataValid: false,
-      }),
+      { type: 'delta', text: 'Mám dost informací pro návrh slovíček.' },
+      expect.objectContaining({ type: 'done', readyToPropose: true, contentMode: 'mixed', suggestions: [], metadataValid: true }),
     ]);
+    expect(mocks.buffered).not.toHaveBeenCalled();
+    expect(mocks.record).toHaveBeenCalledOnce();
   });
 
-  it("retries parser failures before any visible reply", async () => {
-    mocks.streamOpenRouterCompletion
-      .mockResolvedValueOnce(modelStream(["not-json"]))
-      .mockResolvedValueOnce(modelStream(['{"readyToPropose":false,"contentMode":null,"suggestions":[],"languageChange":null,"reply":"Hotovo"}']));
-
-    const stream = await streamChatTurn({
-      userId: "user-1",
-      sessionId: "session-1",
-      languageFrom: "cs",
-      languageTo: "vi",
-      chatLanguage: "cs",
-      addressRegister: "casual",
-      salutationGender: "neutral",
-      languageLevel: "A0",
-      brief: null,
-      messages: [{ role: "user", content: "Kavárna" }],
-    });
-    const events = [];
-    for await (const event of stream) events.push(event);
-
-    expect(mocks.streamOpenRouterCompletion).toHaveBeenCalledTimes(2);
-    expect(events).toEqual([
-      { type: "delta", text: "Hotovo" },
-      expect.objectContaining({
-        type: "done",
-        reply: "Hotovo",
-        metadataValid: true,
-      }),
-    ]);
+  it('lets the first turn ask one follow-up', async () => {
+    expect((await collect()).at(-1)).toMatchObject({ readyToPropose: false, suggestions: ['Potraviny'], contentMode: null });
   });
 
-  it("fails when the streamed JSON never contains reply", async () => {
-    await expect(collectTurn(['{"suggestions":[]}'])).rejects.toBeInstanceOf(
-      OpenRouterChatError,
-    );
+  it.each([
+    { readyToPropose: true, contentMode: null, suggestions: ['unnecessary'] },
+    { readyToPropose: true, contentMode: 'mixed', suggestions: null },
+  ])('repairs harmless final metadata: %j', async (patch) => {
+    streamReply(JSON.stringify({ ...reply, ...patch }));
+    expect((await collect()).at(-1)).toMatchObject({ readyToPropose: true, contentMode: 'mixed', suggestions: [], metadataValid: true });
+    expect(mocks.buffered).not.toHaveBeenCalled();
   });
 
-  it("returns a validated language-pair action after the reply", async () => {
-    const events = await collectTurn([
-      '{"readyToPropose":false,"contentMode":null,"suggestions":[],',
-      '"languageChange":{"from":"cs","to":"es"},"reply":"Přepínám na češtinu a španělštinu."}',
-    ]);
+  it('preserves a valid selected content mode', async () => {
+    streamReply(JSON.stringify({ ...reply, readyToPropose: true, contentMode: 'category_inventory' }));
+    expect((await collect()).at(-1)).toMatchObject({ readyToPropose: true, contentMode: 'category_inventory' });
+  });
 
-    expect(events.at(-1)).toMatchObject({
-      type: "done",
-      languageChange: { from: "cs", to: "es" },
-      readyToPropose: false,
-      metadataValid: true,
+  it('prioritizes a validated pair change over conflicting proposal flags', async () => {
+    streamReply(JSON.stringify({ ...reply, readyToPropose: true, languageChange: { from: 'cs', to: 'es' } }));
+    expect((await collect({ messages: answeredFollowUp })).at(-1)).toMatchObject({
+      languageChange: { from: 'cs', to: 'es' }, readyToPropose: false, contentMode: null,
     });
   });
 
-  it("requires a finalized mode after the one follow-up is answered", async () => {
-    // The prompt allows a single follow-up question. Once its answer is in the
-    // transcript, a model that keeps interviewing would spend the learner's
-    // turns on questions they never asked for.
-    const events = await collectTurn(
-      ['{"readyToPropose":true,"contentMode":"situation","suggestions":[],"languageChange":null,"reply":"Připravím návrh."}'],
-      answeredFollowUp,
-    );
-
-    expect(events.at(-1)).toMatchObject({ type: "done", readyToPropose: true });
+  it.each(['not json', '{"readyToPropose":false,"reply":"Partial', '{"reply":"Hello"}',
+    JSON.stringify({ ...reply, languageChange: { from: 'not a code', to: 'es' } }),
+  ])('uses buffered fallback for malformed or truncated output without exposing it: %s', async (content) => {
+    streamReply(content);
+    const events = await collect();
+    expect(mocks.stream).toHaveBeenCalledOnce();
+    expect(mocks.buffered).toHaveBeenCalledOnce();
+    expect(mocks.reserve).toHaveBeenCalledOnce();
+    expect(events).toEqual([{ type: 'delta', text: reply.reply }, expect.objectContaining({ type: 'done', metadataValid: true })]);
+    expect(mocks.buffered).toHaveBeenCalledWith(expect.objectContaining({ maxAttempts: 1, timeoutMs: 15_000 }), expect.any(Function));
   });
 
-  it("still lets the first turn decide for itself", async () => {
-    const events = await collectTurn([
-      '{"readyToPropose":false,"contentMode":null,"suggestions":["Se zákazníky"],"languageChange":null,"reply":"S kým tam mluvíte?"}',
-    ]);
-
-    expect(events.at(-1)).toMatchObject({ type: "done", readyToPropose: false });
+  it('uses the fallback after a provider transport failure', async () => {
+    mocks.stream.mockRejectedValue(new OpenRouterChatError('timeout', true, undefined, 'transport'));
+    expect((await collect()).at(-1)).toMatchObject({ type: 'done' });
+    expect(mocks.buffered).toHaveBeenCalledOnce();
   });
 
-  it("never forces a proposal on a language-change turn", async () => {
-    // Proposing here would generate words for the pair the learner just left.
-    const events = await collectTurn(
-      [
-        '{"readyToPropose":false,"contentMode":null,"suggestions":[],',
-        '"languageChange":{"from":"cs","to":"es"},"reply":"Přepínám na španělštinu."}',
-      ],
-      answeredFollowUp,
-    );
-
-    expect(events.at(-1)).toMatchObject({
-      type: "done",
-      readyToPropose: false,
-      languageChange: { from: "cs", to: "es" },
-    });
+  it('stops after the reserved attempts', async () => {
+    streamReply('invalid');
+    mocks.buffered.mockRejectedValue(new OpenRouterChatError('still unavailable', true));
+    await expect(collect()).rejects.toThrow('still unavailable');
+    expect(mocks.stream).toHaveBeenCalledOnce();
+    expect(mocks.buffered).toHaveBeenCalledOnce();
+    // Neither response completed: keep the conservative reservation intact.
+    expect(mocks.record).not.toHaveBeenCalled();
+    expect(mocks.reserve).toHaveBeenCalledOnce();
   });
 
-  it("drops a malformed language action instead of defaulting it to English", async () => {
-    const events = await collectTurn([
-      '{"readyToPropose":false,"contentMode":null,"suggestions":[],',
-      '"languageChange":{"from":"not a code","to":"es"},"reply":"Nemohu ten jazyk rozpoznat."}',
-    ]);
+  it.each([401, 402, 403])('does not retry a terminal provider failure %i', async (status) => {
+    mocks.stream.mockRejectedValue(new OpenRouterChatError('rejected', false, status));
+    await expect(collect()).rejects.toMatchObject({ status });
+    expect(mocks.buffered).not.toHaveBeenCalled();
+  });
 
-    expect(events.at(-1)).toMatchObject({
-      type: "done",
-      languageChange: null,
-    });
+  it('does not repeat a paid call when usage persistence fails', async () => {
+    mocks.record.mockRejectedValue(new Error('database unavailable'));
+    await expect(collect()).rejects.toThrow('database unavailable');
+    expect(mocks.stream).toHaveBeenCalledOnce();
+    expect(mocks.buffered).not.toHaveBeenCalled();
+    expect(mocks.record).toHaveBeenCalledOnce();
+  });
+
+  it('does not start a model call for an already cancelled request', async () => {
+    const controller = new AbortController(); controller.abort();
+    await expect(collect({ signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(mocks.stream).not.toHaveBeenCalled();
+    expect(mocks.buffered).not.toHaveBeenCalled();
   });
 });

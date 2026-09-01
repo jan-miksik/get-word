@@ -69,7 +69,6 @@ function prefersReducedMotion(): boolean {
 export function BubbleChoiceGame({
   words,
   role,
-  level = 1,
   soundEnabled = false,
   topControls,
   onScore,
@@ -285,7 +284,7 @@ export function BubbleChoiceGame({
       reportedWordIds.current.add(current.id);
       onReviewOutcome?.(current.id, 'known');
     }
-    onScore(level);
+    onScore(1);
     if (soundEnabled) {
       // The bubble that just burst IS the answer, so it is its own audio: the
       // learning-side clip of the word the learner picked.
@@ -342,7 +341,7 @@ export function BubbleChoiceGame({
                       style={{ ['--shard-angle' as string]: `${(360 / SHARD_COUNT) * index}deg` }}
                     />
                   ))}
-                  <span className="bubble-score">+{level}</span>
+                  <span className="bubble-score">+1</span>
                 </span>
               )}
             </div>

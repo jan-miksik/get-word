@@ -47,6 +47,7 @@ subsystem decisions and data-model notes.
 - Add-words surface/tabs: `features/word-chat/components/AddWordsScreen.tsx`
 - Flow composition: `features/word-chat/components/WordChatFlow.tsx`
 - Client workflow controller: `features/word-chat/hooks/useWordChat.ts`
+- Cancellable chat turns and stale-response guards: `features/word-chat/hooks/useChatTurn.ts`
 - Durable interrupted-session draft: `features/word-chat/client/storage.ts`
 - HTTP client and transport DTO inference: `features/word-chat/client/api.ts`
 - Shared feature types: `features/word-chat/types.ts`
@@ -195,6 +196,9 @@ subsystem decisions and data-model notes.
 - `app/api/sync/route.ts` is the stable HTTP/auth shell. Legacy item/word ID mutation compatibility lives in `features/sync/server/apply-mutations.ts`; conditional/delta/full reads live in `features/sync/server/read-payload.ts`.
 - `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`.
 - `features/learning/components/HomeClient.tsx` coordinates boot, session state, and surface selection. Resumable onboarding rendering lives in `LearningOnboardingContent.tsx`; lazy add-words/Photo Lab composition lives in `LearningAddWordsSurface.tsx`.
+- `features/admin/components/AdminStatsPage.tsx` composes the admin dashboard and its language/goal analytics. Keep new data retrieval in `lib/db/queries`, and extract another panel component instead of adding a new dashboard section inline.
+- `features/admin/components/AdminQualityPoolPage.tsx` owns quality-pool loading, filters, history, and voice controls. Put reusable API state in `features/admin/client` and keep scan/audio serialization on the server side.
+- `app/dev/design-system/button-personalities.ts` is intentionally a dev-only catalogue of button candidates and their CSS. Add interactive comparison tooling beside it (for example `press-variants.tsx`) rather than growing the catalogue module with runtime controls.
 - `features/photo-lab/components/PhotoLabPage.tsx` is the render shell; analysis,
   local persistence, history refresh, audio enrichment, and blob URL cleanup live
   in `usePhotoLabStudio.ts`.

@@ -28,11 +28,9 @@ import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   STAGES,
   getAvailableCategories,
-  isDue,
   matchesCategoryFilter,
   type NormalizedWord,
 } from '@/lib/words';
-import { calculateProgressStats } from '@/lib/progress-stats';
 
 /**
  * The tallest the closing card ever gets: a closed day with both streaks, the
@@ -240,7 +238,7 @@ function PreviewStudy({
     [breatherStep],
   );
   const previewFlow = useMemo(() => resolveSessionFlow(previewBlocks), [previewBlocks]);
-  const quickPractice = useQuickPractice({ words: PREVIEW_WORDS });
+  const quickPractice = useQuickPractice({ words: PREVIEW_WORDS, role: 'knownLanguage' });
 
   const activeWords = useMemo(() => getListWords(activeListId), [activeListId]);
   // The preview drives the real dispatcher, so it exercises the same per-stage
@@ -252,11 +250,6 @@ function PreviewStudy({
     [activeWords, selectedCategories],
   );
   const currentWord = filteredWords[0] ?? null;
-  const readyCount = filteredWords.filter((word) => isDue(progress[word.id])).length;
-  const progressStats = useMemo(
-    () => calculateProgressStats(filteredWords, progress, readyCount),
-    [filteredWords, progress, readyCount],
-  );
   const activeList = PREVIEW_LISTS.find((list) => list.id === activeListId) ?? PREVIEW_LISTS[0];
 
   const chooseList = useCallback((id: string | null) => {
@@ -399,7 +392,6 @@ function PreviewStudy({
           </div>
         }
         categories={categories}
-        progressStats={progressStats}
       >
         <main
           className={`learning-card-main flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto ${
@@ -467,6 +459,7 @@ function PreviewStudy({
                     role="knownLanguage"
                     onAdvance={quickPractice.advance}
                     onFinish={quickPractice.finish}
+                    onScore={(points) => setGameScore((score) => Math.max(0, score + points))}
                   />
                 ) : (
                   <SessionDoneCard

@@ -89,6 +89,8 @@ function proposal() {
 describe('useWordChat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.sendChatMessageStream.mockReset();
+    mocks.requestProposal.mockReset();
     mocks.loadDraft.mockReturnValue(null);
     mocks.fetchWordChatContext.mockResolvedValue({
       has_history: false,
@@ -1141,12 +1143,7 @@ describe('useWordChat', () => {
 
     expect(result.current.unavailable).toBe(false);
     expect(result.current.canRetry).toBe(true);
-    expect(result.current.messages).toHaveLength(2);
-    expect(result.current.messages[1]).toMatchObject({
-      role: 'assistant',
-      content: '',
-      incomplete: true,
-    });
+    expect(result.current.messages).toEqual([{ role: 'user', content: 'Kavárna' }]);
 
     await act(() => result.current.retry());
 
@@ -1199,6 +1196,167 @@ describe('useWordChat', () => {
     // Still retryable: the fallback screen leads with Try again, because the
     // conversation is intact and the outage may already be over.
     expect(result.current.canRetry).toBe(true);
+  });
+
+  it('keeps local recovery actionable across reload and only proposes after explicit confirmation', async () => {
+    mocks.sendChatMessageStream.mockResolvedValueOnce({
+      reply: 'Check the selected languages, then continue.', suggestions: [],
+      ready_to_propose: false, content_mode: null, language_change: null,
+      recovery_required: true, metadata_valid: true,
+    });
+    const onLanguagePairChange = vi.fn();
+    const options = { languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn(), onLanguagePairChange };
+    const first = renderHook(() => useWordChat(options), { wrapper });
+    await waitForPreferences(first.result);
+    await act(() => first.result.current.sendMessage('nakupování'));
+    expect(first.result.current.error).toBeNull();
+    expect(first.result.current.canContinueToProposal).toBe(true);
+    expect(mocks.requestProposal).not.toHaveBeenCalled();
+    expect(onLanguagePairChange).not.toHaveBeenCalled();
+    const saved = mocks.saveDraft.mock.calls.at(-1)?.[2];
+    expect(saved.recoveryRequired).toBe(true);
+    first.unmount();
+    mocks.loadDraft.mockReturnValue(saved);
+    const second = renderHook(() => useWordChat(options), { wrapper });
+    await waitForPreferences(second.result);
+    expect(second.result.current.canContinueToProposal).toBe(true);
+    expect(second.result.current.error).toBeNull();
+    expect(mocks.sendChatMessageStream).toHaveBeenCalledOnce();
+    await act(() => second.result.current.continueToProposal());
+    expect(mocks.requestProposal).toHaveBeenCalledOnce();
+    expect(mocks.requestProposal).toHaveBeenCalledWith(expect.objectContaining({
+      languageFrom: 'cs', languageTo: 'vi', messages: expect.arrayContaining([{ role: 'user', content: 'nakupování' }]),
+    }));
+    expect(second.result.current.step).toBe('select');
+    expect(second.result.current.recoveryRequired).toBe(false);
+  });
+
+  it('carries local recovery to a new language pair chosen in settings', async () => {
+    mocks.sendChatMessageStream.mockResolvedValueOnce({
+      reply: 'Check the languages.', suggestions: [], ready_to_propose: false,
+      content_mode: null, language_change: null, metadata_valid: true, recovery_required: true,
+    });
+    const { result } = renderHook(() => useWordChat({
+      languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn(), onLanguagePairChange: vi.fn(),
+    }), { wrapper });
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('Spanish instead'));
+    await act(() => result.current.changeLanguagePair({ from: 'cs', to: 'es' }));
+    expect(mocks.saveDraft).toHaveBeenCalledWith('cs', 'es', expect.objectContaining({
+      recoveryRequired: true, step: 'chat',
+    }));
+  });
+
+  it('can send a turn in browsers without crypto.randomUUID', async () => {
+    const original = globalThis.crypto;
+    vi.stubGlobal('crypto', {});
+    try {
+      const { result } = renderHook(() => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }), { wrapper });
+      await waitForPreferences(result);
+      await act(() => result.current.sendMessage('nakupování'));
+      expect(result.current.step).toBe('select');
+    } finally { vi.stubGlobal('crypto', original); }
+  });
+
+  it('removes the cancelled placeholder when moving to manual entry and back', async () => {
+    let finish!: (value: unknown) => void;
+    mocks.sendChatMessageStream.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }), { wrapper });
+    await waitForPreferences(result);
+    let pending!: Promise<boolean>;
+    act(() => { pending = result.current.sendMessage('nakupování'); });
+    act(() => result.current.startManualEntry());
+    act(() => result.current.openChat());
+    expect(result.current.messages).toEqual([{ role: 'user', content: 'nakupování' }]);
+    await act(async () => { finish({ reply: 'Late', ready_to_propose: false, metadata_valid: true }); await pending; });
+    expect(result.current.messages).toHaveLength(1);
+  });
+
+  it('continues directly to proposals after a chat failure with all learner answers', async () => {
+    mocks.sendChatMessageStream.mockRejectedValueOnce(temporaryFailure());
+    const { result } = renderHook(() => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }), { wrapper });
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('nakupování'));
+    expect(result.current.canContinueToProposal).toBe(true);
+    await act(() => result.current.continueToProposal());
+    expect(mocks.requestProposal).toHaveBeenLastCalledWith(expect.objectContaining({
+      messages: [{ role: 'user', content: 'nakupování' }], contentMode: 'mixed',
+    }));
+    expect(result.current.step).toBe('select');
+    expect(result.current.busy).toBeNull();
+    expect(mocks.sendChatMessageStream).toHaveBeenCalledOnce();
+  });
+
+  it('does not send two paid turns on a double submit before React rerenders', async () => {
+    let finish!: (value: unknown) => void;
+    mocks.sendChatMessageStream.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }), { wrapper });
+    await waitForPreferences(result);
+    let pending!: Promise<boolean>;
+    act(() => { pending = result.current.sendMessage('nakupování'); void result.current.sendMessage('nakupování'); });
+    expect(mocks.sendChatMessageStream).toHaveBeenCalledOnce();
+    await act(async () => { finish({ reply: 'Kde?', suggestions: [], ready_to_propose: false, metadata_valid: true }); await pending; });
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1);
+  });
+
+  it('ignores a late reply after reset without clearing the next request spinner', async () => {
+    const finishes: ((value: unknown) => void)[] = [];
+    mocks.sendChatMessageStream.mockImplementation(() => new Promise((resolve) => { finishes.push(resolve); }));
+    const { result } = renderHook(() => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }), { wrapper });
+    await waitForPreferences(result);
+    let first!: Promise<boolean>; let second!: Promise<boolean>;
+    act(() => { first = result.current.sendMessage('old'); });
+    act(() => result.current.reset());
+    act(() => { second = result.current.sendMessage('new'); });
+    await act(async () => { finishes[0]({ reply: 'Old answer', ready_to_propose: true, content_mode: 'mixed', metadata_valid: true }); await first; });
+    expect(result.current.busy).toBe('chat');
+    expect(result.current.messages[0].content).toBe('new');
+    expect(mocks.requestProposal).not.toHaveBeenCalled();
+    await act(async () => { finishes[1]({ reply: 'New answer', suggestions: [], ready_to_propose: false, metadata_valid: true }); await second; });
+    expect(result.current.busy).toBeNull();
+    expect(result.current.messages.at(-1)?.content).toBe('New answer');
+  });
+
+  it('does not reopen selection when a cancelled proposal completes after manual entry', async () => {
+    let finish!: (value: unknown) => void;
+    mocks.requestProposal.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }), { wrapper });
+    await waitForPreferences(result);
+    let pending!: Promise<boolean>;
+    act(() => { pending = result.current.sendMessage('nakupování'); });
+    await waitFor(() => expect(result.current.busy).toBe('propose'));
+    act(() => result.current.startManualEntry());
+    await act(async () => { finish(proposal()); await pending; });
+    expect(result.current.proposals).toEqual([]);
+    expect(result.current.manualEntry).toBe(true);
+    expect(result.current.busy).toBeNull();
+  });
+
+  it.each(['chat', 'propose'] as const)('restores an interrupted %s without paying again until Retry', async (kind) => {
+    // Use the actual saved snapshot rather than building a draft by hand.
+    if (kind === 'chat') mocks.sendChatMessageStream.mockRejectedValueOnce(temporaryFailure());
+    else mocks.requestProposal.mockRejectedValueOnce(temporaryFailure());
+    const options = { languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() };
+    const first = renderHook(() => useWordChat(options), { wrapper });
+    await waitForPreferences(first.result);
+    await act(() => first.result.current.sendMessage('nakupování'));
+    const saved = mocks.saveDraft.mock.calls.at(-1)?.[2];
+    expect(saved.pendingChatAction.kind).toBe(kind);
+    first.unmount();
+    mocks.loadDraft.mockReturnValue(saved);
+    const chatCount = mocks.sendChatMessageStream.mock.calls.length;
+    const proposalCount = mocks.requestProposal.mock.calls.length;
+    const second = renderHook(() => useWordChat(options), { wrapper });
+    await waitForPreferences(second.result);
+    expect(second.result.current.canRetry).toBe(true);
+    expect(mocks.sendChatMessageStream).toHaveBeenCalledTimes(chatCount);
+    expect(mocks.requestProposal).toHaveBeenCalledTimes(proposalCount);
+    mocks.sendChatMessageStream.mockResolvedValue({ reply: 'Ready', suggestions: [], ready_to_propose: true, content_mode: 'mixed', metadata_valid: true });
+    mocks.requestProposal.mockResolvedValue(proposal());
+    await act(() => second.result.current.retry());
+    expect(second.result.current.step).toBe('select');
+    if (kind === 'propose') expect(mocks.sendChatMessageStream).toHaveBeenCalledTimes(chatCount);
+    expect(mocks.requestProposal).toHaveBeenLastCalledWith(expect.objectContaining({ sessionId: saved.sessionId }));
   });
 
   it('does not re-translate when the learner goes back and forward unchanged', async () => {

@@ -1,3 +1,4 @@
+import { withRequestDeadline } from './request-deadline';
 import type { AddressFormValue } from '@/lib/word-item-address-form';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
 import type {
@@ -36,12 +37,11 @@ export class WordChatApiError extends Error {
 
   /**
    * The chat cannot be used at all right now — offer the ready-made list.
-   * A bare 503 with no code is something in front of the app (proxy, edge), so
-   * it counts too, but an explicitly transient failure never does.
+   * A bare gateway 503 remains retryable; only an explicit service verdict
+   * can declare the chat unavailable.
    */
   get isUnavailable(): boolean {
-    if (this.code === 'WORD_CHAT_UNAVAILABLE') return true;
-    return this.status === 503 && this.code === null;
+    return this.code === 'WORD_CHAT_UNAVAILABLE';
   }
 
   /** Worth offering a Retry button for, without losing the conversation. */
@@ -59,7 +59,7 @@ function toApiError(data: Record<string, unknown>, status: number): WordChatApiE
     typeof data.error === 'string' ? data.error : 'Request failed',
     typeof data.code === 'string' ? data.code : null,
     status,
-    data.retryable === true,
+    data.retryable === true || (data.retryable === undefined && (status >= 500 || status === 408)),
     typeof data.detail === 'string' ? data.detail : null,
   );
   // The detail exists to be seen: in dev and for editors it is the only place
@@ -68,11 +68,12 @@ function toApiError(data: Record<string, unknown>, status: number): WordChatApiE
   return error;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   let response: Response;
   try {
     response = await deviceJsonFetch(path, {
       method: 'POST',
+      signal,
       body: JSON.stringify(body),
     });
   } catch (err) {
@@ -149,12 +150,12 @@ export async function fetchWordChatContext(input: {
     to: input.languageTo,
   });
   if (input.baseListId) params.set('base_list_id', input.baseListId);
-  const response = await deviceJsonFetch(
-    `/api/word-chat/context?${params.toString()}`,
-  );
-  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!response.ok) throw toApiError(data, response.status);
-  return data as WordChatContextResponse;
+  return withRequestDeadline(undefined, 10_000, async (signal) => {
+    const response = await deviceJsonFetch(`/api/word-chat/context?${params.toString()}`, { signal });
+    const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!response.ok) throw toApiError(data, response.status);
+    return data as WordChatContextResponse;
+  });
 }
 
 export function saveWordChatPreferences(input: {
@@ -187,6 +188,7 @@ export function saveWordChatPreferences(input: {
 }
 
 type ChatMessageResponse = {
+  recovery_required?: boolean;
   reply: string;
   suggestions: string[];
   ready_to_propose: boolean;
@@ -199,23 +201,41 @@ export type ChatMessageStreamResponse = ChatMessageResponse & {
   metadata_valid: boolean;
 };
 
-type RawChatStreamEvent =
-  | { type: 'delta'; text?: unknown }
-  | {
-      type: 'done';
-      reply?: unknown;
-      suggestions?: unknown;
-      ready_to_propose?: unknown;
-      content_mode?: unknown;
-      language_change?: unknown;
-      metadata_valid?: unknown;
-      diagnostics?: unknown;
-    }
-  | { type: 'error'; error?: unknown; code?: unknown; retryable?: unknown };
+type RawChatStreamEvent = Record<string, unknown>;
+
+function parseChatResponse(raw: unknown): ChatMessageStreamResponse {
+  const data = raw && typeof raw === 'object' ? raw as Record<string, unknown> : null;
+  const pair = data?.language_change;
+  const validPair = pair && typeof pair === 'object' && 'from' in pair && 'to' in pair &&
+    typeof pair.from === 'string' && typeof pair.to === 'string' &&
+    /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/i.test(pair.from) &&
+    /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/i.test(pair.to) && pair.from !== pair.to
+      ? { from: pair.from, to: pair.to } : null;
+  const mode = data?.content_mode === 'category_inventory' || data?.content_mode === 'situation' || data?.content_mode === 'mixed'
+    ? data.content_mode : null;
+  if (!data || data.metadata_valid !== true || typeof data.reply !== 'string' || !data.reply.trim() ||
+      typeof data.ready_to_propose !== 'boolean' || (pair != null && !validPair) ||
+      (data.ready_to_propose && (!mode || pair != null)) ||
+      (data.recovery_required === true && (data.ready_to_propose || pair != null))) {
+    throw new WordChatApiError('Invalid chat response', 'WORD_CHAT_STREAM', 502, true);
+  }
+  return {
+    ...(data.recovery_required === true ? { recovery_required: true } : {}),
+    reply: data.reply,
+    suggestions: data.ready_to_propose ? [] : Array.isArray(data.suggestions)
+      ? data.suggestions.filter((entry): entry is string => typeof entry === 'string').slice(0, 3) : [],
+    ready_to_propose: data.ready_to_propose,
+    content_mode: data.ready_to_propose ? mode : null,
+    language_change: validPair,
+    metadata_valid: true,
+    diagnostics: (data.diagnostics ?? null) as CallDiagnostics | null,
+  };
+}
 
 export async function readNdjsonStream<T>(
   body: ReadableStream<Uint8Array>,
-  onEvent: (event: T) => void,
+  onEvent: (event: T) => unknown,
+  signal?: AbortSignal,
 ): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -223,39 +243,76 @@ export async function readNdjsonStream<T>(
   const handleLine = (line: string) => {
     const trimmed = line.endsWith('\r') ? line.slice(0, -1).trim() : line.trim();
     if (!trimmed) return;
-    onEvent(JSON.parse(trimmed) as T);
+    return onEvent(JSON.parse(trimmed) as T);
   };
 
+  const cancel = () => { void reader.cancel().catch(() => {}); };
+  signal?.addEventListener('abort', cancel, { once: true });
   try {
+    signal?.throwIfAborted();
     for (;;) {
       const { value, done } = await reader.read();
+      signal?.throwIfAborted();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
-      for (const line of lines) handleLine(line);
+      for (const line of lines) {
+        if (handleLine(line) === false) return;
+      }
     }
     buffer += decoder.decode();
     if (buffer.trim()) handleLine(buffer);
   } finally {
+    signal?.removeEventListener('abort', cancel);
+    void reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }
 
+export type ChatMessageInput = {
+  sessionId: string;
+  languageFrom: string;
+  languageTo: string;
+  chatLanguage: string;
+  addressRegister: WordChatAddressRegister;
+  salutationGender: WordChatSalutationGender | null;
+  languageLevel: WordChatLanguageLevel;
+  messages: WordChatMessage[];
+  model?: string | null;
+  signal?: AbortSignal;
+};
+type ChatHandlers = { onDelta: (text: string) => void };
+
 export async function sendChatMessageStream(
-  input: {
-    sessionId: string;
-    languageFrom: string;
-    languageTo: string;
-    chatLanguage: string;
-    addressRegister: WordChatAddressRegister;
-    salutationGender: WordChatSalutationGender | null;
-    languageLevel: WordChatLanguageLevel;
-    messages: WordChatMessage[];
-    model?: string | null;
-    signal?: AbortSignal;
-  },
-  handlers: { onDelta: (text: string) => void },
+  input: ChatMessageInput,
+  handlers: ChatHandlers,
+): Promise<ChatMessageStreamResponse> {
+  // A transport failure is ambiguous: the server may already have completed
+  // and paid for the model call before the browser lost the final bytes. A
+  // second automatic POST would reserve another turn and another spend row.
+  // Preserve the transcript and let the learner explicitly retry instead.
+  try {
+    return await withRequestDeadline(input.signal, 40_000, (signal) =>
+      sendChatMessageAttempt({ ...input, signal }, handlers),
+    );
+  } catch (err) {
+    if (input.signal?.aborted) {
+      throw new WordChatApiError('Request cancelled', 'WORD_CHAT_ABORTED', 0, false);
+    }
+    if (err instanceof WordChatApiError) throw err;
+    throw new WordChatApiError(
+      'The word chat request timed out.',
+      'WORD_CHAT_TIMEOUT',
+      0,
+      true,
+    );
+  }
+}
+
+async function sendChatMessageAttempt(
+  input: ChatMessageInput,
+  handlers: ChatHandlers,
 ): Promise<ChatMessageStreamResponse> {
   let response: Response;
   try {
@@ -277,6 +334,9 @@ export async function sendChatMessageStream(
     });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
+      if (input.signal?.reason instanceof DOMException && input.signal.reason.name === 'TimeoutError') {
+        throw new WordChatApiError('The word chat request timed out.', 'WORD_CHAT_TIMEOUT', 0, true);
+      }
       throw new WordChatApiError('Request cancelled', 'WORD_CHAT_ABORTED', 0, false);
     }
     throw new WordChatApiError(
@@ -292,7 +352,7 @@ export async function sendChatMessageStream(
     throw toApiError(data, response.status);
   }
   if (!response.body) {
-    throw new WordChatApiError('Stream did not start', 'WORD_CHAT_TEMPORARY', 503, true);
+    throw new WordChatApiError('Stream did not start', 'WORD_CHAT_STREAM', 503, true);
   }
 
   const result: { done?: ChatMessageStreamResponse } = {};
@@ -303,49 +363,25 @@ export async function sendChatMessageStream(
         return;
       }
       if (event.type === 'error') {
-        throw new WordChatApiError(
-          typeof event.error === 'string' ? event.error : 'The word chat could not answer.',
-          typeof event.code === 'string' ? event.code : 'WORD_CHAT_TEMPORARY',
-          503,
-          event.retryable !== false,
-        );
+        throw toApiError(event as unknown as Record<string, unknown>,
+          typeof event.status === 'number' ? event.status : 503);
       }
       if (event.type === 'done') {
-        const rawLanguageChange =
-          event.language_change && typeof event.language_change === 'object'
-            ? (event.language_change as { from?: unknown; to?: unknown })
-            : null;
-        result.done = {
-          reply: typeof event.reply === 'string' ? event.reply : '',
-          suggestions: Array.isArray(event.suggestions)
-            ? event.suggestions.filter((entry): entry is string => typeof entry === 'string')
-            : [],
-          ready_to_propose: event.ready_to_propose === true,
-          content_mode:
-            event.content_mode === 'category_inventory' ||
-            event.content_mode === 'situation' ||
-            event.content_mode === 'mixed'
-              ? event.content_mode
-              : null,
-          language_change:
-            rawLanguageChange &&
-            typeof rawLanguageChange.from === 'string' &&
-            typeof rawLanguageChange.to === 'string'
-              ? { from: rawLanguageChange.from, to: rawLanguageChange.to }
-              : null,
-          metadata_valid: event.metadata_valid === true,
-          diagnostics: event.diagnostics as CallDiagnostics | null,
-        };
+        result.done = parseChatResponse(event);
+        return false; // `done` is terminal; never wait for a proxy to close TCP.
       }
-    });
+    }, input.signal);
   } catch (err) {
     if (err instanceof WordChatApiError) throw err;
     if (err instanceof Error && err.name === 'AbortError') {
+      if (input.signal?.reason instanceof DOMException && input.signal.reason.name === 'TimeoutError') {
+        throw new WordChatApiError('The word chat request timed out.', 'WORD_CHAT_TIMEOUT', 0, true);
+      }
       throw new WordChatApiError('Request cancelled', 'WORD_CHAT_ABORTED', 0, false);
     }
     throw new WordChatApiError(
       'The word chat stream could not be read.',
-      'WORD_CHAT_TEMPORARY',
+      'WORD_CHAT_STREAM',
       503,
       true,
     );
@@ -353,7 +389,7 @@ export async function sendChatMessageStream(
 
   const done = result.done;
   if (!done?.reply) {
-    throw new WordChatApiError('Stream did not finish', 'WORD_CHAT_TEMPORARY', 503, true);
+    throw new WordChatApiError('Stream did not finish', 'WORD_CHAT_STREAM', 503, true);
   }
   return done;
 }
@@ -384,8 +420,9 @@ export function requestProposal(input: {
   messages: WordChatMessage[];
   baseListId?: string | null;
   model?: string | null;
+  signal?: AbortSignal;
 }) {
-  return post<ProposeResponse>('/api/word-chat/propose', {
+  return withRequestDeadline(input.signal, 120_000, (signal) => post<ProposeResponse>('/api/word-chat/propose', {
     session_id: input.sessionId,
     language_from: input.languageFrom,
     language_to: input.languageTo,
@@ -395,7 +432,7 @@ export function requestProposal(input: {
     messages: input.messages,
     ...(input.baseListId ? { base_list_id: input.baseListId } : {}),
     ...(input.model ? { model: input.model } : {}),
-  });
+  }, signal));
 }
 
 export type SimilarWordsResponse = {

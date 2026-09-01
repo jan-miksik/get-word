@@ -187,7 +187,7 @@ describe('MiniGameCard', () => {
     expect(onDismiss).toHaveBeenCalled();
   });
 
-  it('passes level to choice game scoring (+2 for level 2 correct answer)', async () => {
+  it('scores a level 2 correct answer as a single point, like every other', async () => {
     const onResult = vi.fn();
     render(
       <MiniGameCard
@@ -201,7 +201,7 @@ describe('MiniGameCard', () => {
     const sourceLang = shouldUseAudio ? 'cz' : getDeterministicSourceLangForGameId('test-multipleChoice-l2');
     const correctAnswer = sourceLang === 'cz' ? 'con chó' : 'pes';
     fireEvent.click(await screen.findByText(correctAnswer));
-    expect(onResult).toHaveBeenCalledWith(2);
+    expect(onResult).toHaveBeenCalledWith(1);
   });
 
   it('keeps multiple choice in text mode when the prompt audio file does not exist', async () => {

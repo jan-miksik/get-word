@@ -16,6 +16,7 @@ import {
   type Tone,
 } from './button-personalities';
 import { CONCEPT_CSS, InteractionConcepts } from './interaction-concepts';
+import { PRESS_CSS, PRESS_VARIANTS, PressVariantsSection } from './press-variants';
 import { PaletteEditor, usePaletteDraft } from './palette-editor';
 import {
   ACCENTS,
@@ -160,7 +161,7 @@ export function DesignSystemDevPreview() {
   const [contextPersonality, setContextPersonality] =
     useState<PersonalityKey>('letterpress');
   const [onPaper, setOnPaper] = useState(true);
-  const [batch, setBatch] = useState<0 | 1 | 2 | 3>(0);
+  const [batch, setBatch] = useState<0 | 1 | 2 | 3 | 4>(0);
   const shown = PERSONALITIES.filter(
     (p) => batch === 0 || (p.batch ?? 1) === batch,
   );
@@ -171,6 +172,7 @@ export function DesignSystemDevPreview() {
       <style>{paletteCss(palette)}</style>
       <style>{BUTTON_CSS}</style>
       <style>{CONCEPT_CSS}</style>
+      <style>{PRESS_CSS}</style>
 
       <header className="mx-auto w-full max-w-5xl px-5 pt-10">
         <p
@@ -235,10 +237,11 @@ export function DesignSystemDevPreview() {
 
       <Section
         title={`2 · ${PERSONALITIES.length} jazyků tlačítka`}
-        lead="První je to, co aplikace kreslí dnes — a je to doslova Duolingo recept. Zbytek hledá tvar, který si aplikace může přivlastnit: všechny vychází z materiálu, na kterém sedí, tedy z papíru a tisku. Druhá várka je hmatatelnější, třetí přestává být slušná — je v ní i tvar, který se hýbe v perspektivě, a jeden, který není tvar, ale chování."
+        lead="První je to, co aplikace kreslí dnes — a je to doslova Duolingo recept. Hned za ním jsou čtyři prosté: nic než klidový tvar a rovnoměrné zmenšení ze sekce 3, tedy varianta, u které se nedá nic pokazit. Zbytek hledá tvar, který si aplikace může přivlastnit — všechny vychází z papíru a tisku. Druhá várka je hmatatelnější, třetí přestává být slušná: je v ní i tvar, který se hýbe v perspektivě, a jeden, který není tvar, ale chování."
       >
         <div className="mb-4 flex flex-wrap items-center gap-1.5">
-          {([0, 1, 2, 3] as const).map((b) => (
+          {/* The plain batch sits second in the list, so it sits second here too. */}
+          {([0, 4, 1, 2, 3] as const).map((b) => (
             <button
               key={b}
               type="button"
@@ -250,7 +253,7 @@ export function DesignSystemDevPreview() {
                 boxShadow: `inset 0 0 0 1px ${PAPER_EDGE}`,
               }}
             >
-              {b === 0 ? 'vše' : `${b}. várka`}
+              {b === 0 ? 'vše' : b === 4 ? 'prosté' : `${b}. várka`}
             </button>
           ))}
           <span className="ml-1 text-[0.78rem]" style={{ color: INK_SOFT }}>
@@ -295,16 +298,20 @@ export function DesignSystemDevPreview() {
                       className="rounded-full px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.12em]"
                       style={{
                         background:
-                          p.batch === 3
-                            ? ACC.plum.wash
-                            : ACC.terracotta.wash,
+                          p.batch === 4
+                            ? ACC.sea.wash
+                            : p.batch === 3
+                              ? ACC.plum.wash
+                              : ACC.terracotta.wash,
                         color:
-                          p.batch === 3
-                            ? ACC.plum.deep
-                            : ACC.terracotta.deep,
+                          p.batch === 4
+                            ? ACC.sea.deep
+                            : p.batch === 3
+                              ? ACC.plum.deep
+                              : ACC.terracotta.deep,
                       }}
                     >
-                      {p.batch}. várka
+                      {p.batch === 4 ? 'prosté' : `${p.batch}. várka`}
                     </span>
                   ) : null}
                 </h3>
@@ -356,14 +363,21 @@ export function DesignSystemDevPreview() {
       </Section>
 
       <Section
-        title="3 · Interaktivní prvky"
+        title={`3 · Fyzika stisku — ${PRESS_VARIANTS.length} variant zmenšení`}
+        lead="Sekce 2 se ptá, jaký má tlačítko tvar. Tady je jediná otázka to, co se stane pod prstem: zmenšení se osvědčilo, tak která jeho podoba. Všechny varianty kreslí stejný tvar a stejnou barvu — liší se jen pohybem. Kolik a jak rychle jsou společné knoflíky nahoře, protože to není povaha varianty, ale číslo."
+      >
+        <PressVariantsSection accent={ACC[accent]} />
+      </Section>
+
+      <Section
+        title="4 · Interaktivní prvky"
         lead="Druhá várka návrhů z chatu, přenesená na náš papír — a pět nových. Tady se neptáme, jaký má tlačítko tvar, ale co umí dělat: každý prvek je chování, které aplikace opravdu má (odhalení, výslovnost, směr, undo, setření, žebřík intervalů, pomůcka, párování), nakreslené jako jediné gesto. Barvy berou z palety nahoře, takže si je jde přebarvit pod rukama."
       >
         <InteractionConcepts />
       </Section>
 
       <Section
-        title="4 · V kontextu"
+        title="5 · V kontextu"
         lead="Tlačítko se nedá vybrat samo o sobě — vybírá se karta. Tohle je maketa studijní kartičky ve vybraném jazyce a vybraném akcentu."
       >
         <div className="mb-5 flex flex-wrap gap-2">
@@ -476,7 +490,7 @@ export function DesignSystemDevPreview() {
       </Section>
 
       <Section
-        title="5 · Co už je hotové"
+        title="6 · Co už je hotové"
         lead="Základ se dal položit bez rozhodnutí o paletě, tak je položený. Zbytek téhle stránky je pořád jen návrh."
       >
         <div

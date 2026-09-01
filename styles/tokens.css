@@ -52,12 +52,18 @@
   --ink-300: #735D43;
   --ink-250: #7C6A55;
 
+  /* Neutral grey — a plain, untinted button edge. Every ink above is warm,
+     so an outline drawn with one reads as part of the paper rather than as a
+     border; the choice and matching options want a line that says "button".
+     This is CSS `gray` (#808080) written down once. */
+  --grey-line: #808080;
+
   /* Sea — the de facto primary accent of the study surface */
   --sea-700: #134F78;
-  --sea-deep: #14547F;
+  --sea-deep: #1A69A1;
   --sea-600: #155987;
   --sea-mid: #17608F;
-  --sea: #1E6FA8;
+  --sea: #1D75B3;
   --sea-250: #9AA6B8;
   --sea-200: #9FB6CC;
   --wash-sea: #E4EEF6;

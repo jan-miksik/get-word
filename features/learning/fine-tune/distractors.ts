@@ -43,17 +43,14 @@ export const MIN_IN_BAND_OPTIONS = (optionCount: number): number =>
  * How many of an exercise's distractors may be invented lookalikes of the answer
  * rather than real words from the list.
  *
- * Two things are being balanced. Invented forms are the only reliable way to
- * reach band III — a real near-twin of any given word rarely exists in a real
- * list — but every slot spent on one is a slot not spent on genuine vocabulary
- * the learner gets a free glance at. So they never take more than half the
- * options, and never more than two however large the round; a round with two
- * near-misses is already as careful a read as anyone can be asked for. The
- * floor of one is what makes the smallest band III variants (a straight
- * two-option "which spelling") possible at all.
+ * Invented forms are the reliable way to honour a configured similarity floor:
+ * a real near-twin of any given word rarely exists in a real list. Two are
+ * enough to satisfy the hardest variants and remain the cap on larger rounds;
+ * a two-distractor round may therefore consist entirely of invented near-misses
+ * when no real twin exists. The remaining slots still show genuine vocabulary.
  */
 const MAX_INVENTED_OPTIONS = (distractorCount: number): number =>
-  distractorCount <= 0 ? 0 : Math.max(1, Math.min(2, Math.floor(distractorCount / 2)));
+  Math.max(0, Math.min(2, distractorCount));
 
 /** Same idea for matching, counted over the words that form the round. */
 export const MIN_IN_BAND_PAIRS = (pairCount: number): number =>
@@ -191,7 +188,7 @@ function buildInventedCandidates({
 
   return forms.map((form, index) => ({
     word: inventedWord(target, form, index),
-    // One diacritic away from the answer is the definition of band III.
+    // The generator guarantees one small written edit, the definition of III.
     band: 'III' as SimilarityBand,
     inScope: true,
     invented: true,
@@ -238,10 +235,10 @@ export function resolveVariantDistractors({
   /** The side the options are shown on, when the exercise fixes one. */
   side?: WordSide;
   /**
-   * Let band III be filled with invented lookalikes of the answer when the list
-   * cannot supply real near-twins. Needs `side`: a bent word only exists in the
-   * one language the options are written in, so an exercise that has not fixed a
-   * direction — matching, bubbles — can never use them.
+   * Let band II/III be filled with invented lookalikes of the answer when the
+   * list cannot supply real near-twins. Needs `side`: a bent word only exists in
+   * the one language the options are written in, so an exercise that has not
+   * fixed a direction — matching, bubbles — can never use them.
    */
   allowInvented?: boolean;
 }): ResolvedDistractors | null {
@@ -267,9 +264,9 @@ export function resolveVariantDistractors({
 
   for (let step = startAt < 0 ? 0 : startAt; step < BAND_DEGRADATION_ORDER.length; step += 1) {
     const attempt = BAND_DEGRADATION_ORDER[step];
-    // Invented forms are near-twins by construction, so they have nothing to
-    // offer an attempt that has already settled for looser company.
-    const usableInvented = attempt === 'III' ? invented : [];
+    // A near-twin also satisfies band II. It is preferable to invent a safe
+    // harder option than to silently render a round below its configured floor.
+    const usableInvented = attempt === 'I' ? [] : invented;
     const inBand = candidates.filter((candidate) => bandAtLeast(candidate.band, attempt));
     if (inBand.length + usableInvented.length < Math.min(required, count)) continue;
 

@@ -471,163 +471,168 @@ export function WordAssemblyGame({
   const partValues = tiles.map((tile) => tile.value);
 
   return (
-    <article className="study-ink-scope relative mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center gap-6 px-3 py-6 text-center">
+    <article className="study-ink-scope relative mx-auto flex h-full w-full max-w-2xl flex-1 flex-col items-center justify-center gap-4 px-3 py-4 text-center sm:gap-6 sm:py-6">
       <CardTopControls>
         <StageBadge stageIndex={stageIndex} difficultyBand={difficultyBand} />
       </CardTopControls>
-      <SuccessMarkSlot show={outcome === 'known'} label={t('game.correct')} rollKey={word.id} />
-      <div className="flex flex-col items-center gap-3">
-        <p className="m-0 text-xs font-bold uppercase tracking-[0.12em] text-text-soft">
-          {t('game.assemble')}
-        </p>
-        <div {...noTranslateProps('text-4xl font-extrabold leading-none text-text sm:text-5xl')}>
-          {getWordTextBySide(word, knownSideForRole(role))}
-        </div>
-      </div>
-
-      {/* The tray keeps one slot per part from the first frame, so the card
-          never reflows around the answer as it is built and the whole round
-          stays centred on the word it is about. */}
+      {/* On phones this is the flexible part of the card. The action dock below
+          stays at the bottom while the prompt, tray and bank keep the remaining
+          space; importantly, every audio control is outside this tile region. */}
       <div
-        className={`mx-auto flex min-h-[4.5rem] max-w-full flex-wrap items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-3 py-3 transition-colors duration-300 ${
-          outcome === 'unknown'
-            ? 'border-brick/50 bg-wash-brick/40 motion-safe:animate-[game-shake_350ms_ease]'
-            : outcome === 'known'
-              ? 'border-moss/50 bg-wash-moss/40'
-              : 'border-ink-faint/60 bg-paper-hi/35'
-        }`}
-        aria-label={t('game.assembledAnswer')}
+        data-assembly-content
+        className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-4 sm:gap-6 md:flex-none"
       >
-        {placedTiles.map((tile, index) => {
-          const dragging = drag?.id === tile.id;
-          let transform: string | undefined;
-          if (dragging) {
-            transform = `translate(${drag.x}px, ${drag.y}px) scale(1.06)`;
-          } else {
-            const offset = drag?.neighbourOffsets[tile.id];
-            if (offset) transform = `translate(${offset.x}px, ${offset.y}px)`;
-          }
-          return (
+        <SuccessMarkSlot show={outcome === 'known'} label={t('game.correct')} rollKey={word.id} />
+        <div className="flex flex-col items-center gap-3">
+          <p className="m-0 text-xs font-bold uppercase tracking-[0.12em] text-text-soft">
+            {t('game.assemble')}
+          </p>
+          <div {...noTranslateProps('text-4xl font-extrabold leading-none text-text sm:text-5xl')}>
+            {getWordTextBySide(word, knownSideForRole(role))}
+          </div>
+        </div>
+
+        {/* The tray keeps one slot per part from the first frame, so the card
+            never reflows around the answer as it is built and the whole round
+            stays centred on the word it is about. */}
+        <div
+          className={`mx-auto flex min-h-[4.5rem] max-w-full flex-wrap items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-3 py-3 transition-colors duration-300 ${
+            outcome === 'unknown'
+              ? 'border-brick/50 bg-wash-brick/40 motion-safe:animate-[game-shake_350ms_ease]'
+              : outcome === 'known'
+                ? 'border-moss/50 bg-wash-moss/40'
+                : 'border-ink-faint/60 bg-paper-hi/35'
+          }`}
+          aria-label={t('game.assembledAnswer')}
+        >
+          {placedTiles.map((tile, index) => {
+            const dragging = drag?.id === tile.id;
+            let transform: string | undefined;
+            if (dragging) {
+              transform = `translate(${drag.x}px, ${drag.y}px) scale(1.06)`;
+            } else {
+              const offset = drag?.neighbourOffsets[tile.id];
+              if (offset) transform = `translate(${offset.x}px, ${offset.y}px)`;
+            }
+            return (
+              <button
+                key={tile.id}
+                ref={registerTile(tile.id)}
+                type="button"
+                disabled={Boolean(outcome)}
+                onPointerDown={(event) => onTilePointerDown(event, tile.id)}
+                onKeyDown={(event) => onTileKeyDown(event, tile.id)}
+                onClick={() => takeBack(tile.id)}
+                style={{
+                  transform,
+                  // The lifted tile must not lag behind the pointer, and the
+                  // graded tiles colour in one after another rather than all at
+                  // once. Both written longhand: mixing `transition` with
+                  // `transitionDelay` across renders makes React complain.
+                  transitionProperty: dragging ? 'none' : undefined,
+                  transitionDelay: !dragging && outcome ? `${index * 45}ms` : undefined,
+                }}
+                {...noTranslateProps(
+                  [
+                    TILE_SHAPE,
+                    tileWidth,
+                    'touch-none disabled:cursor-default',
+                    dragging ? 'z-30 cursor-grabbing shadow-[0_10px_18px_rgba(42,34,24,0.28)]' : 'cursor-grab',
+                    outcome === 'known'
+                      ? 'border-moss bg-wash-moss text-[#145B33] shadow-[0_3px_0_#A9D3B6]'
+                      : outcome === 'unknown'
+                        ? 'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6]'
+                        : dragging
+                          ? 'border-sea bg-wash-sea text-sea-mid'
+                          : 'border-sea bg-wash-sea text-sea-mid shadow-[0_3px_0_#B5CFE4]',
+                  ].join(' '),
+                )}
+              >
+                <TileLabel value={tile.value} parts={partValues} />
+              </button>
+            );
+          })}
+          {Array.from({ length: emptySlots }, (_, index) => (
+            <span
+              key={`slot-${index}`}
+              aria-hidden="true"
+              className={`inline-flex h-12 items-center justify-center rounded-2xl border-2 border-dashed px-3 ${tileWidth} ${
+                index === 0 && !outcome
+                  ? 'border-sea/45 motion-safe:animate-[assembly-slot-wait_1.9s_ease-in-out_infinite]'
+                  : 'border-ink-faint/55'
+              }`}
+            >
+              {/* Sized like a tile, so the slot a tile is going to land in is
+                  exactly the shape of the tile that will land there. */}
+              <TileLabel value="" parts={partValues} />
+            </span>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-2">
+          {bankTiles.map((tile, index) => (
             <button
               key={tile.id}
               ref={registerTile(tile.id)}
               type="button"
-              disabled={Boolean(outcome)}
-              onPointerDown={(event) => onTilePointerDown(event, tile.id)}
-              onKeyDown={(event) => onTileKeyDown(event, tile.id)}
-              onClick={() => takeBack(tile.id)}
-              style={{
-                transform,
-                // The lifted tile must not lag behind the pointer, and the
-                // graded tiles colour in one after another rather than all at
-                // once. Both written longhand: mixing `transition` with
-                // `transitionDelay` across renders makes React complain.
-                transitionProperty: dragging ? 'none' : undefined,
-                transitionDelay: !dragging && outcome ? `${index * 45}ms` : undefined,
-              }}
+              disabled={Boolean(outcome) || isFull}
+              style={{ animationDelay: `${index * 45}ms` }}
+              // A drag that ends over anything but a button leaves no click to
+              // swallow, so the suppression flag would still be armed here and
+              // would eat this tap. A fresh press is never drag fallout.
+              onPointerDown={() => { suppressClick.current = false; }}
               {...noTranslateProps(
                 [
                   TILE_SHAPE,
                   tileWidth,
-                  'touch-none disabled:cursor-default',
-                  dragging ? 'z-30 cursor-grabbing shadow-[0_10px_18px_rgba(42,34,24,0.28)]' : 'cursor-grab',
-                  outcome === 'known'
-                    ? 'border-moss bg-wash-moss text-[#145B33] shadow-[0_3px_0_#A9D3B6]'
-                    : outcome === 'unknown'
-                      ? 'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6]'
-                      : dragging
-                        ? 'border-sea bg-wash-sea text-sea-mid'
-                        : 'border-sea bg-wash-sea text-sea-mid shadow-[0_3px_0_#B5CFE4]',
+                  'border-ink-faint bg-paper-hi text-ink shadow-[0_3px_0_#D8C9AF]',
+                  'motion-safe:animate-[deck-enter-rise_0.4s_ease-out_both]',
+                  'enabled:hover:-translate-y-0.5 enabled:hover:border-sea enabled:hover:shadow-[0_5px_0_#C7B89E]',
+                  'enabled:active:translate-y-[2px] enabled:active:shadow-none',
+                  'disabled:cursor-default disabled:opacity-40 disabled:shadow-none',
                 ].join(' '),
               )}
+              onClick={() => choose(tile)}
             >
               <TileLabel value={tile.value} parts={partValues} />
             </button>
-          );
-        })}
-        {Array.from({ length: emptySlots }, (_, index) => (
-          <span
-            key={`slot-${index}`}
-            aria-hidden="true"
-            className={`inline-flex h-12 items-center justify-center rounded-2xl border-2 border-dashed px-3 ${tileWidth} ${
-              index === 0 && !outcome
-                ? 'border-sea/45 motion-safe:animate-[assembly-slot-wait_1.9s_ease-in-out_infinite]'
-                : 'border-ink-faint/55'
-            }`}
-          >
-            {/* Sized like a tile, so the slot a tile is going to land in is
-                exactly the shape of the tile that will land there. */}
-            <TileLabel value="" parts={partValues} />
-          </span>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-2">
-        {bankTiles.map((tile, index) => (
-          <button
-            key={tile.id}
-            ref={registerTile(tile.id)}
-            type="button"
-            disabled={Boolean(outcome) || isFull}
-            style={{ animationDelay: `${index * 45}ms` }}
-            // A drag that ends over anything but a button leaves no click to
-            // swallow, so the suppression flag would still be armed here and
-            // would eat this tap. A fresh press is never drag fallout.
-            onPointerDown={() => { suppressClick.current = false; }}
-            {...noTranslateProps(
-              [
-                TILE_SHAPE,
-                tileWidth,
-                'border-ink-faint bg-paper-hi text-ink shadow-[0_3px_0_#D8C9AF]',
-                'motion-safe:animate-[deck-enter-rise_0.4s_ease-out_both]',
-                'enabled:hover:-translate-y-0.5 enabled:hover:border-sea enabled:hover:shadow-[0_5px_0_#C7B89E]',
-                'enabled:active:translate-y-[2px] enabled:active:shadow-none',
-                'disabled:cursor-default disabled:opacity-40 disabled:shadow-none',
-              ].join(' '),
-            )}
-            onClick={() => choose(tile)}
-          >
-            <TileLabel value={tile.value} parts={partValues} />
-          </button>
-        ))}
-      </div>
-
-      {!outcome && (
-        <button
-          type="button"
-          onClick={check}
-          disabled={!isFull}
-          className={`${studyActionClasses('solid')} max-w-[22rem]`}
-        >
-          <span>{t('game.check')}</span>
-        </button>
-      )}
-      {outcome && (
-        <div className="relative flex w-full max-w-[22rem] flex-col items-center gap-3">
-          {outcome === 'unknown' && (
-            <span {...noTranslateProps('text-sm font-bold text-rose-700')}>
-              {`✗ ${answerParts.join(joiner)}`}
-            </span>
-          )}
-          {/* Hearing the phrase you just built is the point of building it, so
-              the answer stays playable until the card is dismissed. It floats
-              above the action at the same bottom-right offset as the speaker
-              on a regular card; `lg` also gives it that card's 64px target. */}
-          {answerAudioSrcs.length > 0 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14">
-              <CardAudioButton
-                size="lg"
-                className="pointer-events-auto absolute -top-[4.5rem] right-0 z-10"
-                onPlay={() => void play(answerAudioSrcs)}
-              />
-            </div>
-          )}
-          <ContinueButton
-            variant="solid"
-            onClick={() => onOutcome(outcome)}
-          />
+          ))}
         </div>
-      )}
+      </div>
+
+      {/* The mobile action dock is the final, non-growing child, so Check and
+          Continue stay at the bottom of the card. Audio is in normal flow just
+          above them and right-aligned, never floating over the tile bank. */}
+      <div
+        data-assembly-action-dock
+        className="mx-auto flex w-full max-w-[22rem] shrink-0 flex-col items-center gap-3 pb-[max(env(safe-area-inset-bottom,0px),0.75rem)] md:pb-0"
+      >
+        {outcome === 'unknown' && (
+          <span {...noTranslateProps('text-sm font-bold text-rose-700')}>
+            {`✗ ${answerParts.join(joiner)}`}
+          </span>
+        )}
+        {outcome && answerAudioSrcs.length > 0 && (
+          <div data-assembly-audio-row className="flex w-full justify-end pr-1">
+            <CardAudioButton
+              size="lg"
+              onPlay={() => void play(answerAudioSrcs)}
+            />
+          </div>
+        )}
+        {!outcome ? (
+          <button
+            type="button"
+            onClick={check}
+            disabled={!isFull}
+            className={studyActionClasses('slab')}
+          >
+            <span>{t('game.check')}</span>
+          </button>
+        ) : (
+          <ContinueButton variant="slab" onClick={() => onOutcome(outcome)} />
+        )}
+      </div>
     </article>
   );
 }

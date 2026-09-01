@@ -57,23 +57,23 @@ describe('MultipleChoiceGame', () => {
     expect(onResult).toHaveBeenCalledWith(1);
   });
 
-  it('calls onResult(-1) when a wrong option is selected', () => {
+  it('calls onResult(0) when a wrong option is selected — no penalty', () => {
     const onResult = vi.fn();
     render(
       <MultipleChoiceGame words={WORDS} role="knownLanguage" onResult={onResult} />
     );
     // role=cz: prompt=pes, wrong answer=con mèo
     fireEvent.click(screen.getByText('con mèo'));
-    expect(onResult).toHaveBeenCalledWith(-1);
+    expect(onResult).toHaveBeenCalledWith(0);
   });
 
-  it('awards +2 for a correct answer in level 2', () => {
+  it('still awards +1 for a correct answer in level 2', () => {
     const onResult = vi.fn();
     render(
       <MultipleChoiceGame words={WORDS} role="knownLanguage" level={2} onResult={onResult} />
     );
     fireEvent.click(screen.getByText('con chó'));
-    expect(onResult).toHaveBeenCalledWith(2);
+    expect(onResult).toHaveBeenCalledWith(1);
   });
 
   it('shows the question word spaced-repetition stage in a compact badge', () => {

@@ -498,6 +498,20 @@
       "when": 1787529600000,
       "tag": "0070_word_item_address_form",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1788134400000,
+      "tag": "0071_study_reminder_weekly_quota",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1788220800000,
+      "tag": "0072_quality_pool_events",
+      "breakpoints": true
     }
   ]
 }

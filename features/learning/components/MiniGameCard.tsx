@@ -429,7 +429,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
             style={{ animation: 'overlay-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
             <ContinueButton
-              variant="solid"
+              variant="slab"
               className="pointer-events-auto max-w-[22rem]"
               onClick={onDismiss}
             />

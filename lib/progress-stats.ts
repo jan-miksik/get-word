@@ -12,6 +12,12 @@ export interface ProgressStats {
   learning: number;
   done: number;
   new: number;
+  /**
+   * Words retired as "fully known": the top stage with no due date, so the
+   * ladder is finished rather than merely booked for another 60 days. Counted
+   * inside `byStage[last]` too — a caller that shows both must subtract.
+   */
+  retired: number;
 }
 
 export function calculateProgressStats(
@@ -29,10 +35,11 @@ export function calculateProgressStats(
     learning: 0,
     done: 0,
     new: 0,
+    retired: 0,
   };
 
   filteredWords.forEach((word) => {
-    const prog = progress[word.id] || {
+    const prog: ProgressData = progress[word.id] || {
       stageIndex: 0,
       knownCount: 0,
       unknownCount: 0,
@@ -40,6 +47,9 @@ export function calculateProgressStats(
     const stageIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
     
     stats.byStage[stageIdx] += 1;
+    if (stageIdx === STAGES.length - 1 && !prog.nextDueAt) {
+      stats.retired += 1;
+    }
     stats.totalKnown += prog.knownCount || 0;
     stats.totalUnknown += prog.unknownCount || 0;
     

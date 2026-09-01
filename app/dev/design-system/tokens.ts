@@ -12,7 +12,7 @@
  */
 
 /** The paper stack — the surfaces everything is printed on. */
-export const NEUTRALS = [
+const NEUTRALS = [
   { name: 'sand', hex: '#DCD1B9', note: 'the sheet — app background' },
   { name: 'paper', hex: '#F4EFE2', note: 'card fill' },
   { name: 'paper-hi', hex: '#FFF8E8', note: 'raised / hover fill' },
@@ -53,8 +53,8 @@ export const ACCENTS: Accent[] = [
   {
     key: 'sea',
     label: 'sea',
-    base: '#1E6FA8',
-    deep: '#14547F',
+    base: '#1D75B3',
+    deep: '#1A69A1',
     wash: '#E2EDF5',
     role: 'primary action, opakování, odkazy',
   },
@@ -119,7 +119,7 @@ export const ACCENT_BY_KEY: Record<AccentKey, Accent> = ACCENTS.reduce(
  * editor below has to be able to reach it, so it is written down here with the
  * rest.
  */
-export const PAPER_MARK = { name: 'paper-mark', hex: '#EADFC4', note: 'zvýrazňovač na papíru (jen tlačítka)' } as const;
+const PAPER_MARK = { name: 'paper-mark', hex: '#EADFC4', note: 'zvýrazňovač na papíru (jen tlačítka)' } as const;
 
 export type NeutralName = (typeof NEUTRALS)[number]['name'] | 'paper-mark';
 
@@ -153,8 +153,8 @@ export const DEFAULT_PALETTE: Palette = {
   ) as Record<AccentKey, Record<AccentPart, string>>,
 };
 
-export const neutralVar = (name: NeutralName) => `--ds-${name}`;
-export const accentVar = (key: AccentKey, part: AccentPart) => `--ds-${key}-${part}`;
+const neutralVar = (name: NeutralName) => `--ds-${name}`;
+const accentVar = (key: AccentKey, part: AccentPart) => `--ds-${key}-${part}`;
 
 /** The palette as a stylesheet, scoped to the page root. */
 export function paletteCss(palette: Palette, selector = '.ds-root'): string {

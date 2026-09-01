@@ -54,7 +54,6 @@ export function MatchingPairsGame({
   sourceLang,
   promptMode = 'text',
   soundEnabled = false,
-  level = 1,
   onResult,
   topControls,
   frameless = false,
@@ -108,9 +107,11 @@ export function MatchingPairsGame({
   useEffect(() => {
     if (isComplete && !resultFired.current) {
       resultFired.current = true;
-      onResult?.(level === 2 ? 2 : 1);
+      // One point per correct answer, whatever the difficulty level: the
+      // score counts answers, not how hard they were.
+      onResult?.(1);
     }
-  }, [isComplete, level, onResult]);
+  }, [isComplete, onResult]);
 
   const attempt = (lId: string, rId: string) => {
     if (lId === rId) {
@@ -205,7 +206,6 @@ export function MatchingPairsGame({
                 size="sm"
                 matchColor={leftState === 'matched' ? matchColors.get(word.id) : undefined}
                 matchEdge="right"
-                enterIndex={index}
                 onClick={() => handleLeft(word.id)}
                 disabled={matched.has(word.id) || !!wrongPair}
                 ariaLabel={
@@ -224,7 +224,6 @@ export function MatchingPairsGame({
                   size="sm"
                   matchColor={rightState === 'matched' ? matchColors.get(right.id) : undefined}
                   matchEdge="left"
-                  enterIndex={index}
                   onClick={() => handleRight(right.id)}
                   disabled={matched.has(right.id) || !!wrongPair}
                 >

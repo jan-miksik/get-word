@@ -13,6 +13,7 @@ describe('workspace surface history helpers', () => {
     expect(parseAppSurface('https://getword.app/?surface=chat')).toBe('chat');
     expect(parseAppSurface('https://getword.app/?surface=photo')).toBe('photo');
     expect(parseAppSurface('https://getword.app/?wordChat=1')).toBe('chat');
+    expect(parseAppSurface('https://getword.app/?surface=progress')).toBe('progress');
     expect(parseAppSurface('https://getword.app/?surface=unknown')).toBe('study');
     expect(
       parseAppSurface('https://getword.app/?surface=photo', { photoEnabled: false }),
@@ -26,6 +27,8 @@ describe('workspace surface history helpers', () => {
     expect(
       appSurfaceHref('study', 'https://getword.app/?preview=1&surface=chat'),
     ).toBe('/?preview=1');
+    // The overview is a destination of its own, not a tab of adding words.
+    expect(appSurfaceHref('progress', 'https://getword.app/')).toBe('/?surface=progress');
   });
 
   it('round-trips valid history metadata without discarding other state', () => {

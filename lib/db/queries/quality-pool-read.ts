@@ -41,6 +41,7 @@ function parseAssets(value: unknown): PoolAudioSide['assets'] {
         hash: typeof record.hash === 'string' ? record.hash : null,
         size: record.size === null || record.size === undefined ? null : Number(record.size),
         storage: typeof record.storage === 'string' ? record.storage : null,
+        voice: typeof record.voice === 'string' ? record.voice : null,
       },
     ];
   });
@@ -150,7 +151,8 @@ function audioSideColumns(prefix: 'known' | 'target', statusColumn: string, asse
         'id', ${asset}.id,
         'hash', ${asset}.content_hash,
         'size', ${asset}.size_bytes,
-        'storage', ${asset}.storage_type
+        'storage', ${asset}.storage_type,
+        'voice', ${asset}.voice_id
       )) FILTER (WHERE ${asset}.id IS NOT NULL),
       '[]'::jsonb
     ) AS ${name}_assets`;
@@ -463,9 +465,9 @@ export async function getPoolItems(poolKey: string): Promise<PoolItem[]> {
            l.language_from, l.language_to,
            i.known_audio_status, i.audio_status,
            ka.content_hash AS known_hash, ka.storage_type AS known_storage,
-           ka.storage_ref  AS known_ref,
+           ka.storage_ref  AS known_ref, ka.voice_id AS known_voice,
            ta.content_hash AS target_hash, ta.storage_type AS target_storage,
-           ta.storage_ref  AS target_ref
+           ta.storage_ref  AS target_ref, ta.voice_id AS target_voice
     FROM word_list_items i
     JOIN word_lists l ON l.id = i.list_id
     JOIN users u      ON u.id = l.owner_id
@@ -484,6 +486,12 @@ export async function getPoolItems(poolKey: string): Promise<PoolItem[]> {
           contentHash: String(row[`${prefix}_hash`] ?? ''),
           storageType: String(row[`${prefix}_storage`]),
           storageRef: String(row[`${prefix}_ref`] ?? ''),
+          // Null on legacy assets recorded before the column existed, which is
+          // "unknown", not "the default voice" — see media_assets.voice_id.
+          voiceId:
+            row[`${prefix}_voice`] === null || row[`${prefix}_voice`] === undefined
+              ? null
+              : String(row[`${prefix}_voice`]),
         };
 
   return rows.map((row) => ({

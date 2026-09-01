@@ -267,4 +267,124 @@ describe('AdminQualityPoolPage', () => {
       ]),
     );
   });
+
+  /**
+   * Re-recording under the automatic voice would resolve to the same voice,
+   * hash to the same asset and change nothing audible. The button says so
+   * rather than firing a request that looks like it worked.
+   */
+  it('offers re-recording only once a voice or the mix is chosen', async () => {
+    respondWithWrites([row()]);
+    const { container } = render(<AdminQualityPoolPage />);
+    const body = await tableBody(container);
+
+    await act(async () => {
+      fireEvent.click(within(body).getByText(/pes/));
+    });
+
+    const reRecord = screen.getAllByRole('button', {
+      name: 'Record again',
+    }) as HTMLButtonElement[];
+    expect(reRecord.every((button) => button.disabled)).toBe(true);
+
+    // The target side is fully recorded; its select is the second one.
+    const selects = screen.getAllByRole('combobox');
+    const targetVoice = selects[selects.length - 1];
+    await act(async () => {
+      fireEvent.change(targetVoice, { target: { value: 'random' } });
+    });
+
+    const enabled = screen.getAllByRole('button', {
+      name: 'Record again',
+    }) as HTMLButtonElement[];
+    expect(enabled.some((button) => !button.disabled)).toBe(true);
+  });
+
+  /** Replacing a clip changes what learners hear, so it confirms first. */
+  it('replaces a recording with a random voice after confirmation', async () => {
+    respondWithWrites([row()]);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { container } = render(<AdminQualityPoolPage />);
+    const body = await tableBody(container);
+
+    await act(async () => {
+      fireEvent.click(within(body).getByText(/pes/));
+    });
+    const selects = screen.getAllByRole('combobox');
+    await act(async () => {
+      fireEvent.change(selects[selects.length - 1], { target: { value: 'random' } });
+    });
+    const button = (screen.getAllByRole('button', { name: 'Record again' }) as HTMLButtonElement[])
+      .find((candidate) => !candidate.disabled)!;
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    await waitFor(() =>
+      expect(writesTo('/api/admin/quality/audio')).toEqual([
+        {
+          poolKey: 'p1:aaa',
+          side: 'target',
+          mode: 'replace',
+          voice: { mode: 'random' },
+        },
+      ]),
+    );
+    expect(confirm).toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  /**
+   * The history is the only record that a pair was re-recorded at all — the
+   * pool row itself keeps just the latest state.
+   */
+  it('loads the editor history only when it is opened', async () => {
+    respondWithWrites([row()]);
+    apiFetch.mockImplementation(async (url: string) => ({
+      status: 200,
+      ok: true,
+      json: async () =>
+        url.startsWith('/api/admin/quality?')
+          ? {
+              rows: [row()],
+              total: 1,
+              limit: 50,
+              offset: 0,
+              heuristic_version: 1,
+              llm_audit_version: 1,
+            }
+          : url.endsWith('/history')
+            ? {
+                events: [
+                  {
+                    id: 'e1',
+                    action: 'audio_replaced',
+                    side: 'target',
+                    detail: { voice_id: 'cs-CZ-Chirp3-HD-Puck', linked_items: 12 },
+                    actor: 'editor@example.com',
+                    created_at: '2026-08-18T10:00:00.000Z',
+                  },
+                ],
+              }
+            : { linked_items: 1 },
+    }));
+
+    const { container } = render(<AdminQualityPoolPage />);
+    const body = await tableBody(container);
+    await act(async () => {
+      fireEvent.click(within(body).getByText(/pes/));
+    });
+
+    expect(
+      apiFetch.mock.calls.some((call) => String(call[0]).endsWith('/history')),
+    ).toBe(false);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Show history' }));
+    });
+
+    await waitFor(() => expect(screen.getByText('Audio re-recorded')).toBeTruthy());
+    expect(screen.getByText(/cs-CZ-Chirp3-HD-Puck/)).toBeTruthy();
+    expect(screen.getByText(/editor@example.com/)).toBeTruthy();
+  });
 });

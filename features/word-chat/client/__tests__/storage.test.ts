@@ -77,6 +77,16 @@ describe("word-chat draft migration", () => {
     expect(window.localStorage.getItem(STORAGE_KEY)).not.toBeNull();
   });
 
+  it('keeps the pending proposal and conversation on reload', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(storedDraft({ version: 5, step: 'chat', pendingChatAction: { kind: 'propose', contentMode: 'situation' } })));
+    expect(loadDraft('cs', 'en')).toMatchObject({ pendingChatAction: { kind: 'propose', contentMode: 'situation' }, messages: [{ role: 'user', content: 'Letiště a doprava' }] });
+  });
+
+  it('drops a corrupt recovery action while preserving the conversation', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(storedDraft({ version: 5, step: 'chat', pendingChatAction: { kind: 'propose', contentMode: 'broken' } })));
+    expect(loadDraft('cs', 'en')).toMatchObject({ pendingChatAction: null, messages: [{ role: 'user', content: 'Letiště a doprava' }] });
+  });
+
   it("carries selected source text to a newly selected language pair", () => {
     saveDraft("cs", "en", {
       sessionId: "session",

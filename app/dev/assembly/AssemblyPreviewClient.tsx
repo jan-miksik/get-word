@@ -22,6 +22,7 @@ const WORD: NormalizedWord = {
   cz: 'kolik to stojí dohromady',
   en: '',
   vi: 'tất cả bao nhiêu tiền',
+  viAudio: '/audio/demo/vi/1.mp3',
 };
 
 const ROUNDS = {
@@ -84,7 +85,7 @@ export function AssemblyPreviewClient() {
           </span>
         </div>
 
-        <div className="flex-1 px-3 py-6">
+        <div className="flex min-h-0 flex-1 flex-col px-3 py-6">
           {mounted && (
             <WordAssemblyGame
               key={`${round}:${variant}:${role}`}

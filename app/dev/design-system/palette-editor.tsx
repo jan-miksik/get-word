@@ -89,7 +89,7 @@ function luminance(hex: string): number {
 }
 
 /** WCAG contrast, to one decimal — enough to see 4.5 coming. */
-export function contrast(a: string, b: string): number {
+function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return Math.round(((hi + 0.05) / (lo + 0.05)) * 10) / 10;
 }
