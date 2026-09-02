@@ -15,7 +15,7 @@ let package = Package(
         .package(name: "AparajitaCapacitorSecureStorage", path: "../../../../node_modules/@aparajita/capacitor-secure-storage"),
         .package(name: "CapacitorApp", path: "../../../../node_modules/@capacitor/app"),
         .package(name: "CapacitorHaptics", path: "../../../../node_modules/@capacitor/haptics"),
-        .package(name: "CapacitorLocalNotifications", path: "../../../../node_modules/@capacitor/local-notifications"),
+        .package(name: "CapacitorLocalNotifications", path: "../../../node_modules/@capacitor/local-notifications"),
         .package(name: "CapacitorStatusBar", path: "../../../../node_modules/@capacitor/status-bar"),
         .package(name: "CapawesomeCapacitorAppleSignIn", path: "../../../../node_modules/@capawesome/capacitor-apple-sign-in")
     ],

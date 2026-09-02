@@ -162,9 +162,12 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
         />
       </div>
       {reminderEnabled ? (
-        <div className="flex items-center justify-between gap-3 text-xs text-text-soft">
+        // Left-aligned and stacked: the picker opens from the field's left edge,
+        // and a field pinned to the right of the row would send that 20rem panel
+        // past the settings panel, whose scroll container then grows sideways.
+        <div className="flex flex-col items-start gap-1 text-xs text-text-soft">
           <span>{t('settings.studyGoalReminderTime')}</span>
-          <div className="w-32 shrink-0">
+          <div className="w-32">
             <StudyTimeField
               label={t('settings.studyGoalReminderTime')}
               value={reminderMinutes}

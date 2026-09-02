@@ -31,9 +31,9 @@ export function SessionPreflightCard({ preflight, onAddWords, onStartAnyway }: P
         </h2>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-500">
           {t('goal.preflightBody', {
-            planned: preflight.plannedItems,
-            available: preflight.availableItems,
-            missing: preflight.missingItems,
+            planned: preflight.plannedNewWords,
+            available: preflight.availableNewWords,
+            missing: preflight.missingNewWords,
           })}
         </p>
         <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2">
@@ -42,7 +42,7 @@ export function SessionPreflightCard({ preflight, onAddWords, onStartAnyway }: P
             onClick={onAddWords}
             className="onboarding-option onboarding-option-highlight rounded-xl px-5 py-3 text-base font-extrabold"
           >
-            {t('goal.preflightAction', { missing: preflight.missingItems })}
+            {t('goal.preflightAction', { missing: preflight.missingNewWords })}
           </button>
           <button
             type="button"

@@ -129,6 +129,7 @@ export const viMessages: I18nMessages = {
   "landing.stores.otherOptions": "Tùy chọn khác",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word cũng có sẵn dưới dạng ứng dụng cho Android và iPhone:",
   "landing.openSource.title": "Mã nguồn mở",
   "landing.openSource.body":
     "Chúng tôi là một ứng dụng mã nguồn mở. Chúng tôi rất vui nếu bạn đóng góp mã, tặng một ngôi sao trên GitHub hoặc báo lỗi.",
@@ -554,7 +555,7 @@ export const viMessages: I18nMessages = {
   "goal.clockOffShort": "chưa đo",
   "goal.clockOff": "Đồng hồ chưa đo — ứng dụng chưa tải xong tài khoản.",
   "goal.preflightTitle": "Hôm nay còn thiếu vài từ",
-  "goal.preflightBody": "Hôm nay được tính cho khoảng {planned} thẻ mà bạn mới có {available}. Thêm khoảng {missing} từ ngay bây giờ để buổi học không đứt giữa chừng.",
+  "goal.preflightBody": "Hôm nay được tính cho {planned} từ mới, nhưng danh sách chỉ còn {available}. Thêm {missing} từ ngay bây giờ để buổi học không đứt giữa chừng.",
   "goal.preflightAction": "Thêm từ trước đã",
   "goal.preflightSkip": "Cứ bắt đầu",
   "goal.remaining": "còn {time}",

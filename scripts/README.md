@@ -19,6 +19,10 @@ operator workflows share the behavior.
 - Per-account feature limits: `user-limits.ts`
 - Goal-onboarding rehearsal: `reset-goal-onboarding.ts` (staging only; it drops
   a learner's goal history and day snapshots to replay the release interstitial)
+- Goal-release verification: `check-goal-release-schema.ts` verifies the actual
+  database objects from migrations 0066–0072 instead of trusting the ledger
+- iOS staging: `mobile-staging.sh` builds against staging, while
+  `make-staging-icon.ts` applies and restores the temporary `DEV` app icon
 
 ## Development guardrails
 

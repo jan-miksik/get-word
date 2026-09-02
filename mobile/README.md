@@ -16,6 +16,7 @@ pnpm install
 pnpm mobile:build
 pnpm mobile:sync:ios
 pnpm mobile:open:ios
+pnpm mobile:staging
 ```
 
 `cap add ios` was only needed to create the checked-in native project. Do not
@@ -34,6 +35,20 @@ configuration used by `getword.app`, so a local development project cannot
 accidentally mint tokens that the production API rejects. Either mode can be
 overridden with `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_PUBLISHABLE_KEY`.
+
+For a physical-device staging build, `pnpm mobile:staging` badges the checked-in
+icon with `DEV`, builds and synchronizes the bundle against the staging backend,
+and opens Xcode. Use `pnpm mobile:staging --no-open` when Xcode is already open.
+The staging build uses the production bundle identifier, so it replaces the
+store build on the device rather than installing beside it. Restore the store
+icon as soon as testing is finished:
+
+```bash
+pnpm mobile:staging restore
+```
+
+Never archive or commit while `mobile/ios/App/.staging-icon` exists. A failed
+staging build restores the icon automatically.
 
 ## Architecture boundary
 

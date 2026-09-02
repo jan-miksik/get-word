@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CompactStoreCta, StoreFirstStartLink } from '../LandingAppStores';
+import { CompactStoreCta, DesktopStoreNote, StoreFirstStartLink } from '../LandingAppStores';
 
 const MAC_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
@@ -113,6 +113,37 @@ describe('CompactStoreCta', () => {
     const { container } = renderCta();
 
     expect(container.querySelector('.lp-store-link--primary')).toBeNull();
+  });
+});
+
+// The desktop counterpart: the closing button still leads to the browser, and
+// this is the one place on a desktop that says the phone apps exist at all.
+describe('DesktopStoreNote', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('offers both listings to a desktop', () => {
+    stubEnvironment({ ua: MAC_UA });
+    render(<DesktopStoreNote />);
+
+    expect(screen.getByRole('link', { name: /Google Play/ })).toHaveAttribute(
+      'href',
+      expect.stringContaining('play.google.com'),
+    );
+    expect(screen.getByRole('link', { name: /App Store/ })).toHaveAttribute(
+      'href',
+      expect.stringContaining('apps.apple.com'),
+    );
+  });
+
+  // Someone reading this inside the installed app is not being sent to fetch it
+  // again — same rule as the compact block.
+  it('says nothing once the app is installed', () => {
+    stubEnvironment({ ua: MAC_UA, standalone: true });
+    const { container } = render(<DesktopStoreNote />);
+
+    expect(container.querySelector('.lp-store-note')).toBeNull();
   });
 });
 

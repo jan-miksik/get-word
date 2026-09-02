@@ -180,7 +180,7 @@ export function StudyTimeField({
         <div
           role="dialog"
           aria-label={label}
-          className="absolute left-1/2 top-full z-30 mt-2 flex w-[min(20rem,90vw)] -translate-x-1/2 gap-2 rounded-2xl border-2 border-[color:var(--ob-ink,var(--text))] bg-[color:var(--ob-surface,var(--bg))] p-3"
+          className="absolute left-0 top-full z-30 mt-2 flex w-[min(20rem,90vw)] gap-2 rounded-2xl border-2 border-[color:var(--ob-ink,var(--text))] bg-[color:var(--ob-surface,var(--bg))] p-3"
         >
           <Column
             label={t('goal.timeHours')}

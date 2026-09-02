@@ -138,10 +138,11 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
 // invisible until hover. The `--tm-*` vars are scoped to `.top-menu`.
 const QUICK_ADD_BUTTON_CLASS =
   'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[var(--tm-ink-soft)] transition-colors hover:bg-[var(--tm-surface)] hover:text-[var(--tm-ink)]';
-// The active surface is a filled disc, ringed in paper so it reads as a lit
-// button sitting on the bar rather than a blob of accent.
+// The active surface is a filled disc. The paper ring it used to carry read as
+// a hard outline against the bar, so the fill and its soft drop shadow carry
+// the lit state on their own.
 const QUICK_ADD_BUTTON_ACTIVE_CLASS =
-  '!border-2 !border-solid !border-[var(--tm-surface)] !bg-[var(--tm-accent)] !text-[var(--tm-surface)] shadow-[0_2px_0_rgba(42,34,24,0.18)]';
+  '!bg-[var(--tm-accent)] !text-[var(--tm-surface)] shadow-[0_2px_0_rgba(42,34,24,0.18)]';
 
 interface SurfaceNavLinkProps {
   href: string;

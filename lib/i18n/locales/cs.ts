@@ -129,6 +129,7 @@ export const csMessages: I18nMessages = {
   "landing.stores.otherOptions": "Další možnosti",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word je dostupný i jako aplikace pro Android a iPhone:",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "Jsme open-source app. Budeme rádi za přispění do kódu, hvězdičku na GitHubu nebo nahlášení problému.",
@@ -554,7 +555,7 @@ export const csMessages: I18nMessages = {
   "goal.clockOffShort": "neměří se",
   "goal.clockOff": "Čas se teď neměří — appka ještě nemá načtený účet.",
   "goal.preflightTitle": "Na dnešek ti pár slovíček chybí",
-  "goal.preflightBody": "Dnešek je nachystaný zhruba na {planned} kartiček a máš jich {available}. Když si teď přidáš asi {missing} slovíček, nebudeš muset studium uprostřed přerušovat.",
+  "goal.preflightBody": "Dnešek počítá s {planned} novými slovíčky, ale v seznamech jich zbývá {available}. Když si teď přidáš aspoň {missing}, nebudeš muset studium uprostřed přerušovat.",
   "goal.preflightAction": "Přidat slovíčka",
   "goal.preflightSkip": "Začít i tak",
   "goal.remaining": "zbývá {time}",

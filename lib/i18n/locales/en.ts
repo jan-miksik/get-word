@@ -127,6 +127,7 @@ export const enMessages = {
   "landing.stores.otherOptions": "Other options",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word is also available as an app for Android and iPhone:",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "We are an open-source app. We will be glad for a contribution to the code, a star on GitHub, or a reported problem.",
@@ -578,7 +579,7 @@ export const enMessages = {
   "goal.clockOffShort": "not measuring",
   "goal.clockOff": "The clock is not measuring yet — the app has not loaded the account.",
   "goal.preflightTitle": "A few words short for today",
-  "goal.preflightBody": "Today is sized for about {planned} cards and there are {available}. Adding around {missing} words now keeps the session from running dry halfway through.",
+  "goal.preflightBody": "Today is set up for {planned} new words, but your lists have {available} left. Adding {missing} now keeps the session from running dry halfway through.",
   "goal.preflightAction": "Add words first",
   "goal.preflightSkip": "Start anyway",
   "goal.remaining": "{time} left",

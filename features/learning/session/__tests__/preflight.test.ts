@@ -13,6 +13,7 @@ function plan(overrides: Partial<SessionPlan> = {}): SessionPlan {
     deferredDueCount: 0,
     shortfall: 9,
     newShortfall: 9,
+    newTarget: 12,
     reason: 'normal',
     blocks: [],
     ...overrides,
@@ -33,18 +34,25 @@ function preflight(overrides: Parameters<typeof planSessionPreflight>[0] | Parti
 describe('planSessionPreflight', () => {
   it('offers the missing words before the day starts', () => {
     expect(preflight()).toEqual({
-      plannedItems: 30,
-      availableItems: 21,
-      missingItems: 9,
+      plannedNewWords: 12,
+      availableNewWords: 3,
+      missingNewWords: 9,
     });
   });
 
   it('says nothing when the lists can fill the day', () => {
-    expect(preflight({ plan: plan({ shortfall: 0 }) })).toBeNull();
+    expect(preflight({ plan: plan({ shortfall: 0, newShortfall: 0 }) })).toBeNull();
   });
 
-  it('does not interrupt the start over a card or two', () => {
-    expect(preflight({ plan: plan({ shortfall: 2 }) })).toBeNull();
+  it('does not interrupt the start over a word or two', () => {
+    expect(preflight({ plan: plan({ shortfall: 2, newShortfall: 2 }) })).toBeNull();
+  });
+
+  // The day can also come up short because the repeats it was sized for are not
+  // due yet. Adding words does not create a due review, so the offer would be
+  // sending the learner to the chat to fix something the chat cannot fix.
+  it('stays quiet when the gap is repeats rather than new words', () => {
+    expect(preflight({ plan: plan({ shortfall: 9, newShortfall: 0 }) })).toBeNull();
   });
 
   it('is gone once the first answer is in', () => {
@@ -64,5 +72,6 @@ describe('planSessionPreflight', () => {
     expect(preflight({ plan: null })).toBeNull();
     expect(preflight({ plan: plan({ enabled: false }) })).toBeNull();
     expect(preflight({ plan: plan({ sessionItemCap: null }) })).toBeNull();
+    expect(preflight({ plan: plan({ newTarget: undefined }) })).toBeNull();
   });
 });

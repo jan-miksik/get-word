@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { WordStream } from '@/features/learning/hooks/useWordStream';
 import { readSessionPlan } from '../storage';
-import { extendTimeSessionPlan, useSessionPlan } from '../useSessionPlan';
+import { extendTimeSessionPlan, extendWordsSessionPlan, useSessionPlan } from '../useSessionPlan';
 
 const scope = { dayKey: '2026-08-20', scopeKey: 'pair:cs:vi|categories:all', goalVersionId: 'goal-1' };
 const goal = {
@@ -119,5 +119,74 @@ describe('extendTimeSessionPlan', () => {
     ]);
     expect(extended).toMatchObject({ shortfall: 0, newShortfall: 0 });
     expect(extended.answerBaseline).toEqual({ 'new-1': 0, 'new-2': 0 });
+  });
+});
+
+describe('extendWordsSessionPlan', () => {
+  const wordsPlan = () => ({
+    enabled: true,
+    sessionItemCap: 12,
+    priorityIds: [],
+    dueIds: [],
+    newIds: ['new-1'],
+    deferredDueCount: 0,
+    shortfall: 2,
+    newShortfall: 2,
+    newTarget: 3,
+    reviewTarget: 9,
+    reason: 'normal' as const,
+    blocks: [
+      { key: 'new-0', kind: 'new' as const, ids: ['new-1'] },
+      { key: 'review-0', kind: 'review' as const, ids: ['new-1'], pass: 2, reinforcement: true as const },
+    ],
+  });
+
+  it('adds words committed after the plan froze to the introduction and its second pass', () => {
+    const extended = extendWordsSessionPlan(wordsPlan(), {
+      priorityWords: [],
+      newWords: [word('new-1'), word('new-2'), word('new-3'), word('new-4')],
+    }, {});
+
+    expect(extended.newIds).toEqual(['new-1', 'new-2', 'new-3']);
+    expect(extended.blocks).toEqual([
+      { key: 'new-0', kind: 'new', ids: ['new-1', 'new-2', 'new-3'] },
+      {
+        key: 'review-0', kind: 'review', ids: ['new-1', 'new-2', 'new-3'],
+        pass: 2, reinforcement: true,
+      },
+    ]);
+    expect(extended).toMatchObject({ shortfall: 0, newShortfall: 0 });
+  });
+
+  it('creates the introduction blocks when the frozen plan started with reviews only', () => {
+    const extended = extendWordsSessionPlan({
+      ...wordsPlan(),
+      newIds: [],
+      blocks: [{ key: 'review-0', kind: 'review', ids: ['due-1'] }],
+    }, {
+      priorityWords: [],
+      newWords: [word('new-1'), word('new-2')],
+    }, {});
+
+    expect(extended.blocks).toEqual([
+      { key: 'review-0', kind: 'review', ids: ['due-1'] },
+      { key: 'new-0', kind: 'new', ids: ['new-1', 'new-2'] },
+      {
+        key: 'review-1', kind: 'review', ids: ['new-1', 'new-2'],
+        pass: 2, reinforcement: true,
+      },
+    ]);
+  });
+
+  it('leaves an introduction that is already under way alone', () => {
+    const progress = { 'new-1': { knownCount: 1, unknownCount: 0, stageIndex: 1, introducedAt: 1 } };
+    const plan = wordsPlan();
+    const extended = extendWordsSessionPlan(plan, {
+      priorityWords: [],
+      newWords: [word('new-2'), word('new-3')],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- partial progress fixture
+    }, progress as any);
+
+    expect(extended).toBe(plan);
   });
 });

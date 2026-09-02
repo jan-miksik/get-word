@@ -102,6 +102,75 @@ export function extendTimeSessionPlan(
   };
 }
 
+/**
+ * Fill the new-word slots a words plan froze empty.
+ *
+ * The plan is frozen for the whole day, so a plan that froze before the learner
+ * had words — a first list still being written, or the top-up the preflight
+ * card itself asks for — would otherwise stay short until midnight, and the
+ * words just added would wait for tomorrow.
+ *
+ * Only while the introduction has not started: appending to a block the session
+ * already walked past would reopen it mid-day.
+ */
+export function extendWordsSessionPlan(
+  plan: SessionPlan,
+  stream: Pick<WordStream, 'priorityWords' | 'newWords'>,
+  progress: Record<string, ProgressData>,
+): SessionPlan {
+  if (plan.timePhaseKinds || plan.newShortfall <= 0) return plan;
+  const newBlockIndex = plan.blocks.findIndex(
+    (block) => block.kind === 'new' && !block.reinforcement,
+  );
+  if (newBlockIndex >= 0 && plan.blocks[newBlockIndex].ids.some(
+    (id) => hasIntroducedWord(progress[id]),
+  )) return plan;
+
+  const planned = new Set(plan.blocks.flatMap((block) => block.ids));
+  const candidates = [...stream.priorityWords, ...stream.newWords].filter(
+    (word, index, words) =>
+      !hasIntroducedWord(progress[word.id]) &&
+      !planned.has(word.id) &&
+      words.findIndex((candidate) => candidate.id === word.id) === index,
+  );
+  const added = candidates.slice(0, plan.newShortfall).map((word) => word.id);
+  if (added.length === 0) return plan;
+
+  const blocks = plan.blocks.map((block) => ({ ...block, ids: [...block.ids] }));
+  if (newBlockIndex >= 0) blocks[newBlockIndex].ids.push(...added);
+  else {
+    const newIndex = blocks.filter((block) => block.kind === 'new').length;
+    blocks.push({ key: `new-${newIndex}`, kind: 'new', ids: [...added] });
+  }
+  const reinforcementIndex = blocks.findIndex((block) => block.reinforcement === true);
+  if (reinforcementIndex >= 0) blocks[reinforcementIndex].ids.push(...added);
+  else {
+    const reviewIndex = blocks.filter((block) => block.kind === 'review').length;
+    blocks.push({
+      key: `review-${reviewIndex}`,
+      kind: 'review',
+      ids: [...added],
+      pass: 2,
+      reinforcement: true,
+    });
+  }
+  const answerBaseline = { ...plan.answerBaseline };
+  for (const id of added) {
+    answerBaseline[id] = (progress[id]?.knownCount ?? 0) + (progress[id]?.unknownCount ?? 0);
+  }
+
+  return {
+    ...plan,
+    newIds: [...plan.newIds, ...added],
+    blocks,
+    answerBaseline,
+    newShortfall: Math.max(0, plan.newShortfall - added.length),
+    // A words day counts distinct words, so each added word closes one card of
+    // the gap — unlike a minutes day, where it closes two answer slots.
+    shortfall: Math.max(0, plan.shortfall - added.length),
+  };
+}
+
 export function useSessionPlan(args: {
   stream: WordStream;
   progress: Record<string, ProgressData>;
@@ -138,7 +207,9 @@ export function useSessionPlan(args: {
     if (!storageScope || !args.isSessionDataReady) return;
     const nextIdentity = sessionPlanIdentity(storageScope);
     if (resolved?.identity === nextIdentity) {
-      const extended = extendTimeSessionPlan(resolved.plan, args.stream, args.progress);
+      const extended = resolved.plan.timePhaseKinds
+        ? extendTimeSessionPlan(resolved.plan, args.stream, args.progress)
+        : extendWordsSessionPlan(resolved.plan, args.stream, args.progress);
       if (extended !== resolved.plan) {
         storeSessionPlan(storageScope, extended);
         setResolved({ identity: nextIdentity, plan: extended });

@@ -129,6 +129,7 @@ export const ukMessages: I18nMessages = {
   "landing.stores.otherOptions": "Інші можливості",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word також доступний як застосунок для Android та iPhone:",
   "landing.openSource.title": "З відкритим кодом",
   "landing.openSource.body":
     "Ми застосунок з відкритим кодом. Будемо раді внеску в код, зірочці на GitHub або повідомленню про проблему.",
@@ -554,7 +555,7 @@ export const ukMessages: I18nMessages = {
   "goal.clockOffShort": "не вимірюється",
   "goal.clockOff": "Час зараз не вимірюється — застосунок ще не завантажив обліковий запис.",
   "goal.preflightTitle": "На сьогодні бракує кількох слів",
-  "goal.preflightBody": "Сьогоднішній день розрахований приблизно на {planned} карток, а є {available}. Якщо додати ще близько {missing} слів, сесія не обірветься на половині.",
+  "goal.preflightBody": "Сьогодні розраховано на {planned} нових слів, але у списках лишилося {available}. Якщо додати ще {missing}, сесія не обірветься на половині.",
   "goal.preflightAction": "Спершу додати слова",
   "goal.preflightSkip": "Почати попри це",
   "goal.remaining": "залишилось {time}",
