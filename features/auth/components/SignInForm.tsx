@@ -421,7 +421,7 @@ export function SignInForm({
                         ? busy || !password.trim()
                         : busy || !email.trim()
                     }
-                    className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-sea bg-sea px-5 py-3 text-base font-semibold text-paper hover:bg-sea-600 hover:border-sea-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-ink bg-sea px-5 py-3 text-base font-semibold text-paper hover:bg-sea-600 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {passwordMode
                       ? phase === 'verifying' || phase === 'redirecting'
@@ -459,7 +459,7 @@ export function SignInForm({
                 <button
                   type="submit"
                   disabled={busy || !otp.trim()}
-                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-sea bg-sea px-5 py-3 text-base font-semibold text-paper hover:bg-sea-600 hover:border-sea-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-ink bg-sea px-5 py-3 text-base font-semibold text-paper hover:bg-sea-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {phase === 'verifying'
                     ? t('auth.verifying')

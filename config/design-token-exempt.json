@@ -1,5 +1,6 @@
 {
-  "app/api/backgrounds/get-word/route.ts": "Recolours a standalone SVG that is served as an image; CSS custom properties do not resolve inside an <img> document.",
   "app/api/backgrounds/get-word/__tests__/route.test.ts": "Asserts on the hex the route above writes into that standalone SVG.",
+  "app/api/backgrounds/get-word/route.ts": "Recolours a standalone SVG that is served as an image; CSS custom properties do not resolve inside an <img> document.",
+  "components/AppLogo.tsx": "The app icon is a fixed brand mark. Its two colours belong to the logo, not to the paper palette, and must stay put when the palette moves.",
   "components/scratch-field/motifs.ts": "Painted onto a <canvas>; a 2D context takes a colour string, not a var()."
 }

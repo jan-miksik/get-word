@@ -102,23 +102,6 @@ describe('server sync echo guards', () => {
     expect(storedPreference.result.current.typingMobileKeyboardAutoFocus).toBe(true);
   });
 
-  it('keeps post-check audio off by default, while preserving an explicit opt-in', () => {
-    const isUpdatingFromServerRef = { current: false };
-    const { result, unmount } = renderHook(() =>
-      usePreferences(false, isUpdatingFromServerRef)
-    );
-
-    expect(result.current.typingPlayAudioAfterCheck).toBe(false);
-    unmount();
-
-    localStorage.setItem('get-word-typing-play-audio-after-check', 'true');
-    const storedPreference = renderHook(() =>
-      usePreferences(false, isUpdatingFromServerRef)
-    );
-
-    expect(storedPreference.result.current.typingPlayAudioAfterCheck).toBe(true);
-  });
-
   it('keeps the explicit check button off by default, while preserving an opt-in', () => {
     const isUpdatingFromServerRef = { current: false };
     const { result, unmount } = renderHook(() =>

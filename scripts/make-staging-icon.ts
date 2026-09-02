@@ -14,10 +14,13 @@
  *
  *   pnpm run mobile:staging-icon apply     # badge the icon, then build
  *   pnpm run mobile:staging-icon restore   # put the store icon back
+ *   pnpm run mobile:staging-icon guard     # fail if a DEV icon is still on
  *
  * `apply` leaves a marker file so `git status` keeps reminding you that the
  * working tree is carrying a staging icon. Never archive for App Store Connect
- * while the marker is there.
+ * while the marker is there — `guard` is what makes that unforgettable: it runs
+ * first in `pnpm run check`, which the release runbook requires before every
+ * upload, and the pre-commit hook refuses a badged icon on its way into git.
  */
 
 import { existsSync } from "node:fs";
@@ -84,6 +87,40 @@ async function restore() {
   console.log(`[icon] ${ICON_SET} restored from git`);
 }
 
+/** True when the icon in the working tree differs from the committed one. */
+async function iconDiffersFromHead(): Promise<boolean> {
+  try {
+    // Against HEAD rather than the index, so staging the badged icon does not
+    // hide it from the check.
+    await run("git", ["diff", "--quiet", "HEAD", "--", ICON_SET]);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Refuses to continue while a staging icon is in place. Two independent
+ * signals, because either one alone can be defeated by hand: the marker file
+ * (deletable) and the icon's own difference from the committed one (restorable
+ * without clearing the marker).
+ */
+async function guard() {
+  const markerPresent = existsSync(MARKER_PATH);
+  const iconChanged = await iconDiffersFromHead();
+  if (!markerPresent && !iconChanged) {
+    console.log("[icon] store icon in place");
+    return;
+  }
+  console.error("[icon] a staging icon is still in the working tree:");
+  if (markerPresent) console.error(`  - ${MARKER_PATH} exists`);
+  if (iconChanged) console.error(`  - ${ICON_SET} differs from HEAD`);
+  console.error("");
+  console.error("Restore it before building anything for the App Store:");
+  console.error("  pnpm run mobile:staging restore");
+  process.exitCode = 1;
+}
+
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const labelArg = rest.indexOf("--label");
@@ -97,8 +134,11 @@ async function main() {
       case "restore":
         await restore();
         break;
+      case "guard":
+        await guard();
+        break;
       default:
-        throw new Error('Unknown command. Use: apply [--label DEV] | restore');
+        throw new Error('Unknown command. Use: apply [--label DEV] | restore | guard');
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

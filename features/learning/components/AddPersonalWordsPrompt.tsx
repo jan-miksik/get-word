@@ -27,7 +27,7 @@ export function AddPersonalWordsPrompt({ onAddWords, onDismiss }: Props) {
           {/* The same slab the study cards advance on — this prompt is the end
               of the deck, so its primary action reads as the session's continue
               rather than as a one-off onboarding option. */}
-          <ContinueButton onClick={onAddWords} label={t('wordChat.moreWordsAction')} />
+          <ContinueButton onClick={onAddWords} label={t('wordChat.moreWordsAction')} showArrow={false} />
           <button
             type="button"
             onClick={onDismiss}

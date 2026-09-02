@@ -57,7 +57,6 @@ interface UseLearningRenderersOptions {
   distractorPool: NormalizedWord[];
   typingPrefillPunctuation: boolean;
   typingMobileKeyboardAutoFocus: boolean;
-  typingPlayAudioAfterCheck: boolean;
   typingCheckButtonEnabled: boolean;
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -107,7 +106,6 @@ export function useLearningRenderers({
   distractorPool,
   typingPrefillPunctuation,
   typingMobileKeyboardAutoFocus,
-  typingPlayAudioAfterCheck,
   typingCheckButtonEnabled,
   dismissedGames,
   setDismissedGames,
@@ -198,12 +196,11 @@ export function useLearningRenderers({
           studyNotesEnabled={studyNotesEnabled}
           studyNoteMinimizeFromStage={studyNoteMinimizeFromStage}
           typingPrefillPunctuation={typingPrefillPunctuation}
-          typingPlayAudioAfterCheck={typingPlayAudioAfterCheck}
           typingCheckButtonEnabled={typingCheckButtonEnabled}
         />
       </div>
     );
-  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markReallyKnown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]);
+  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markReallyKnown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig, isActive = false) => {
     if (dismissedGames.has(config.id)) return null;
@@ -304,7 +301,6 @@ export function useLearningRenderers({
             studyNotesEnabled={studyNotesEnabled}
             studyNoteMinimizeFromStage={studyNoteMinimizeFromStage}
             typingPrefillPunctuation={typingPrefillPunctuation}
-            typingPlayAudioAfterCheck={typingPlayAudioAfterCheck}
             typingCheckButtonEnabled={typingCheckButtonEnabled}
             mobileCustomActionOnly={swipeCardsEnabled}
             fullscreen
@@ -314,7 +310,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markReallyKnown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]
+    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markReallyKnown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome, onCardAnswered]
   );
 
   const renderMiniGameForDeck = useCallback(

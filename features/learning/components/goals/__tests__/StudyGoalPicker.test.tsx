@@ -168,3 +168,17 @@ describe('StudyGoalPicker circular dial', () => {
     expect(document.activeElement).toBe(valueInput());
   });
 });
+
+describe('StudyGoalPicker save state', () => {
+  it('says it is saving while the write is in flight', () => {
+    render(
+      <I18nProvider language="en">
+        <StudyGoalPicker pacing={pacing} onSubmit={vi.fn()} pending submitLabel="Set my goal" />
+      </I18nProvider>,
+    );
+
+    const submit = screen.getByRole('button', { name: /saving your goal/i });
+    expect(submit).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Set my goal' })).toBeNull();
+  });
+});

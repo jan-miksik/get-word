@@ -17,7 +17,9 @@ import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import { getWordAudioSrcsBySide, getWordTextBySide, knownSideForRole, learningSideForRole } from './types';
 import { CardAudioButton } from '../card-audio/CardAudioButton';
+import { SoundToggle } from '../card-audio/SoundToggle';
 import { useCardAudio } from '../card-audio/useCardAudio';
+import { useCardSound } from '../card-audio/cardSound';
 import { SuccessMarkSlot } from './SuccessMark';
 import { StageBadge } from '../StageBadge';
 import { CardTopControls } from '../CardTopControls';
@@ -166,9 +168,19 @@ export function WordAssemblyGame({
   onAnswered?: () => void;
 }) {
   const { t } = useI18n();
-  const { play } = useCardAudio();
+  const { play, playAuto } = useCardAudio();
+  const { soundEnabled, toggleSound } = useCardSound();
   const [placed, setPlaced] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<AssemblyOutcome | null>(null);
+  /**
+   * Per-slot verdict, in tray order, recorded at the check.
+   *
+   * A wrong assembly used to turn the whole tray red, which says only "not
+   * that" — the learner still has to diff their own word against the answer
+   * below. Marking just the parts that are out of place leaves everything they
+   * got right standing, so the mistake is the thing that stands out.
+   */
+  const [slotVerdicts, setSlotVerdicts] = useState<boolean[]>([]);
   const [drag, setDrag] = useState<{
     id: string;
     x: number;
@@ -232,14 +244,20 @@ export function WordAssemblyGame({
 
   const check = () => {
     if (outcome || !isFull) return;
-    const assembled = placedTiles.map((tile) => tile.value.toLocaleLowerCase());
     // Compared by text, not by tile identity: a repeated letter is two
     // interchangeable tiles, and putting the second one first still spells the
     // word the learner was asked for.
-    const isCorrect = assembled.every(
-      (value, index) => value === answerParts[index].toLocaleLowerCase(),
+    const verdicts = placedTiles.map(
+      (tile, index) => tile.value.toLocaleLowerCase() === answerParts[index].toLocaleLowerCase(),
     );
+    const isCorrect = verdicts.every(Boolean);
+    setSlotVerdicts(verdicts);
     setOutcome(isCorrect ? 'known' : 'unknown');
+    // The point of the round is the phrase, so it is spoken the moment the
+    // answer is out in the open — right or wrong, since a misspelt attempt is
+    // exactly when hearing the real thing helps. The speaker beside Continue
+    // stays for a second listen.
+    if (soundEnabled) void playAuto(answerAudioSrcs);
     onAnswered?.();
   };
 
@@ -398,8 +416,10 @@ export function WordAssemblyGame({
     next.splice(snapshot.toIndex, 0, snapshot.id);
 
     // Before release, neighbour transforms already put them at these final
-    // slots. Commit the DOM order and remove those transforms in one render so
-    // they never jump. Only the held tile keeps its pointer offset for one paint
+    // slots. Commit the DOM order and remove those transforms in one render —
+    // with their transform transition switched off for that frame, or the
+    // removal animates out of the slot they just moved into — so they never
+    // jump. Only the held tile keeps its pointer offset for one paint
     // and then eases into the slot beneath it.
     skipNextFlipRef.current = true;
     setPlaced(next);
@@ -474,6 +494,7 @@ export function WordAssemblyGame({
     <article className="study-ink-scope relative mx-auto flex h-full w-full max-w-2xl flex-1 flex-col items-center justify-center gap-4 px-3 py-4 text-center sm:gap-6 sm:py-6">
       <CardTopControls>
         <StageBadge stageIndex={stageIndex} difficultyBand={difficultyBand} />
+        <SoundToggle soundEnabled={soundEnabled} onToggle={toggleSound} />
       </CardTopControls>
       {/* On phones this is the flexible part of the card. The action dock below
           stays at the bottom while the prompt, tray and bank keep the remaining
@@ -497,8 +518,12 @@ export function WordAssemblyGame({
             stays centred on the word it is about. */}
         <div
           className={`mx-auto flex min-h-[4.5rem] max-w-full flex-wrap items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-3 py-3 transition-colors duration-300 ${
+            // The tiles now carry the verdict one by one, so a wrong assembly
+            // no longer washes the whole tray red — a red bed under a row of
+            // green tiles contradicts the very thing it is trying to say. The
+            // shake stays: that is the "not quite" signal for the round.
             outcome === 'unknown'
-              ? 'border-brick/50 bg-wash-brick/40 motion-safe:animate-[game-shake_350ms_ease]'
+              ? 'border-ink-faint/60 bg-paper-hi/35 motion-safe:animate-[game-shake_350ms_ease]'
               : outcome === 'known'
                 ? 'border-moss/50 bg-wash-moss/40'
                 : 'border-ink-faint/60 bg-paper-hi/35'
@@ -507,6 +532,20 @@ export function WordAssemblyGame({
         >
           {placedTiles.map((tile, index) => {
             const dragging = drag?.id === tile.id;
+            // Right tiles stay right even in a wrong assembly; only the ones
+            // actually out of place are called out.
+            const slotWrong = outcome === 'unknown' && slotVerdicts[index] === false;
+            const slotRight = outcome !== null && !slotWrong;
+            const activelyDragging = dragging && !drag.landing;
+            /**
+             * The neighbours' offsets and their flow slots swap places in the
+             * same render as the release. That is only invisible if the
+             * transform is dropped instantly: left to transition, the tile
+             * starts the fall back to zero from the slot it has *already*
+             * moved into, so it appears a whole slot further along and then
+             * slides back — the sideways twitch on every drop.
+             */
+            const landingNeighbour = Boolean(drag?.landing) && !dragging;
             let transform: string | undefined;
             if (dragging) {
               transform = `translate(${drag.x}px, ${drag.y}px) scale(1.06)`;
@@ -529,7 +568,16 @@ export function WordAssemblyGame({
                   // graded tiles colour in one after another rather than all at
                   // once. Both written longhand: mixing `transition` with
                   // `transitionDelay` across renders makes React complain.
-                  transitionProperty: dragging ? 'none' : undefined,
+                  // Pointer movement must be immediate, but the released tile
+                  // is already in its landing phase and needs its transform
+                  // transition restored before the next frame removes that
+                  // transform. Keeping this at `none` until `drag` cleared made
+                  // the tile snap — the small jump visible exactly on drop.
+                  transitionProperty: activelyDragging || landingNeighbour
+                    ? 'none'
+                    : dragging
+                      ? 'transform'
+                      : undefined,
                   transitionDelay: !dragging && outcome ? `${index * 45}ms` : undefined,
                 }}
                 {...noTranslateProps(
@@ -538,10 +586,10 @@ export function WordAssemblyGame({
                     tileWidth,
                     'touch-none disabled:cursor-default',
                     dragging ? 'z-30 cursor-grabbing shadow-[0_10px_18px_rgba(42,34,24,0.28)]' : 'cursor-grab',
-                    outcome === 'known'
-                      ? 'border-moss bg-wash-moss text-[#145B33] shadow-[0_3px_0_#A9D3B6]'
-                      : outcome === 'unknown'
-                        ? 'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6]'
+                    slotWrong
+                      ? 'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6]'
+                      : slotRight
+                        ? 'border-moss bg-wash-moss text-[#145B33] shadow-[0_3px_0_#A9D3B6]'
                         : dragging
                           ? 'border-sea bg-wash-sea text-sea-mid'
                           : 'border-sea bg-wash-sea text-sea-mid shadow-[0_3px_0_#B5CFE4]',

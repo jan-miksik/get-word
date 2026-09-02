@@ -188,12 +188,33 @@ describe('MultipleChoiceGame', () => {
     expect(audioSources).toContain('/speech/vi/con-cho.mp3');
   });
 
-  it('does not play answer audio for a wrong answer even when sound is enabled', async () => {
+  // A wrong guess is precisely when the word is worth hearing — and what is
+  // spoken is the answer, never the distractor that was tapped.
+  it('plays the correct answer after a wrong pick, not the pick', async () => {
     render(
       <MultipleChoiceGame words={WORDS} role="knownLanguage" soundEnabled />
     );
     fireEvent.click(screen.getByText('con mèo'));
+    await waitFor(() => expect(playCalls).toBe(1));
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+    expect(audioSources).not.toContain('/speech/vi/con-meo.mp3');
+  });
+
+  it('stays silent when sound is off', async () => {
+    render(<MultipleChoiceGame words={WORDS} role="knownLanguage" />);
+    fireEvent.click(screen.getByText('con chó'));
     await waitFor(() => expect(playCalls).toBe(0));
+  });
+
+  it('offers the answer again from the speaker under the board', async () => {
+    render(
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" soundEnabled />
+    );
+    expect(screen.queryByRole('button', { name: /play audio/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('con chó'));
+    await waitFor(() => expect(playCalls).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+    await waitFor(() => expect(playCalls).toBe(2));
   });
 
   it('falls back to text prompt when requested audio is missing', () => {

@@ -55,7 +55,6 @@ function renderCard(exercise: ResolvedExercise, overrides?: { onOutcome?: () => 
       studyNotesEnabled={false}
       studyNoteMinimizeFromStage={2}
       typingPrefillPunctuation
-      typingPlayAudioAfterCheck={false}
       typingCheckButtonEnabled={false}
     />,
   );
@@ -192,7 +191,6 @@ describe('StudyExerciseCard — reveal', () => {
         studyNotesEnabled={false}
         studyNoteMinimizeFromStage={2}
         typingPrefillPunctuation
-        typingPlayAudioAfterCheck={false}
         typingCheckButtonEnabled={false}
       />,
     );
@@ -317,7 +315,6 @@ describe('StudyExerciseCard — choice audio', () => {
         studyNotesEnabled={false}
         studyNoteMinimizeFromStage={2}
         typingPrefillPunctuation
-        typingPlayAudioAfterCheck={false}
         typingCheckButtonEnabled={false}
       />,
     );

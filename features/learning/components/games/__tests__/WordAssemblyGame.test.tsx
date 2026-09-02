@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { NormalizedWord } from '@/lib/words';
@@ -98,6 +98,31 @@ describe('WordAssemblyGame', () => {
     expect(onOutcome).not.toHaveBeenCalled();
   });
 
+  // A wrong assembly used to turn every tile red, which says only "not that" —
+  // the learner still had to diff their own word against the answer printed
+  // below. Only the parts actually out of place are called out now.
+  it('marks only the misplaced parts after a wrong assembly', () => {
+    render(
+      <WordAssemblyGame
+        word={WORD}
+        role="knownLanguage"
+        variant="words"
+        answerParts={['con', 'chó']}
+        distractorParts={['mèo']}
+        onOutcome={vi.fn()}
+      />,
+    );
+
+    // "con" lands in its own slot; "mèo" takes the slot "chó" should have.
+    fireEvent.click(screen.getByRole('button', { name: 'con' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mèo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check' }));
+
+    expect(screen.getByRole('button', { name: 'con' }).className).toContain('bg-wash-moss');
+    expect(screen.getByRole('button', { name: 'con' }).className).not.toContain('bg-wash-brick');
+    expect(screen.getByRole('button', { name: 'mèo' }).className).toContain('bg-wash-brick');
+  });
+
   it('takes a placed part back when it is tapped again', () => {
     render(
       <WordAssemblyGame
@@ -184,6 +209,148 @@ describe('WordAssemblyGame', () => {
 
       expect(screen.getByRole('img', { name: 'Correct!' })).toBeInTheDocument();
     } finally {
+      layout.mockRestore();
+    }
+  });
+
+  it.each([
+    {
+      label: 'word',
+      variant: 'words',
+      answerParts: ['con', 'chó'],
+      placedParts: ['chó', 'con'],
+      draggedPart: 'con',
+    },
+    {
+      label: 'letter',
+      variant: 'letters:II',
+      answerParts: ['k', 'o'],
+      placedParts: ['o', 'k'],
+      draggedPart: 'k',
+    },
+  ])('restores the landing transition before a dropped $label settles', ({
+    variant,
+    answerParts,
+    placedParts,
+    draggedPart,
+  }) => {
+    const layout = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function box(this: HTMLElement) {
+        const index = this.parentElement
+          ? [...this.parentElement.children].indexOf(this)
+          : 0;
+        const left = index * 60;
+        return {
+          x: left, y: 0, left, top: 0, right: left + 50, bottom: 40,
+          width: 50, height: 40, toJSON: () => ({}),
+        } as DOMRect;
+      });
+    const frames: FrameRequestCallback[] = [];
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        frames.push(callback);
+        return frames.length;
+      });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+    try {
+      render(
+        <WordAssemblyGame
+          word={WORD}
+          role="knownLanguage"
+          variant={variant}
+          answerParts={answerParts}
+          distractorParts={[]}
+          onOutcome={vi.fn()}
+        />,
+      );
+
+      for (const part of placedParts) {
+        fireEvent.click(screen.getByRole('button', { name: part }));
+      }
+      const dragged = screen.getByRole('button', { name: draggedPart });
+      fireEvent.pointerDown(dragged, { pointerId: 1, button: 0, clientX: 85, clientY: 20 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 25, clientY: 20 });
+      expect(dragged.style.transitionProperty).toBe('none');
+
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 25, clientY: 20 });
+
+      // The tile remains at the pointer for one frame, but unlike the active
+      // drag that frame must already allow a transform transition. Otherwise
+      // clearing the offset below is an immediate visual jump.
+      expect(dragged.style.transform).toContain('translate(');
+      expect(dragged.style.transitionProperty).toBe('transform');
+      expect(frames).toHaveLength(1);
+    } finally {
+      requestFrame.mockRestore();
+      cancelFrame.mockRestore();
+      layout.mockRestore();
+    }
+  });
+
+  it('drops a neighbour into its committed slot without a sideways twitch', () => {
+    const layout = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function box(this: HTMLElement) {
+        const index = this.parentElement
+          ? [...this.parentElement.children].indexOf(this)
+          : 0;
+        const left = index * 60;
+        return {
+          x: left, y: 0, left, top: 0, right: left + 50, bottom: 40,
+          width: 50, height: 40, toJSON: () => ({}),
+        } as DOMRect;
+      });
+    const frames: FrameRequestCallback[] = [];
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        frames.push(callback);
+        return frames.length;
+      });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+    try {
+      render(
+        <WordAssemblyGame
+          word={WORD}
+          role="knownLanguage"
+          variant="words"
+          answerParts={['con', 'chó']}
+          distractorParts={[]}
+          onOutcome={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'chó' }));
+      fireEvent.click(screen.getByRole('button', { name: 'con' }));
+
+      const dragged = screen.getByRole('button', { name: 'con' });
+      const neighbour = screen.getByRole('button', { name: 'chó' });
+      fireEvent.pointerDown(dragged, { pointerId: 1, button: 0, clientX: 85, clientY: 20 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 25, clientY: 20 });
+
+      // Mid-drag the neighbour is carried to the slot it is about to occupy,
+      // and it glides there.
+      expect(neighbour.style.transform).toContain('translate(');
+      expect(neighbour.style.transitionProperty).toBe('');
+
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 25, clientY: 20 });
+
+      // On the release frame the flow slot and the offset swap roles. The
+      // offset has to vanish outright: transitioning it away would start the
+      // neighbour a full slot past where it already sits and slide it back.
+      expect(neighbour.style.transform).toBe('');
+      expect(neighbour.style.transitionProperty).toBe('none');
+
+      act(() => { frames[0]?.(0); });
+      expect(neighbour.style.transform).toBe('');
+      expect(neighbour.style.transitionProperty).toBe('');
+    } finally {
+      requestFrame.mockRestore();
+      cancelFrame.mockRestore();
       layout.mockRestore();
     }
   });
@@ -378,10 +545,30 @@ describe('WordAssemblyGame answer audio', () => {
     expect(screen.queryByRole('button', { name: 'Play audio' })).not.toBeInTheDocument();
   });
 
-  it('plays the target phrase from the audio icon shown after answering', async () => {
+  it('speaks the target phrase as soon as the answer is checked', async () => {
     renderGame(SPOKEN_WORD);
 
     assemble(['con', 'chó']);
+
+    await waitFor(() => expect(playCalls).toBe(1));
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+  });
+
+  it('stays silent on check when the card is muted', () => {
+    localStorage.setItem('get-word-skip-sound', 'true');
+    renderGame(SPOKEN_WORD);
+
+    assemble(['con', 'chó']);
+
+    expect(playCalls).toBe(0);
+    localStorage.removeItem('get-word-skip-sound');
+  });
+
+  it('plays the target phrase again from the audio icon shown after answering', async () => {
+    renderGame(SPOKEN_WORD);
+
+    assemble(['con', 'chó']);
+    await waitFor(() => expect(playCalls).toBe(1));
 
     const audioButton = screen.getByRole('button', { name: 'Play audio' });
     const audioRow = audioButton.parentElement;
@@ -391,7 +578,7 @@ describe('WordAssemblyGame answer audio', () => {
     expect(audioRow).toHaveClass('w-full', 'justify-end');
     expect(audioRow?.parentElement).toHaveAttribute('data-assembly-action-dock');
     fireEvent.click(audioButton);
-    await waitFor(() => expect(playCalls).toBe(1));
+    await waitFor(() => expect(playCalls).toBe(2));
     expect(audioSources).toContain('/speech/vi/con-cho.mp3');
   });
 

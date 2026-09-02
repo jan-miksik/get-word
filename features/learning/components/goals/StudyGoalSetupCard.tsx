@@ -39,10 +39,19 @@ export function StudyGoalSetupCard({
   onBack?: () => void;
 }) {
   const { t } = useI18n();
+  // The goal step carries the tallest control in the flow, so on a phone-sized
+  // window its decoration is what gives way first: the title tightens on a tall
+  // phone and again on a short one (iPhone SE). The flag itself stays — it
+  // shrinks with the rest of the step icons and still fits above the dial. The
+  // ranges are closed for the same reason as in the picker: two open
+  // `max-height` variants of one property would leave the winner to Tailwind's
+  // sort order.
   const heading = (
     <>
       <StudyGoalIcon />
-      <OnboardingTitle className="mb-5 mt-3">{title ?? t('goal.setupTitle')}</OnboardingTitle>
+      <OnboardingTitle className="mb-5 mt-3 [@media(min-height:721px)_and_(max-height:900px)]:mb-3 [@media(min-height:721px)_and_(max-height:900px)]:mt-1 [@media(max-height:720px)]:mb-3 [@media(max-height:720px)]:mt-0 max-sm:[@media(max-height:720px)]:text-2xl">
+        {title ?? t('goal.setupTitle')}
+      </OnboardingTitle>
       {body ? (
         <OnboardingBody className="mx-auto mb-5 -mt-2 max-w-xl">{body}</OnboardingBody>
       ) : null}

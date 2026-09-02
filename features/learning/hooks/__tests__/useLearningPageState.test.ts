@@ -54,6 +54,39 @@ const cappingGoal = {
 };
 
 describe('useLearningPageState', () => {
+  // Before the day's plan resolves — and for anyone studying without a goal —
+  // the stream is bucketed here rather than by `planSession`. A pinned or
+  // personal word the learner has never met leads the stream, but it is still
+  // a new word: handing the whole priority bucket to the opening review block
+  // put brand-new words under a rail labelled "review", on the very first card
+  // of the session, and left them out of the new-word block entirely.
+  it('keeps an unseen personal word out of the opening review block', () => {
+    const now = Date.now();
+    const personal = [makeWord('mine-0', 'list-mine'), makeWord('mine-1', 'list-mine')];
+    const due = [makeWord('due-0', 'list-shared'), makeWord('due-1', 'list-shared')];
+
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        filteredWords: [...personal, ...due],
+        selectedCategories: new Set<string>(),
+        progress: dueReviewProgress(due.map((word) => word.id), now),
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        ownedPersonalListIds: new Set(['list-mine']),
+        studyGoal: null,
+        isSessionDataReady: true,
+      })
+    );
+
+    expect(result.current.streamGroups.map((group) => group.kind)).toEqual(['review', 'new']);
+    expect(result.current.streamGroups[0].items.map((item) => 'id' in item && item.id))
+      .toEqual(['due-0', 'due-1']);
+    expect(result.current.streamGroups[1].items.map((item) => 'id' in item && item.id))
+      .toEqual(['mine-0', 'mine-1']);
+  });
+
   it('exposes a minigame-free reinforcement block for a beginner\'s new-only day', () => {
     const words = Array.from({ length: 5 }, (_, index) =>
       makeWord(`new-${index}`, 'list-a', 'basics', 0, index)

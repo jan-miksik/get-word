@@ -14,6 +14,9 @@ import {
 import {
   confusableLetters,
   lettersAreConfusable,
+  lettersAreLookalike,
+  lookalikeLetters,
+  scriptAccentsLetter,
 } from '@/features/learning/minigames/letter-families';
 import {
   inventLookalikeForms,
@@ -168,6 +171,18 @@ function learningAnswerForRole(word: NormalizedWord, role: LearningRole): string
   return role === 'knownLanguage' ? word.vi : word.cz;
 }
 
+/**
+ * The longest answer worth assembling word by word.
+ *
+ * Above this the round stops being a recall exercise and becomes a drag-and-drop
+ * chore: seven-plus tiles plus their decoys overflow the board on a phone, and
+ * the learner spends the round shuffling tiles rather than recalling the phrase.
+ * A sentence that long is better met by typing it or scratching it open, so the
+ * assembly method simply drops out for that word and the remaining methods
+ * share its weight (see `pickExerciseForWord`).
+ */
+const MAX_ASSEMBLY_WORDS = 6;
+
 function feasibleAssemblyVariants(
   variants: AssemblyVariant[],
   target: NormalizedWord,
@@ -177,7 +192,11 @@ function feasibleAssemblyVariants(
   return variants.filter((variant) => {
     const { unit } = parseAssemblyVariant(variant);
     const count = answerParts(answer, unit).length;
-    return unit === 'letters' ? count >= 2 && !/\s/u.test(answer.trim()) : count >= 2;
+    // Letters are already confined to a single word, so their board cannot grow
+    // by phrase length the way the word board can.
+    return unit === 'letters'
+      ? count >= 2 && !/\s/u.test(answer.trim())
+      : count >= 2 && count <= MAX_ASSEMBLY_WORDS;
   });
 }
 
@@ -227,6 +246,8 @@ function generateConfusableParts({
   role,
   unit,
   correct,
+  band,
+  alphabet,
   random,
 }: {
   target: NormalizedWord;
@@ -234,16 +255,18 @@ function generateConfusableParts({
   role: LearningRole;
   unit: 'letters' | 'words';
   correct: string[];
+  band: SimilarityBand;
+  alphabet: ReadonlySet<string>;
   random: () => number;
 }): string[] {
-  // Only letters the learner's own list actually uses. Without this the letter
-  // families hand a Czech round its decoys in Vietnamese tone marks, which read
-  // as a rendering fault rather than as a letter worth telling apart — and now
-  // that every extra tile is drawn from here, they would be the whole board.
-  const alphabet = scriptAlphabet(pool.map((word) => learningAnswerForRole(word, role)));
-
   if (unit === 'letters') {
-    const generated = confusableLetters(correct);
+    // Band III wants the accent variants; the shape decoys (o/a, i/l, r/t, m/n,
+    // p/b) are what band II is made of, and what III falls back to in a script
+    // that writes no accent on the letter in question.
+    const generated =
+      band === 'III'
+        ? [...confusableLetters(correct), ...lookalikeLetters(correct)]
+        : [...lookalikeLetters(correct), ...confusableLetters(correct)];
     const inScript = generated.filter((letter) => alphabet.has(letter));
     // Ordered, not filtered: a list too small to have shown a given accent yet
     // still needs enough decoys to build a round at all.
@@ -263,6 +286,7 @@ function generateConfusableParts({
     isTaken: (candidate) => taken.has(surfaceKey(candidate)),
     limit: LOOKALIKES_PER_PART,
     random,
+    band,
   }));
 }
 
@@ -290,7 +314,21 @@ function resolveAssemblyParts({
     .filter((word) => word.id !== target.id)
     .flatMap((word) => answerParts(learningAnswerForRole(word, role), unit))
     .filter((part) => !correctKeys.has(part.toLocaleLowerCase()));
-  const generatedSimilar = generateConfusableParts({ target, pool, role, unit, correct, random });
+  // Only letters the learner's own list actually uses. Without this the letter
+  // families hand a Czech round its decoys in Vietnamese tone marks, which read
+  // as a rendering fault rather than as a letter worth telling apart — and now
+  // that every extra tile is drawn from here, they would be the whole board.
+  const alphabet = scriptAlphabet(pool.map((word) => learningAnswerForRole(word, role)));
+  const generatedSimilar = generateConfusableParts({
+    target,
+    pool,
+    role,
+    unit,
+    correct,
+    band,
+    alphabet,
+    random,
+  });
   const candidates = uniqueParts(
     [...generatedSimilar, ...poolParts, ...fallbackExtraParts(correct.join(''), unit)],
     correctKeys,
@@ -309,10 +347,21 @@ function resolveAssemblyParts({
     band === 'III'
       ? Math.min(8, base + 2)
       : Math.min(4, Math.max(2, Math.ceil(correct.length * 0.2)));
+  // A tile is a near-miss of one of the answer's own parts. Letters read the
+  // same ladder as words, one size down: band II is a different letter that
+  // looks like it, band III is the same letter wearing a different accent — and
+  // where the script never accents that letter, III has nothing finer to offer
+  // than the shape decoy, so it accepts that instead of degrading the round.
+  const isLetterSimilar = (candidate: string, part: string, attempt: SimilarityBand): boolean => {
+    if (lettersAreConfusable(candidate, part)) return true;
+    if (attempt === 'III' && scriptAccentsLetter(part, alphabet)) return false;
+    return lettersAreLookalike(candidate, part);
+  };
+
   const isSimilarEnough = (candidate: string, attempt: SimilarityBand): boolean =>
     correct.some((part) =>
       unit === 'letters'
-        ? lettersAreConfusable(candidate, part)
+        ? isLetterSimilar(candidate, part, attempt)
         : bandAtLeast(similarityBandForTerms(candidate, part), attempt),
     );
 

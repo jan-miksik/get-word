@@ -30,8 +30,6 @@ vi.mock('@/context/AppStateContext', () => ({
     setTypingPrefillPunctuation: vi.fn(),
     typingMobileKeyboardAutoFocus: false,
     setTypingMobileKeyboardAutoFocus: vi.fn(),
-    typingPlayAudioAfterCheck: false,
-    setTypingPlayAudioAfterCheck: vi.fn(),
     typingCheckButtonEnabled: false,
     setTypingCheckButtonEnabled: vi.fn(),
     ...contextOverrides,

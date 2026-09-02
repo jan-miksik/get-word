@@ -63,16 +63,21 @@ const SURPLUS_RADIUS = 55;
 const SURPLUS_CIRCUMFERENCE = 2 * Math.PI * SURPLUS_RADIUS;
 
 /**
- * How much of its drawn size the seal is actually shown at.
+ * The box the seal is drawn against.
  *
  * The ring, the tick and the burst are all drawn against a 128px box, which is
- * the only size their pixel offsets agree on. Shrinking it by scaling the whole
- * group keeps that agreement — one number moves the ring, the stamp, the flash
- * and every bit of the burst together — and costs the card 32px of height it
- * could not spare on a laptop, where the closing card runs out of height first.
+ * the only size their pixel offsets agree on. The seal is therefore never
+ * re-laid-out at another size, it is scaled: one number moves the ring, the
+ * stamp, the flash and every bit of the burst together.
+ *
+ * What that one number is belongs to CSS rather than here. `--seal-size` and
+ * `--seal-scale` are set on `.session-close-seal` in `styles/minigames.css`,
+ * where a short viewport can shrink the seal without React ever measuring the
+ * window — see the compaction block there. The closing card is the tallest
+ * thing the study surface draws, and the seal is the part of it that can give
+ * height back with the least lost.
  */
 const SEAL_DRAWN = 128;
-const SEAL_SHOWN = 96;
 
 /** Where the burst lands, in pixels from the middle of the seal. */
 const SEAL_BITS = [
@@ -109,8 +114,8 @@ function DaySeal({
   const surplusOffset = SURPLUS_CIRCUMFERENCE * (1 - Math.min(1, surplusPercent));
   return (
     <div
-      className="relative mx-auto"
-      style={{ height: SEAL_SHOWN, width: SEAL_SHOWN }}
+      className="session-close-seal relative mx-auto"
+      style={{ height: 'var(--seal-size)', width: 'var(--seal-size)' }}
       aria-hidden
     >
       <div
@@ -118,7 +123,7 @@ function DaySeal({
         style={{
           height: SEAL_DRAWN,
           width: SEAL_DRAWN,
-          scale: `${SEAL_SHOWN / SEAL_DRAWN}`,
+          scale: 'var(--seal-scale)',
         }}
       >
       {closed ? (
@@ -209,6 +214,7 @@ export function SessionDoneCard({
   dayFlow = null,
   dayScore = null,
   shortfall = 0,
+  extra = null,
   streak = null,
   onStudyExtra,
   onPractice,
@@ -247,6 +253,18 @@ export function SessionDoneCard({
    * ends on the way to get more instead.
    */
   shortfall?: number;
+  /**
+   * Work the learner chose to do past the day's plan — the bonus rounds taken
+   * from this very card.
+   *
+   * It is counted here rather than read back off a plan, because a bonus round
+   * is torn down the moment it settles: that is what returns the learner to
+   * this card. Without it an extra ten repeats vanished from the recap until
+   * the server rollup happened to land, and then reappeared as a number with
+   * no visible cause. The server's own figure still wins whenever it is
+   * higher — this is a floor, never a second tally on top of it.
+   */
+  extra?: { reviewed: number; fresh: number } | null;
   /**
    * The two streaks and this week, shown only on a day that was actually
    * closed. A day that ran short is deliberately uncelebrated here, and a
@@ -390,9 +408,26 @@ export function SessionDoneCard({
   // bonus round included; the plan is what this device just watched happen.
   // Whichever is further along is the true one — the rollup can lag a sync
   // behind, and the plan cannot see past its own cap.
-  const reviewed = Math.max(dayScore?.reviewed ?? 0, planned ? countPlanDone(planned, 'review') : 0);
-  const fresh = Math.max(dayScore?.introduced ?? 0, planned ? countPlanDone(planned, 'new') : 0);
-  const surplus = dayScore?.target ? Math.max(0, reviewed + fresh - dayScore.target) : 0;
+  const extraReviewed = extra?.reviewed ?? 0;
+  const extraFresh = extra?.fresh ?? 0;
+  const reviewed = Math.max(
+    dayScore?.reviewed ?? 0,
+    (planned ? countPlanDone(planned, 'review') : 0) + extraReviewed,
+  );
+  const fresh = Math.max(
+    dayScore?.introduced ?? 0,
+    (planned ? countPlanDone(planned, 'new') : 0) + extraFresh,
+  );
+  const goalTarget = dayScore?.target ?? 0;
+  const counted = reviewed + fresh;
+  // "Over goal" means the learner chose to keep going, so it is measured from
+  // the extra rounds they took — not from the gap between two different pieces
+  // of bookkeeping. The day's targets are frozen at the first answer while
+  // `reviewed` is the server's whole-day count, so a plainly walked plan could
+  // sit well above its own target through no effort of anyone's: a badge
+  // congratulating the learner for that is a badge with nothing behind it.
+  const carriedOn = extraReviewed + extraFresh > 0;
+  const surplus = carriedOn && goalTarget > 0 ? Math.max(0, counted - goalTarget) : 0;
 
   // A day that ran out is measured against the goal it missed, not against the
   // plan it did finish — the plan had already been cut down to the words that
@@ -410,39 +445,66 @@ export function SessionDoneCard({
       <DaySeal
         percent={percent}
         closed={dayClosed}
-        surplusPercent={surplus > 0 && dayScore?.target ? Math.min(1, surplus / dayScore.target) : 0}
+        surplusPercent={surplus > 0 && goalTarget > 0 ? Math.min(1, surplus / goalTarget) : 0}
       />
 
-      {surplus > 0 ? (
-        <p
-          className="session-close-pop m-0 mx-auto -mt-1 w-fit rounded-full bg-amber/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#8a5a06]"
-          style={{ animationDelay: '1180ms' }}
-        >
-          {t('learning.sessionDayOverGoal', { count: surplus })}
-        </p>
-      ) : null}
-
       <h2
-        className="session-close-in m-0 mt-2 text-2xl font-black leading-tight tracking-[-0.025em] text-ink-800 sm:text-[1.8rem]"
+        className="session-close-headline session-close-in m-0 mt-2 text-2xl font-black leading-tight tracking-[-0.025em] text-ink-800 sm:text-[1.8rem]"
         style={{ animationDelay: '260ms' }}
       >
         {headline}
       </h2>
       {body ? (
         <p
-          className="session-close-in mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-ink-500 sm:text-base"
+          className="session-close-body session-close-in mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-ink-500 sm:text-base"
           style={{ animationDelay: '340ms' }}
         >
           {body}
         </p>
       ) : null}
 
+      {/* The same-session second pass over the words just introduced is not
+          shown here. It is real work, and the breather at the seam still names
+          it — but on the card that closes the day it was a third number that
+          belonged to neither of the other two and to nothing the goal
+          measures, sitting directly above a line comparing the day against
+          that goal. */}
       <SessionRecap
         reviewed={reviewed}
         fresh={fresh}
-        className="session-close-in"
+        className="session-close-recap session-close-in"
         style={{ animationDelay: '420ms' }}
       />
+
+      {/* What the goal actually measured, in the goal's own units.
+          "+5 over goal" on its own is a number with no visible referent: the
+          card never said what the goal was. One line naming both halves of the
+          comparison is what makes the badge readable, and the two chips above
+          it are the halves of the total it counts from. A minutes day has no
+          word target and gets no line. */}
+      {goalTarget > 0 ? (
+        <p
+          className="session-close-tally session-close-in m-0 mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs font-bold text-ink-350"
+          style={{ animationDelay: '480ms' }}
+        >
+          <span>{t('learning.sessionDayGoalTally', { done: counted, goal: goalTarget })}</span>
+          {/* The surplus rides on the end of that line rather than in a row of
+              its own above the headline. It is the same three numbers said a
+              second way, so it belongs beside the sentence that names them —
+              which is also the only place it has ever had a referent. A row
+              spent on it is a row the closing card cannot afford: the card is
+              the tallest thing the study surface draws, and this one arrived
+              two lines above the line that explains it. */}
+          {surplus > 0 ? (
+            <span
+              className="session-close-pop rounded-full bg-amber/15 px-2 py-0.5 font-black uppercase tracking-wide text-[#8a5a06]"
+              style={{ animationDelay: '1180ms' }}
+            >
+              {t('learning.sessionDayOverGoal', { count: surplus })}
+            </span>
+          ) : null}
+        </p>
+      ) : null}
 
       {/* Not gated on the counts being above zero. The rollup that decides
           `met` is computed server-side and refreshed after the day closes, so
@@ -450,12 +512,12 @@ export function SessionDoneCard({
           moment — and hiding the series exactly then is the one time it most
           wants to be seen. The week beside it is never empty. */}
       {dayClosed && streak ? (
-        <div className="session-close-in" style={{ animationDelay: '540ms' }}>
+        <div className="session-close-streak session-close-in" style={{ animationDelay: '540ms' }}>
           <StreakSummary streak={streak} />
         </div>
       ) : null}
 
-      <div className="session-close-in mt-5" style={{ animationDelay: '580ms' }}>
+      <div className="session-close-actions session-close-in mt-5" style={{ animationDelay: '580ms' }}>
         {actions}
       </div>
     </SessionCardShell>

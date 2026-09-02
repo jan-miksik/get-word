@@ -23,7 +23,6 @@ export interface PracticeCardSettings {
   studyNotesEnabled?: boolean;
   studyNoteMinimizeFromStage?: number;
   typingPrefillPunctuation?: boolean;
-  typingPlayAudioAfterCheck?: boolean;
   typingCheckButtonEnabled?: boolean;
 }
 
@@ -95,7 +94,6 @@ export function PracticeExerciseCard({
       studyNotesEnabled={settings?.studyNotesEnabled ?? false}
       studyNoteMinimizeFromStage={settings?.studyNoteMinimizeFromStage ?? 0}
       typingPrefillPunctuation={settings?.typingPrefillPunctuation ?? false}
-      typingPlayAudioAfterCheck={settings?.typingPlayAudioAfterCheck ?? false}
       typingCheckButtonEnabled={settings?.typingCheckButtonEnabled ?? true}
     />
   );

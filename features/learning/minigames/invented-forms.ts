@@ -1,5 +1,6 @@
 import { splitGraphemes } from '@/lib/answer-normalization';
-import { letterFamilyOf } from './letter-families';
+import { baseLetterOf, letterFamilyOf, lookalikeLettersOf } from './letter-families';
+import type { SimilarityBand } from './similarity';
 
 /**
  * Invented lookalikes: distractors built by bending the correct answer itself
@@ -67,12 +68,23 @@ function withCaseOf(source: string, replacement: string): string {
 /**
  * Build lookalikes of `term` that differ by one small written edit.
  *
- * A diacritic change is preferred because it is the most natural spelling trap.
- * When the word has no usable diacritic family, one letter is substituted with
- * another letter already present in the learner's list. That lets an unaccented
- * word such as "house" support band III too, without importing characters from
- * a different writing system. Multi-word phrases remain excluded: they are told
- * apart by their shape long before a single bent letter becomes meaningful.
+ * Which edit depends on the band the exercise asked for, because the two hard
+ * bands are hard in different ways:
+ *
+ *   II  a *different letter* — "tôi" against "tol", "vôi", "tâi". The word is
+ *       recognisably the same shape, but a letter has been swapped for another.
+ *   III an *accent* — "tôi" against "toi", "tồi", "tọi". Nothing but the mark
+ *       above the vowel separates them, which is the finest distinction the
+ *       writing system offers.
+ *
+ * A script that writes no accents cannot supply band III that way, so III then
+ * falls back to the letters that are confusable by shape (o/a, i/l, r/t, m/n,
+ * p/b) — still the smallest visible difference that language allows.
+ *
+ * Every candidate is exactly one edit from the answer either way, which is why
+ * both bands are satisfied by whatever comes back. Multi-word phrases remain
+ * excluded: they are told apart by their shape long before a single bent letter
+ * becomes meaningful.
  */
 export function inventLookalikeForms({
   term,
@@ -80,6 +92,7 @@ export function inventLookalikeForms({
   isTaken,
   limit,
   random,
+  band = 'III',
 }: {
   term: string;
   /** Letters available in the language being read; see `scriptAlphabet`. */
@@ -88,6 +101,8 @@ export function inventLookalikeForms({
   isTaken: (candidate: string) => boolean;
   limit: number;
   random: () => number;
+  /** The kind of edit to reach for first; see the doc comment above. */
+  band?: SimilarityBand;
 }): string[] {
   const trimmed = term.trim().normalize('NFC');
   if (limit <= 0 || !trimmed || /\s/u.test(trimmed)) return [];
@@ -95,73 +110,137 @@ export function inventLookalikeForms({
   const graphemes = splitGraphemes(trimmed);
   if (graphemes.length < MIN_INVENTABLE_GRAPHEMES) return [];
 
-  const own = surfaceKey(trimmed);
-  const seen = new Set<string>([own]);
-  const candidates: string[] = [];
+  const seen = new Set<string>([surfaceKey(trimmed)]);
 
-  for (let index = 0; index < graphemes.length; index += 1) {
-    const family = letterFamilyOf(graphemes[index]);
-    if (!family) continue;
-    const current = graphemes[index].toLocaleLowerCase();
-    // The unaccented base is always in play: it belongs to any Latin alphabet,
-    // and dropping an accent is the mistake learners actually make.
-    const base = family.slice(0, 1);
+  /** One substitution, kept only if it is new, spellable and not a real answer. */
+  const substitute = (index: number, replacement: string): string | null => {
+    const bent = [...graphemes];
+    bent[index] = withCaseOf(graphemes[index], replacement);
+    const candidate = bent.join('');
+    const key = surfaceKey(candidate);
+    if (seen.has(key)) return null;
+    seen.add(key);
+    if (isTaken(candidate)) return null;
+    return candidate;
+  };
 
-    for (const member of splitGraphemes(family)) {
-      if (member === current) continue;
-      if (member !== base && !alphabet.has(member)) continue;
-
-      const bent = [...graphemes];
-      bent[index] = withCaseOf(graphemes[index], member);
-      const candidate = bent.join('');
-      const key = surfaceKey(candidate);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      if (isTaken(candidate)) continue;
-      candidates.push(candidate);
-    }
-  }
-
-  // Plain words have no diacritic variant to draw from. Bend one grapheme with
-  // a letter or number the same list already uses; the result is still exactly
-  // one edit away and therefore an honest near-twin, even when it is not a real
-  // dictionary word.
   const scriptCharacters = [...alphabet]
     .filter((candidate) => /^[\p{L}\p{N}]$/u.test(candidate))
     .map((candidate) => candidate.toLocaleLowerCase());
-  for (let index = 0; index < graphemes.length; index += 1) {
-    const current = graphemes[index].toLocaleLowerCase();
-    for (const replacement of scriptCharacters) {
-      if (replacement === current) continue;
-      const bent = [...graphemes];
-      bent[index] = withCaseOf(graphemes[index], replacement);
-      const candidate = bent.join('');
-      const key = surfaceKey(candidate);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      if (isTaken(candidate)) continue;
-      candidates.push(candidate);
+
+  // Same letter, different accent. The unaccented base is always in play: it
+  // belongs to any Latin alphabet, and dropping an accent is the mistake
+  // learners actually make. Other members must be ones the list already writes,
+  // so a Czech round is never offered "kốlo".
+  const accentEdits = (): string[] => {
+    const output: string[] = [];
+    for (let index = 0; index < graphemes.length; index += 1) {
+      const family = letterFamilyOf(graphemes[index]);
+      if (!family) continue;
+      const current = graphemes[index].toLocaleLowerCase();
+      const base = family.slice(0, 1);
+      for (const member of splitGraphemes(family)) {
+        if (member === current) continue;
+        if (member !== base && !alphabet.has(member)) continue;
+        const candidate = substitute(index, member);
+        if (candidate) output.push(candidate);
+      }
     }
-  }
+    return output;
+  };
+
+  // A different letter of confusable shape. The partners are plain Latin
+  // letters, so unlike accents they are safe to offer whatever the list writes;
+  // an accented form of the partner is used as well when the list has one.
+  const lookalikeEdits = (): string[] => {
+    const output: string[] = [];
+    for (let index = 0; index < graphemes.length; index += 1) {
+      for (const partner of lookalikeLettersOf(graphemes[index])) {
+        const accented = scriptCharacters.filter(
+          (letter) => letter !== partner && baseLetterOf(letter) === partner,
+        );
+        for (const replacement of [partner, ...accented]) {
+          const candidate = substitute(index, replacement);
+          if (candidate) output.push(candidate);
+        }
+      }
+    }
+    return output;
+  };
+
+  // Any other letter the same list uses — the plain letter swap band II is
+  // built on. Same-letter accent changes are excluded: those are band III's
+  // edit, and mixing them in would make the two bands indistinguishable.
+  //
+  // `matches` is what keeps the result pronounceable. Swapping a vowel for a
+  // consonant produces "tni" out of "tôi": a shape no language would write, and
+  // one a learner rejects without reading it. Trading like for like — and
+  // keeping the accent the letter already wore, so "tôi" yields "tâi" — leaves a
+  // word that could plausibly exist, which is what makes the option worth
+  // reading. Real words come out of it often enough on their own ("tôi" gives
+  // "môi", "sôi", "hôi"); the list's own vocabulary is preferred over any of
+  // this in the first place.
+  const letterEdits = (matches: (replacement: string, current: string) => boolean) => (): string[] => {
+    const output: string[] = [];
+    for (let index = 0; index < graphemes.length; index += 1) {
+      const current = graphemes[index].toLocaleLowerCase();
+      for (const replacement of scriptCharacters) {
+        if (baseLetterOf(replacement) === baseLetterOf(current)) continue;
+        if (!matches(replacement, current)) continue;
+        const candidate = substitute(index, replacement);
+        if (candidate) output.push(candidate);
+      }
+    }
+    return output;
+  };
+
+  const isVowel = (letter: string): boolean => 'aeiouy'.includes(baseLetterOf(letter));
+  const isAccented = (letter: string): boolean => letter !== baseLetterOf(letter);
+  const sameSound = (replacement: string, current: string): boolean =>
+    isVowel(replacement) === isVowel(current);
+  const sameSoundAndAccent = (replacement: string, current: string): boolean =>
+    sameSound(replacement, current) && isAccented(replacement) === isAccented(current);
 
   // A tiny or single-character alphabet can make substitution impossible.
   // Deletion is the final one-edit fallback, while still leaving a visible
   // option and respecting the same taken-answer guard.
-  if (graphemes.length > 2) {
+  const deletions = (): string[] => {
+    if (graphemes.length <= 2) return [];
+    const output: string[] = [];
     for (let index = 0; index < graphemes.length; index += 1) {
       const candidate = graphemes.filter((_, partIndex) => partIndex !== index).join('');
       const key = surfaceKey(candidate);
       if (seen.has(key)) continue;
       seen.add(key);
       if (isTaken(candidate)) continue;
-      candidates.push(candidate);
+      output.push(candidate);
     }
-  }
+    return output;
+  };
+
+  // Tiers, not one flat pool: the preferred edit has to be exhausted before the
+  // next one is touched. Drawing from a single list would bury the handful of
+  // accent variants under the hundreds of possible letter swaps, and a band III
+  // round would almost never show the accent trap it exists for.
+  const tiers =
+    band === 'II'
+      ? [
+          letterEdits(sameSoundAndAccent),
+          letterEdits(sameSound),
+          letterEdits(() => true),
+          accentEdits,
+          deletions,
+        ]
+      : [accentEdits, lookalikeEdits, letterEdits(sameSound), letterEdits(() => true), deletions];
 
   const picked: string[] = [];
-  while (picked.length < limit && candidates.length > 0) {
-    const index = Math.min(candidates.length - 1, Math.floor(random() * candidates.length));
-    picked.push(candidates.splice(index, 1)[0]);
+  for (const tier of tiers) {
+    if (picked.length >= limit) break;
+    const candidates = tier();
+    while (picked.length < limit && candidates.length > 0) {
+      const index = Math.min(candidates.length - 1, Math.floor(random() * candidates.length));
+      picked.push(candidates.splice(index, 1)[0]);
+    }
   }
   return picked;
 }

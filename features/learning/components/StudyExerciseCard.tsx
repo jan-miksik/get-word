@@ -6,7 +6,8 @@ import type { ProgressData } from '@/features/sync/contracts';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ResolvedExercise } from '@/features/learning/fine-tune/types';
 import { WordCard } from './WordCard';
-import { readCardSoundEnabled } from './card-audio/cardSound';
+import { useCardSound } from './card-audio/cardSound';
+import { SoundToggle } from './card-audio/SoundToggle';
 import { TypingStudyCard, type TypingOutcome } from './TypingStudyCard';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { WordAssemblyGame } from './games/WordAssemblyGame';
@@ -73,7 +74,6 @@ export interface StudyExerciseCardProps {
   studyNotesEnabled: boolean;
   studyNoteMinimizeFromStage: number;
   typingPrefillPunctuation: boolean;
-  typingPlayAudioAfterCheck: boolean;
   typingCheckButtonEnabled: boolean;
   fullscreen?: boolean;
   autoFocus?: boolean;
@@ -124,7 +124,6 @@ export function StudyExerciseCard({
   studyNotesEnabled,
   studyNoteMinimizeFromStage,
   typingPrefillPunctuation,
-  typingPlayAudioAfterCheck,
   typingCheckButtonEnabled,
   fullscreen,
   autoFocus,
@@ -140,7 +139,6 @@ export function StudyExerciseCard({
         variant={exercise.variant}
         audioPromptEnabled={false}
         prefillPunctuation={typingPrefillPunctuation}
-        playAudioAfterCheck={typingPlayAudioAfterCheck}
         checkButtonEnabled={typingCheckButtonEnabled}
         onScore={onScore}
         onOutcome={onOutcome}
@@ -278,8 +276,10 @@ function ChoiceExercise({
 }) {
   const [answered, setAnswered] = useState<ExerciseOutcome | null>(null);
   // The same one setting the sound toggle on a minigame card writes: silencing
-  // a round there silences the choice study card here too.
-  const [soundEnabled] = useState(() => readCardSoundEnabled());
+  // a round there silences the choice study card here too — and the toggle in
+  // this card's own top lane is that same switch, so the learner can stop the
+  // card speaking without leaving it.
+  const { soundEnabled, toggleSound } = useCardSound();
   // Same rule as the reveal and typing cards: a clean answer at 60 days is the
   // moment to offer retirement rather than book another 60 days.
   const showFullyKnownOffer =
@@ -303,6 +303,7 @@ function ChoiceExercise({
         sourceLang={promptSide}
         promptMode="text"
         soundEnabled={soundEnabled}
+        topControls={<SoundToggle soundEnabled={soundEnabled} onToggle={toggleSound} />}
         level={exercise.effectiveBand === 'I' ? 1 : 2}
         difficultyBand={exercise.effectiveBand}
         stageIndex={progress.stageIndex}

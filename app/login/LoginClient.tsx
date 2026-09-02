@@ -49,7 +49,7 @@ function SignedInCard({
               <button
                 type="button"
                 onClick={onContinue}
-                className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-sea bg-sea px-5 py-3 text-base font-semibold text-paper hover:border-sea-600 hover:bg-sea-600"
+                className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-ink bg-sea px-5 py-3 text-base font-semibold text-paper hover:bg-sea-600"
               >
                 {t('auth.continue')}
               </button>

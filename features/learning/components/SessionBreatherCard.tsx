@@ -5,7 +5,7 @@ import type { SessionBlockKind } from '@/features/learning/session/blocks';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import type { SessionBreather } from '@/features/learning/session/useSessionBreather';
 import { SessionCardShell } from './SessionCardShell';
-import { SessionRecap, countPlanDone } from './SessionRecap';
+import { SessionRecap, countPlanDone, countPlanReinforced } from './SessionRecap';
 
 /**
  * The pause between two blocks.
@@ -133,7 +133,11 @@ export function SessionBreatherCard({
         )}
       </h2>
 
-      <SessionRecap reviewed={countPlanDone(flow, 'review')} fresh={countPlanDone(flow, 'new')} />
+      <SessionRecap
+        reviewed={countPlanDone(flow, 'review')}
+        fresh={countPlanDone(flow, 'new')}
+        reinforced={countPlanReinforced(flow)}
+      />
 
       {/* Where the day stands — the number the rail deliberately does not
           carry, kept to one bar and, while work remains, one line. */}

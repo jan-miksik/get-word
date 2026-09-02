@@ -38,10 +38,19 @@ export type StudyOptionMatchColor = 1 | 2 | 3 | 4 | 5 | 6;
 /** Which edge a settled matching button carries its pair spine on. */
 export type StudyOptionMatchEdge = 'left' | 'right';
 
+/**
+ * Phones get a smaller step of every size.
+ *
+ * A board of eight options at the desktop size is taller than a short phone's
+ * study area, so the round arrived already scrolled — and an answer you have to
+ * scroll to find is an answer you did not choose between. The sizes below the
+ * `sm` breakpoint are one notch down across the board; from `sm` up nothing
+ * changed, since there the height was never the constraint.
+ */
 const sizeClasses: Record<StudyOptionSize, string> = {
-  lg: 'min-h-20 px-4 py-4 text-xl sm:min-h-24 sm:text-2xl',
-  md: 'min-h-16 px-3 py-3 text-lg sm:text-xl',
-  sm: 'min-h-14 px-3 py-2.5 text-base sm:text-lg',
+  lg: 'min-h-16 px-3 py-3 text-lg sm:min-h-24 sm:px-4 sm:py-4 sm:text-2xl',
+  md: 'min-h-14 px-2.5 py-2.5 text-base sm:min-h-16 sm:px-3 sm:py-3 sm:text-xl',
+  sm: 'min-h-12 px-2 py-2 text-sm sm:min-h-14 sm:px-3 sm:py-2.5 sm:text-lg',
 };
 
 const stateClasses: Record<StudyOptionState, string> = {

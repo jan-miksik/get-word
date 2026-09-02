@@ -3,4 +3,18 @@
 # git history. Never block a commit if version generation fails.
 node scripts/write-version.js || exit 0
 [ -f version.json ] && git add version.json
+
+# The one blocking check here: a staging app icon must never reach a branch.
+# It is scoped to the icon itself, so code fixes can still be committed while a
+# staging build is installed on a device. A genuine icon redesign has no marker
+# file and passes. Override with `git commit --no-verify` if you must.
+ICON_SET="mobile/ios/App/App/Assets.xcassets/AppIcon.appiconset"
+MARKER="mobile/ios/App/.staging-icon"
+if [ -f "$MARKER" ] && ! git diff --cached --quiet -- "$ICON_SET"; then
+  echo "pre-commit: refusing to commit the staging (DEV) app icon." >&2
+  echo "  $MARKER exists and $ICON_SET is staged." >&2
+  echo "  Run: pnpm run mobile:staging restore" >&2
+  exit 1
+fi
+
 exit 0

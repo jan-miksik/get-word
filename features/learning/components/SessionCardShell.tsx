@@ -47,7 +47,7 @@ export function SessionCardShell({
           // viewport while still reading as a card rather than a page colour.
           // On desktop the section itself is capped at 500px, so this wrapper
           // only provides breathing room around the modal.
-          ? '-mx-2 flex min-h-full w-full justify-center px-0 py-3 sm:mx-0 sm:px-6 sm:py-4'
+          ? 'session-close-shell -mx-2 flex min-h-full w-full justify-center px-0 py-3 sm:mx-0 sm:px-6 sm:py-4'
           : 'flex min-h-full w-full justify-center px-2 py-8 sm:px-4'
       }
     >
@@ -66,7 +66,7 @@ export function SessionCardShell({
             // closing card sits on the study surface with nothing behind it,
             // and first white and then a faint warm edge both read as no edge
             // at all on warm paper.
-            ? 'border-ink mx-auto max-w-[500px] rounded-[1.75rem] py-7 sm:rounded-[2rem] sm:py-8'
+            ? 'session-close-card border-ink mx-auto max-w-[500px] rounded-[1.75rem] py-7 sm:rounded-[2rem] sm:py-8'
             // A full-strength ink hairline, the same ink the continue button
             // is drawn with. The seam cards sit straight on the study surface,
             // where first the white edge and then a faint warm one both read as

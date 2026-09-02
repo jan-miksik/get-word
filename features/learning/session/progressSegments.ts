@@ -4,11 +4,11 @@ import type { SessionBlockProgress } from './dayProgress';
 /**
  * One drawn segment of the day's progress rail.
  *
- * A segment is not a session block. A plan can hold several blocks of the same
- * kind — the bonus round is cut into stretches of ten — and drawing each of
- * them separately makes the work look like more, smaller pieces than the
- * learner experiences: six thin slivers read as six chores, not as "the repeats
- * and then the new words".
+ * A segment is not a session block. A plan can hold several *consecutive*
+ * blocks of the same kind — the bonus round is cut into stretches of ten — and
+ * drawing each of them separately makes the work look like more, smaller pieces
+ * than the learner experiences: six thin slivers read as six chores, not as one
+ * stretch of repeats.
  */
 export interface SessionProgressSegment {
   key: string;
@@ -25,32 +25,35 @@ export interface SessionProgressSegment {
 }
 
 /**
- * The day's blocks as the rail draws them: one segment per kind of work.
+ * The day's blocks as the rail draws them: one segment per *run* of work of the
+ * same kind.
  *
  * This is a view of the plan, not a change to it. `SessionBlock[]` keeps its
  * order and its boundaries, the planner and the SRS never see this function —
  * only the pixels do.
  *
- * A words day is two blocks already, so for the day itself this is close to
- * identity. It still earns its place for the bonus round, which is cut into
- * stretches of ten so the learner can see the end of one: the rail draws those
- * as the two stretches they are — the repeats, then the new words — rather than
- * as six anonymous slivers.
+ * Only neighbours fold together. That is the whole rule, and it is what makes
+ * the rail show the day the learner actually walks: repeats, then new ground,
+ * then the check on that new ground reads as three stretches, because it is
+ * three. Folding by kind alone put that closing check back at the bottom with
+ * the opening repeats, so a day of `review → new → review` was drawn as a rail
+ * that ended on new words — the one thing it never does.
  *
- * A segment takes the position of the first block of its kind, which is where
- * that stretch of the day begins.
+ * The fold still earns its place where it was introduced: the bonus round is
+ * cut into stretches of ten, and those stretches *are* neighbours, so they
+ * draw as the one continuous run of repeats they feel like rather than as six
+ * anonymous slivers.
  */
 export function toProgressSegments(
   blocks: readonly SessionBlockProgress[],
   activeIndex: number,
 ): SessionProgressSegment[] {
   const segments: SessionProgressSegment[] = [];
-  const byKind = new Map<SessionBlockKind, SessionProgressSegment>();
 
   blocks.forEach((block, index) => {
     const active = index === activeIndex;
-    const held = byKind.get(block.kind);
-    if (held) {
+    const held = segments[segments.length - 1];
+    if (held && held.kind === block.kind) {
       held.total += block.total;
       held.done += block.done;
       held.pending += block.pending;
@@ -60,7 +63,7 @@ export function toProgressSegments(
       return;
     }
 
-    const segment: SessionProgressSegment = {
+    segments.push({
       key: block.key,
       kind: block.kind,
       total: block.total,
@@ -69,9 +72,7 @@ export function toProgressSegments(
       unavailable: block.unavailable,
       active,
       blockKeys: [block.key],
-    };
-    segments.push(segment);
-    byKind.set(block.kind, segment);
+    });
   });
 
   return segments;

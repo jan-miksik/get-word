@@ -42,7 +42,10 @@ describe('BubbleChoiceGame review reporting', () => {
 });
 
 describe('BubbleChoiceGame field stability', () => {
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   function bubbleLabels(): string[] {
     return screen
@@ -135,6 +138,36 @@ describe('BubbleChoiceGame field stability', () => {
     fireEvent.click(screen.getByRole('button', { name: promptWord().vi }));
     act(() => vi.advanceTimersByTime(800));
     expect(screen.getByRole('img', { name: `${words.length - 1}/${words.length}` })).toBeTruthy();
+  });
+
+  it('keeps the moving field below the top control lane', () => {
+    const { container } = render(
+      <BubbleChoiceGame words={words} role="knownLanguage" onScore={vi.fn()} onComplete={vi.fn()} />,
+    );
+
+    expect(container.querySelector('[data-bubble-field]')).toHaveClass('mt-14');
+  });
+
+  it('does not schedule physics while a virtualized round is inactive', () => {
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(360);
+    const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(520);
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation(() => 1);
+
+    render(
+      <BubbleChoiceGame
+        words={words}
+        role="knownLanguage"
+        isActive={false}
+        onScore={vi.fn()}
+        onComplete={vi.fn()}
+      />,
+    );
+
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(width).toHaveBeenCalled();
+    expect(height).toHaveBeenCalled();
   });
 });
 

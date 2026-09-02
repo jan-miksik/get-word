@@ -44,10 +44,11 @@ export const MIN_IN_BAND_OPTIONS = (optionCount: number): number =>
  * rather than real words from the list.
  *
  * Invented forms are the reliable way to honour a configured similarity floor:
- * a real near-twin of any given word rarely exists in a real list. Two are
- * enough to satisfy the hardest variants and remain the cap on larger rounds;
- * a two-distractor round may therefore consist entirely of invented near-misses
- * when no real twin exists. The remaining slots still show genuine vocabulary.
+ * a real near-twin of any given word rarely exists in a real list. They are a
+ * fallback and not a first choice — the round is filled with real vocabulary in
+ * the band first, and only the slots that stay empty are invented into. Two is
+ * the cap even on larger rounds; a two-distractor round may therefore consist
+ * entirely of invented near-misses when no real twin exists.
  */
 const MAX_INVENTED_OPTIONS = (distractorCount: number): number =>
   Math.max(0, Math.min(2, distractorCount));
@@ -161,12 +162,15 @@ function buildInventedCandidates({
   target,
   pool,
   side,
+  band,
   limit,
   random,
 }: {
   target: NormalizedWord;
   pool: NormalizedWord[];
   side: WordSide;
+  /** Decides the kind of edit: a swapped letter for II, an accent for III. */
+  band: SimilarityBand;
   limit: number;
   random: () => number;
 }): ScoredCandidate[] {
@@ -184,6 +188,7 @@ function buildInventedCandidates({
     isTaken: (candidate) => taken.has(surfaceKey(candidate)),
     limit,
     random,
+    band,
   });
 
   return forms.map((form, index) => ({
@@ -249,15 +254,22 @@ export function resolveVariantDistractors({
   const candidates = scoreCandidates(target, pool, side);
   if (candidates.length < count) return null;
 
-  const invented = allowInvented && side
-    ? buildInventedCandidates({
-        target,
-        pool,
-        side,
-        limit: MAX_INVENTED_OPTIONS(count),
-        random,
-      })
-    : [];
+  const inventedByBand = new Map<SimilarityBand, ScoredCandidate[]>();
+  const inventedFor = (attempt: SimilarityBand): ScoredCandidate[] => {
+    if (!allowInvented || !side || attempt === 'I') return [];
+    const cached = inventedByBand.get(attempt);
+    if (cached) return cached;
+    const built = buildInventedCandidates({
+      target,
+      pool,
+      side,
+      band: attempt,
+      limit: MAX_INVENTED_OPTIONS(count),
+      random,
+    });
+    inventedByBand.set(attempt, built);
+    return built;
+  };
 
   const required = minInBand(count + 1);
   const startAt = BAND_DEGRADATION_ORDER.indexOf(band);
@@ -266,27 +278,41 @@ export function resolveVariantDistractors({
     const attempt = BAND_DEGRADATION_ORDER[step];
     // A near-twin also satisfies band II. It is preferable to invent a safe
     // harder option than to silently render a round below its configured floor.
-    const usableInvented = attempt === 'I' ? [] : invented;
-    const inBand = candidates.filter((candidate) => bandAtLeast(candidate.band, attempt));
+    const usableInvented = inventedFor(attempt);
+    // Band I asks for words that are plainly *different*, so it is the one band
+    // read as an exact match rather than a floor: taking whatever the list holds
+    // would let an easy round hand out near-twins by accident. It stays a
+    // fallback rather than a filter, because "any other word" must never be the
+    // reason a round cannot be built at all.
+    const inBand =
+      attempt === 'I'
+        ? preferDistinct(candidates, count)
+        : candidates.filter((candidate) => bandAtLeast(candidate.band, attempt));
     if (inBand.length + usableInvented.length < Math.min(required, count)) continue;
 
-    // Already in random order from the generator, and already capped by
-    // MAX_INVENTED_OPTIONS when it was built.
-    const chosenInvented = usableInvented.slice(0, count);
+    // Real vocabulary first: an invented form is a fabricated word, worth
+    // showing only for the slots the list itself cannot fill in this band.
     const chosenReal = takeDeterministic(
       preferInScope(inBand),
-      Math.min(count - chosenInvented.length, inBand.length),
+      Math.min(count, inBand.length),
       random,
     );
-    const chosen = [...chosenInvented, ...chosenReal];
+    // Already in random order from the generator, and already capped by
+    // MAX_INVENTED_OPTIONS when it was built.
+    const chosenInvented = usableInvented.slice(0, Math.max(0, count - chosenReal.length));
+    const chosen = [...chosenReal, ...chosenInvented];
     const chosenIds = new Set(chosen.map((candidate) => candidate.word.id));
 
     // Fill the remaining slots with the next-best words available: they keep the
-    // option count intact without pretending to be part of the harder band.
+    // option count intact without pretending to be part of the harder band. For
+    // band I "next-best" runs the other way — the least similar word left.
     const filler = candidates
       .filter((candidate) => !chosenIds.has(candidate.word.id))
       .sort((a, b) => {
-        const byBand = BAND_RANK[b.band] - BAND_RANK[a.band];
+        const byBand =
+          attempt === 'I'
+            ? BAND_RANK[a.band] - BAND_RANK[b.band]
+            : BAND_RANK[b.band] - BAND_RANK[a.band];
         if (byBand !== 0) return byBand;
         return Number(b.inScope) - Number(a.inScope);
       });
@@ -306,8 +332,13 @@ export function resolveVariantDistractors({
 }
 
 function preferInScope(candidates: ScoredCandidate[]): ScoredCandidate[] {
-  const inScope = candidates.filter((candidate) => candidate.inScope);
-  return inScope.length > 0 ? inScope : candidates;
+  return [...candidates].sort((left, right) => Number(right.inScope) - Number(left.inScope));
+}
+
+/** The plainly different words, as long as there are enough to fill the round. */
+function preferDistinct(candidates: ScoredCandidate[], count: number): ScoredCandidate[] {
+  const distinct = candidates.filter((candidate) => candidate.band === 'I');
+  return distinct.length >= count ? distinct : candidates;
 }
 
 /**

@@ -17,8 +17,6 @@ export function TypingOptionsSubsection() {
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     setTypingMobileKeyboardAutoFocus,
-    typingPlayAudioAfterCheck,
-    setTypingPlayAudioAfterCheck,
   } = useAppStateContext();
 
   return (
@@ -40,14 +38,6 @@ export function TypingOptionsSubsection() {
           checked={typingMobileKeyboardAutoFocus}
           onChange={setTypingMobileKeyboardAutoFocus}
           ariaLabel={t('settings.typingMobileKeyboardAutoFocus')}
-        />
-      </div>
-      <div className="flex items-center justify-between gap-3 py-0.5">
-        <span className="text-xs text-text">{t('settings.typingPlayAudioAfterCheck')}</span>
-        <ToggleSwitch
-          checked={typingPlayAudioAfterCheck}
-          onChange={setTypingPlayAudioAfterCheck}
-          ariaLabel={t('settings.typingPlayAudioAfterCheck')}
         />
       </div>
     </div>

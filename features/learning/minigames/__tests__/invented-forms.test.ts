@@ -9,14 +9,24 @@ import { similarityBandForTerms } from '../similarity';
 const czech = scriptAlphabet(['fér', 'můj', 'věc', 'hůl', 'čaj', 'zítra', 'dům']);
 const vietnamese = scriptAlphabet(['phở', 'mẹ', 'cảm ơn', 'người', 'nước', 'bàn']);
 
-const invent = (term: string, alphabet: ReadonlySet<string>, limit = 4) =>
+const invent = (
+  term: string,
+  alphabet: ReadonlySet<string>,
+  limit = 4,
+  band: 'I' | 'II' | 'III' = 'III',
+) =>
   inventLookalikeForms({
     term,
     alphabet,
     isTaken: () => false,
     limit,
     random: () => 0,
+    band,
   });
+
+/** The word with every accent removed — what band III must leave untouched. */
+const bareLetters = (value: string) =>
+  value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
 
 describe('inventLookalikeForms', () => {
   it('keeps every invented spelling within the hardest similarity band', () => {
@@ -103,4 +113,43 @@ describe('inventLookalikeForms', () => {
     expect(forms.every((form) => similarityBandForTerms(form, 'můj') === 'III')).toBe(true);
   });
 
+  it('bends only accents for band III while the script writes them', () => {
+    // "tôi" against "toi" / "tới": the letters are the same all the way down,
+    // and only the mark above the vowel tells the options apart.
+    for (const form of invent('tôi', vietnamese, 2, 'III')) {
+      expect(bareLetters(form)).toBe('toi');
+      expect(form).not.toBe('tôi');
+    }
+  });
+
+  it('swaps a letter for band II rather than repeating band III', () => {
+    // "tôi" against "tol" / "vôi": the same shape of word, one letter changed.
+    // An accent swap would make II indistinguishable from III.
+    const forms = invent('tôi', vietnamese, 4, 'II');
+    expect(forms.length).toBeGreaterThan(0);
+    for (const form of forms) {
+      expect(bareLetters(form)).not.toBe('toi');
+      expect(similarityBandForTerms(form, 'tôi')).toBe('III');
+    }
+  });
+
+  it('keeps band II pronounceable by swapping like for like', () => {
+    // "tôi" gives "nôi", "bôi", "tâi" — never "tni". A vowel is traded for a
+    // vowel and a consonant for a consonant, so the invented option still reads
+    // as a word the language could have written.
+    const shape = (value: string) =>
+      [...bareLetters(value)].map((letter) => ('aeiouy'.includes(letter) ? 'v' : 'c')).join('');
+    const forms = invent('tôi', vietnamese, 6, 'II');
+    expect(forms.length).toBe(6);
+    for (const form of forms) {
+      expect(shape(form)).toBe(shape('tôi'));
+    }
+  });
+
+  it('falls back to lookalike letters for band III in a script without accents', () => {
+    // Nothing here carries an accent, so the finest difference the language
+    // offers is a letter of the same shape — p against b.
+    const plain = scriptAlphabet(['pes', 'kolo', 'stul']);
+    expect(invent('pes', plain, 1, 'III')).toEqual(['bes']);
+  });
 });

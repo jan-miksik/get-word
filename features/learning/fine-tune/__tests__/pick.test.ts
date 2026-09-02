@@ -4,6 +4,10 @@ import { DEFAULT_FINE_TUNE_CONFIG, normalizeFineTuneConfig } from '../config';
 import { pickExerciseForWord, pickMatchRound } from '../pick';
 import type { ChoiceVariant, FineTuneConfig, StageConfig } from '../types';
 import { bandAtLeast, similarityBandForTerms } from '@/features/learning/minigames/similarity';
+import {
+  lettersAreConfusable,
+  lettersAreLookalike,
+} from '@/features/learning/minigames/letter-families';
 
 const word = (id: string, cz: string, vi: string): NormalizedWord => ({
   id, cz, vi, en: '', category: ['word'],
@@ -291,6 +295,36 @@ describe('pickExerciseForWord — assembly', () => {
     });
   });
 
+  it('hands a long sentence to another method instead of assembling it', () => {
+    const pool = [
+      word('a', 'a long one', 'xin chào bạn tôi rất vui gặp bạn'),
+      word('b', 'thank you', 'cảm ơn nhiều'),
+      word('c', 'see you', 'hẹn gặp lại'),
+    ];
+    // Assembly is the only method with any weight, and word tiles are the only
+    // way this eight-word answer could be built — so if the cap did not hold,
+    // the picker would return an assembly round.
+    const config = configWithStage(
+      4,
+      stage({
+        assembly: { weight: 1, variants: ['words:I'] },
+        reveal: { weight: 1, variants: ['foreign'] },
+      }),
+    );
+    for (let knownCount = 1; knownCount <= 12; knownCount += 1) {
+      const exercise = pickExerciseForWord({
+        word: pool[0],
+        stageIndex: 4,
+        knownCount,
+        unknownCount: 0,
+        config,
+        distractorPool: pool,
+        role: 'knownLanguage',
+      });
+      expect(exercise.method).not.toBe('assembly');
+    }
+  });
+
   it('uses word tiles for a phrase and adds noise on the harder variant', () => {
     const pool = [
       word('a', 'good day', 'xin chào bạn'),
@@ -335,7 +369,12 @@ describe('pickExerciseForWord — assembly', () => {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/đ/g, 'd');
-    const correctBases = new Set(['r', 'a', 'c', 'o']);
+    // Both kinds of near-miss count: an accent on one of the answer's own
+    // letters, or a letter of the same shape (r/t, p/b, …).
+    const isNearMiss = (part: string) =>
+      ['r', 'a', 'c', 'o'].some(
+        (base) => baseLetter(part) === base || lettersAreLookalike(part, base),
+      );
 
     const confusableCount = (variant: 'letters:II' | 'letters:III') => {
       const exercise = pickExerciseForWord({
@@ -350,7 +389,7 @@ describe('pickExerciseForWord — assembly', () => {
       expect(exercise.method).toBe('assembly');
       if (exercise.method !== 'assembly') return { similar: 0, total: 0, band: 'I' as const };
       return {
-        similar: exercise.distractorParts.filter((part) => correctBases.has(baseLetter(part))).length,
+        similar: exercise.distractorParts.filter(isNearMiss).length,
         total: exercise.distractorParts.length,
         band: exercise.effectiveBand,
       };
@@ -359,6 +398,61 @@ describe('pickExerciseForWord — assembly', () => {
     // II stays a lighter board than III: fewer tiles, all of them confusable.
     expect(confusableCount('letters:II')).toEqual({ similar: 2, total: 2, band: 'II' });
     expect(confusableCount('letters:III')).toEqual({ similar: 5, total: 5, band: 'III' });
+  });
+
+  it('keeps band III letter tiles to accents where the script writes them', () => {
+    // Vietnamese accents the letters in "bàn", so its hardest assembly round has
+    // something finer to offer than a lookalike: tiles that are the same letter
+    // wearing a different mark.
+    const pool = [
+      word('a', 'stůl', 'bàn'),
+      word('b', 'ryba', 'cá'),
+      word('c', 'ale', 'mà'),
+      word('d', 'obal', 'bả'),
+      word('e', 'plena', 'tã'),
+      word('f', 'jíst', 'ăn'),
+      word('g', 'teplý', 'ấm'),
+      word('h', 'kniha', 'sách'),
+    ];
+    const build = (variant: 'letters:II' | 'letters:III') => {
+      const exercise = pickExerciseForWord({
+        word: pool[0],
+        stageIndex: 3,
+        knownCount: 2,
+        unknownCount: 0,
+        config: configWithStage(3, stage({ assembly: { weight: 1, variants: [variant] } })),
+        distractorPool: pool,
+        role: 'knownLanguage',
+      });
+      if (exercise.method !== 'assembly') throw new Error('expected assembly');
+      return exercise;
+    };
+
+    const hardest = build('letters:III');
+    expect(hardest.effectiveBand).toBe('III');
+    expect(hardest.distractorParts.length).toBeGreaterThan(0);
+    // The accented vowel is where the round is won, so its family has to be on
+    // the board. "b" and "n" carry no Vietnamese accent, so they contribute the
+    // shape decoy instead — the finest difference available for those letters.
+    expect(hardest.distractorParts.some((part) => lettersAreConfusable(part, 'à'))).toBe(true);
+    for (const part of hardest.distractorParts) {
+      expect(
+        hardest.answerParts.some(
+          (answer) => lettersAreConfusable(part, answer) || lettersAreLookalike(part, answer),
+        ),
+      ).toBe(true);
+    }
+
+    // Band II is the looser step below it: a letter of the same shape counts too.
+    const easier = build('letters:II');
+    expect(easier.effectiveBand).toBe('II');
+    for (const part of easier.distractorParts) {
+      expect(
+        easier.answerParts.some(
+          (answer) => lettersAreConfusable(part, answer) || lettersAreLookalike(part, answer),
+        ),
+      ).toBe(true);
+    }
   });
 
   it('uses another method rather than lowering an assembly variant below its band', () => {
@@ -492,6 +586,53 @@ describe('pickExerciseForWord — invented lookalikes', () => {
     expect(bandTwo.effectiveBand).toBe('II');
     expect(inventedIn(bandTwo).length).toBeGreaterThan(0);
     expect(inventedIn(chooseWith('5:I:foreign', vietnamesePool()))).toHaveLength(0);
+  });
+
+  it('reaches for real near-twins before inventing any', () => {
+    // The list already holds three words a learner could mistake for "bàn";
+    // fabricating a fourth would push genuine vocabulary off the board.
+    const pool = [
+      word('a', 'stůl', 'bàn'),
+      word('b', 'prodat', 'bán'),
+      word('c', 'kamarád', 'bạn'),
+      word('d', 'vydání', 'ban'),
+      ...vietnamesePool().slice(1),
+    ];
+    const exercise = chooseWith('4:III:foreign', pool);
+    expect(exercise.effectiveBand).toBe('III');
+    expect(inventedIn(exercise)).toHaveLength(0);
+  });
+
+  it('uses out-of-scope real near-twins before invented forms', () => {
+    const pool = [
+      { ...word('a', 'stůl', 'bàn'), category: ['word', 'home'] },
+      { ...word('b', 'lavice', 'bán'), category: ['word', 'home'] },
+      { ...word('c', 'vydání', 'ban'), category: ['word', 'publishing'] },
+      ...vietnamesePool().slice(1),
+    ];
+    const exercise = chooseWith('4:III:foreign', pool);
+
+    expect(exercise.effectiveBand).toBe('III');
+    expect(exercise.distractors.map((entry) => entry.id)).toEqual(
+      expect.arrayContaining(['b', 'c']),
+    );
+    expect(inventedIn(exercise)).toHaveLength(1);
+  });
+
+  it('keeps near-twins out of a band I round', () => {
+    // Band I is the easy end of the ladder: the options are meant to be told
+    // apart at a glance, so the twins sitting in the same list must not be the
+    // ones drawn.
+    const pool = [
+      word('a', 'stůl', 'bàn'),
+      word('b', 'prodat', 'bán'),
+      word('c', 'kamarád', 'bạn'),
+      ...vietnamesePool().slice(1),
+    ];
+    const exercise = chooseWith('4:I:foreign', pool);
+    for (const entry of exercise.distractors) {
+      expect(similarityBandForTerms(entry.vi, 'bàn')).toBe('I');
+    }
   });
 
   it('never invents a spelling that is a word in the list', () => {

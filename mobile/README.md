@@ -128,6 +128,11 @@ git status --short
 Capacitor copies it into the iOS project. Review any newly reported working-tree
 change before continuing.
 
+`pnpm run check` starts with `check:store-icon`, which fails when a staging
+(DEV) app icon from `pnpm run mobile:staging` is still in the working tree.
+A release must never carry it. If the check fails, run
+`pnpm run mobile:staging restore` and start this step again.
+
 ### 4. Create and inspect the Release archive
 
 Use a fresh path for every attempt. The example below uses build 17; replace it

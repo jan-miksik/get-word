@@ -51,26 +51,30 @@ describe('toProgressSegments', () => {
     ]);
   });
 
-  it('draws several blocks of one kind as one segment, at the place of the first', () => {
+  // The ordinary day: repeats, new ground, then the check on that new ground.
+  // The closing check must stay where it is walked — at the end — instead of
+  // being folded back into the opening repeats, which drew the day as a rail
+  // that finished on new words.
+  it('keeps a later stretch of the same kind as its own segment', () => {
     const segments = toProgressSegments(
       [block('r1', 'review', 6), block('n1', 'new', 5), block('r2', 'review', 4)],
       0,
     );
     expect(segments.map((segment) => [segment.kind, segment.total])).toEqual([
-      ['review', 10],
+      ['review', 6],
       ['new', 5],
+      ['review', 4],
     ]);
-    expect(segments[0].blockKeys).toEqual(['r1', 'r2']);
-    expect(segments[1].blockKeys).toEqual(['n1']);
+    expect(segments.map((segment) => segment.blockKeys)).toEqual([['r1'], ['n1'], ['r2']]);
   });
 
-  it('sums the progress of the merged blocks and keeps the day total honest', () => {
+  it('sums the progress of neighbouring blocks and keeps the day total honest', () => {
     const blocks = [
       block('r1', 'review', 6, 6),
-      block('n1', 'new', 5, 2, 1),
       block('r2', 'review', 4, 1),
+      block('n1', 'new', 5, 2, 1),
     ];
-    const segments = toProgressSegments(blocks, 1);
+    const segments = toProgressSegments(blocks, 2);
     expect(segments[0]).toMatchObject({ kind: 'review', total: 10, done: 7, pending: 0 });
     expect(segmentFillPercent(segments[0])).toBe(70);
     expect(segmentFillPercent(segments[1])).toBe(60);
@@ -79,12 +83,17 @@ describe('toProgressSegments', () => {
     expect(segments.reduce((sum, segment) => sum + segment.total, 0)).toBe(dayTotal);
   });
 
-  it('marks the merged segment active while any of its blocks is current', () => {
+  it('marks the segment holding the current block active', () => {
     const blocks = [block('r1', 'review', 6, 6), block('n1', 'new', 5), block('r2', 'review', 4)];
-    expect(toProgressSegments(blocks, 2).map((segment) => segment.active)).toEqual([true, false]);
-    expect(toProgressSegments(blocks, 1).map((segment) => segment.active)).toEqual([false, true]);
+    expect(toProgressSegments(blocks, 2).map((segment) => segment.active)).toEqual([false, false, true]);
+    expect(toProgressSegments(blocks, 1).map((segment) => segment.active)).toEqual([false, true, false]);
     // No current block (the day is done) leaves every segment unhighlighted.
-    expect(toProgressSegments(blocks, -1).map((segment) => segment.active)).toEqual([false, false]);
+    expect(toProgressSegments(blocks, -1).map((segment) => segment.active)).toEqual([false, false, false]);
+  });
+
+  it('marks a merged segment active while any of its neighbouring blocks is current', () => {
+    const blocks = [block('r1', 'review', 6, 6), block('r2', 'review', 4), block('n1', 'new', 5)];
+    expect(toProgressSegments(blocks, 1).map((segment) => segment.active)).toEqual([true, false]);
   });
 
   it('is a pure view: it never reorders or rewrites the plan it is given', () => {
@@ -153,10 +162,10 @@ describe('toProgressSegments', () => {
     const segments = toProgressSegments(
       [
         { key: 'r1', kind: 'review', total: 6, done: 4, pending: 0, liveRemaining: 0, unavailable: 2 },
-        { key: 'n1', kind: 'new', total: 5, done: 0, pending: 0, liveRemaining: 5, unavailable: 0 },
         { key: 'r2', kind: 'review', total: 4, done: 0, pending: 0, liveRemaining: 3, unavailable: 1 },
+        { key: 'n1', kind: 'new', total: 5, done: 0, pending: 0, liveRemaining: 5, unavailable: 0 },
       ],
-      1,
+      2,
     );
     // The day total stays honest about what was planned…
     expect(segments[0].total).toBe(10);

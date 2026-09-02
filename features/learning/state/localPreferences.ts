@@ -11,7 +11,6 @@ export const LEARNING_LOCAL_PREFERENCE_KEYS = {
   typingMode: 'get-word-typing-mode-enabled',
   typingPrefillPunctuation: 'get-word-typing-prefill-punctuation',
   typingMobileKeyboardAutoFocus: 'get-word-typing-mobile-keyboard-autofocus',
-  typingPlayAudioAfterCheck: 'get-word-typing-play-audio-after-check',
   typingCheckButton: 'get-word-typing-check-button-enabled',
 } as const;
 
@@ -54,9 +53,6 @@ export const readTypingPrefillPunctuationPreference = () =>
 
 export const readTypingMobileKeyboardAutoFocusPreference = () =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.typingMobileKeyboardAutoFocus) === 'true';
-
-export const readTypingPlayAudioAfterCheckPreference = () =>
-  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.typingPlayAudioAfterCheck) === 'true';
 
 export const readTypingCheckButtonPreference = () =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.typingCheckButton) === 'true';

@@ -8,6 +8,7 @@ import type { SchoolMembership } from '@/features/auth/client/useAuth';
 import { PWAInstallMenuItem } from '@/components/PWAInstallMenuItem';
 import { useI18n } from '@/components/I18nProvider';
 import { SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
+import { FACEBOOK_URL } from '@/lib/social-links';
 import {
   CategoryIcon,
   MenuIcon,
@@ -129,6 +130,14 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+    </svg>
+  );
+}
+
+function FacebookIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.5-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.45 2.91h-2.33V22c4.78-.76 8.44-4.92 8.44-9.94Z" />
     </svg>
   );
 }
@@ -703,6 +712,13 @@ function MenuDropdown({
       icon: <TelegramIcon size={15} />,
       label: t('support.chat'),
       href: SUPPORT_TELEGRAM_URL,
+      external: true,
+    },
+    {
+      kind: 'link',
+      icon: <FacebookIcon size={15} />,
+      label: t('social.facebook'),
+      href: FACEBOOK_URL,
       external: true,
     },
     {

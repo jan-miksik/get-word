@@ -50,7 +50,6 @@ import {
   readTiltGamePreference,
   readTypingCheckButtonPreference,
   readTypingMobileKeyboardAutoFocusPreference,
-  readTypingPlayAudioAfterCheckPreference,
   readTypingPrefillPunctuationPreference,
   storeLearningLocalPreference,
   type RevealMode,
@@ -165,9 +164,6 @@ export function usePreferences(
   const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(
     readTypingMobileKeyboardAutoFocusPreference
   );
-  const [typingPlayAudioAfterCheck, setTypingPlayAudioAfterCheck] = useState(
-    readTypingPlayAudioAfterCheckPreference
-  );
   const [typingCheckButtonEnabled, setTypingCheckButtonEnabled] = useState(
     readTypingCheckButtonPreference
   );
@@ -263,13 +259,6 @@ export function usePreferences(
       typingMobileKeyboardAutoFocus,
     );
   }, [typingMobileKeyboardAutoFocus]);
-
-  useEffect(() => {
-    storeLearningLocalPreference(
-      LEARNING_LOCAL_PREFERENCE_KEYS.typingPlayAudioAfterCheck,
-      typingPlayAudioAfterCheck,
-    );
-  }, [typingPlayAudioAfterCheck]);
 
   useEffect(() => {
     storeLearningLocalPreference(
@@ -808,8 +797,6 @@ export function usePreferences(
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     setTypingMobileKeyboardAutoFocus,
-    typingPlayAudioAfterCheck,
-    setTypingPlayAudioAfterCheck,
     typingCheckButtonEnabled,
     setTypingCheckButtonEnabled,
     memoryHooksEnabled,

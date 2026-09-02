@@ -126,7 +126,6 @@ describe('SessionDoneCard closing the day', () => {
 
     expect(screen.getByText('20 new words')).toBeInTheDocument();
     expect(screen.queryByText('3 new words')).not.toBeInTheDocument();
-    expect(screen.getByText('+17 over goal')).toBeInTheDocument();
   });
 
   it('does not claim a surplus on a day that only met its goal', () => {
@@ -158,6 +157,66 @@ describe('SessionDoneCard closing the day', () => {
     expect(screen.getByText('7 new words')).toBeInTheDocument();
     expect(screen.queryByText(/reviewed/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/over goal/i)).not.toBeInTheDocument();
+  });
+
+  it('leaves the reinforcement pass to the seam it happened at', () => {
+    // Seven new words, each checked once more minutes later. The breather at
+    // that seam names the second pass; here it would be a third figure
+    // belonging to neither of the other two and to nothing the goal measures,
+    // sitting directly above the line comparing the day against that goal.
+    const flow = resolveSessionFlow([
+      {
+        key: 'new-0', kind: 'new', done: 7, total: 7, pending: 0,
+        liveRemaining: 0, unavailable: 0,
+      },
+      {
+        key: 'review-1', kind: 'review', done: 7, total: 7, pending: 0,
+        liveRemaining: 0, unavailable: 0, reinforcement: true,
+      },
+    ]);
+
+    renderCard({
+      dayFlow: flow,
+      dayScore: { introduced: 7, reviewed: 0, target: 7, met: true },
+    });
+
+    expect(screen.queryByText(/checked right away/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Today's goal: 7 · counted: 7")).toBeInTheDocument();
+  });
+
+  it('counts an extra round straight away instead of waiting for the rollup', () => {
+    // The bonus round is thrown away the moment it settles, and the server's
+    // whole-day figure counts distinct words — so ten more repeats of words
+    // already answered today move it by nothing. Counted here, they show up.
+    renderCard({
+      dayFlow: closedDay(),
+      dayScore: { introduced: 3, reviewed: 9, target: 12 },
+      extra: { reviewed: 10, fresh: 0 },
+    });
+
+    expect(screen.getByText('19 words and phrases reviewed')).toBeInTheDocument();
+    expect(screen.getByText('+10 over goal')).toBeInTheDocument();
+    expect(screen.getByText("Today's goal: 12 · counted: 22")).toBeInTheDocument();
+  });
+
+  it('claims no surplus for a day that was only walked as planned', () => {
+    // The targets froze at the day's first answer while the reviewed figure is
+    // the server's count of the whole day, so the two can drift apart with
+    // nobody having done anything extra. A badge congratulating the learner
+    // for that drift has nothing behind it.
+    renderCard({
+      dayFlow: closedDay(),
+      dayScore: { introduced: 20, reviewed: 9, target: 12 },
+    });
+
+    expect(screen.queryByText(/over goal/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Today's goal: 12 · counted: 29")).toBeInTheDocument();
+  });
+
+  it('leaves a minutes day without a word tally it has no target for', () => {
+    renderCard({ dayFlow: closedDay(), dayScore: { introduced: 3, reviewed: 9, target: null } });
+
+    expect(screen.queryByText(/today's goal:/i)).not.toBeInTheDocument();
   });
 
   it('includes the final queued answer immediately when the day closes', () => {
@@ -196,7 +255,6 @@ describe('SessionDoneCard closing the day', () => {
     expect(screen.queryByText(/daily goal is 12 short/i)).not.toBeInTheDocument();
     expect(screen.getByText('20 words and phrases reviewed')).toBeInTheDocument();
     expect(screen.getByText('13 new words')).toBeInTheDocument();
-    expect(screen.getByText('+13 over goal')).toBeInTheDocument();
   });
 
   it('offers the new words the day never reached instead of pointing at tomorrow', () => {

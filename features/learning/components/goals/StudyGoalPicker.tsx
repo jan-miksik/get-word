@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { OnboardingActionSpinner } from '@/features/learning/onboarding/OnboardingScreen';
 import { resolveGoalTargets } from '@/packages/domain/goals/calibration';
 import {
   MAX_NEW_WORD_GOAL,
@@ -22,6 +23,29 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const RING_ARC_LENGTH = RING_CIRCUMFERENCE * (ARC_DEGREES / 360);
 const DEFAULT_WEEKDAYS: GoalWeekday[] = defaultGoalWeekdays(7);
 const ALL_WEEKDAYS: GoalWeekday[] = defaultGoalWeekdays(7);
+
+/**
+ * The goal screen's vertical rhythm, in two rungs of window height.
+ *
+ * This step carries the tallest control in the flow — a dial, a week, an
+ * estimate and Save — and on a phone the whole thing has to be reachable
+ * without scrolling: a Save button below the fold reads as a screen with
+ * nothing to press. The rungs are a tall phone (iPhone 14 and friends, ~845)
+ * and a short one (iPhone SE, 667); above them nothing changes.
+ *
+ * Both rungs are written as closed ranges so the shorter one cannot be
+ * out-ordered by the taller one — two open-ended `max-height` variants of the
+ * same property both match on a small phone, and which of them wins would be
+ * Tailwind's sort order rather than ours.
+ */
+const DIAL_SIZE_TIERS =
+  '[@media(min-height:721px)_and_(max-height:900px)]:max-w-[min(17rem,30vh)] [@media(max-height:720px)]:max-w-[min(17rem,28vh)]';
+const DIAL_GAP_TIERS =
+  '[@media(min-height:721px)_and_(max-height:900px)]:mt-2 [@media(max-height:720px)]:mt-1';
+const COLUMN_GAP_TIERS =
+  '[@media(min-height:721px)_and_(max-height:900px)]:gap-4 [@media(max-height:720px)]:gap-3';
+const BLOCK_GAP_TIERS =
+  '[@media(min-height:721px)_and_(max-height:900px)]:mt-4 [@media(max-height:720px)]:mt-3';
 
 export type GoalPickerValue = {
   mode: GoalMode;
@@ -132,7 +156,7 @@ function CircularGoalDial({
         onPointerMove={(event) => {
           if (event.currentTarget.hasPointerCapture(event.pointerId)) updateFromPointer(event);
         }}
-        className="relative mt-3 aspect-square w-full max-w-[min(17rem,34vh)] touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] sm:max-w-[min(19rem,38vh)]"
+        className={`relative mt-3 aspect-square w-full max-w-[min(17rem,34vh)] touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] sm:max-w-[min(19rem,38vh)] ${DIAL_SIZE_TIERS} ${DIAL_GAP_TIERS}`}
       >
         <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
           {/* The outline is the same arc drawn wider underneath, so the track
@@ -243,6 +267,7 @@ export function StudyGoalPicker({
   pending = false,
   framed = false,
   submitLabel,
+  pendingLabel,
 }: {
   pacing: StudyPacing;
   initial?: Partial<GoalPickerValue>;
@@ -254,6 +279,8 @@ export function StudyGoalPicker({
    */
   framed?: boolean;
   submitLabel?: string;
+  /** Shown in place of the submit label while the goal is being written. */
+  pendingLabel?: string;
 }) {
   const { t } = useI18n();
   // Time goals remain supported in storage and sessions, but setup/editing is
@@ -350,7 +377,7 @@ export function StudyGoalPicker({
         framed ? 'onboarding-card max-w-2xl p-4 sm:p-7' : '',
       ].join(' ')}
     >
-      <div className="grid gap-6 @2xl:grid-cols-[17rem_minmax(0,1fr)] @2xl:items-stretch @2xl:gap-8">
+      <div className={`grid gap-6 @2xl:grid-cols-[17rem_minmax(0,1fr)] @2xl:items-stretch @2xl:gap-8 ${COLUMN_GAP_TIERS}`}>
         <CircularGoalDial
           label={t('goal.newWordsPerDay')}
           unit={t('goal.wordsUnit')}
@@ -383,7 +410,7 @@ export function StudyGoalPicker({
                 {t('goal.everyDay')}
               </button>
             </div>
-            <div className="mt-3 grid grid-cols-7 gap-1.5">
+            <div className="mt-3 grid grid-cols-7 gap-1.5 [@media(max-height:720px)]:mt-2">
               {weekdayLabels.map((label, index) => {
                 const day = (index + 1) as GoalWeekday;
                 const selected = weekdays.includes(day);
@@ -406,12 +433,15 @@ export function StudyGoalPicker({
                 );
               })}
             </div>
-            <p className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-ink-soft,var(--ink-soft))]">
+            {/* The seven buttons already say how many days are on. On a screen
+                too short for the whole goal this line is the first thing that
+                can go without taking any information with it. */}
+            <p className="mb-0 mt-2 text-xs font-bold text-[color:var(--ob-ink-soft,var(--ink-soft))] [@media(max-height:720px)]:hidden">
               {t('goal.daysSelected', { count: weekdays.length })}
             </p>
           </fieldset>
 
-          <p className="mb-0 mt-6 text-sm font-semibold leading-relaxed text-[color:var(--ob-ink-soft,var(--ink-soft))]">
+          <p className={`mb-0 mt-6 text-sm font-semibold leading-relaxed text-[color:var(--ob-ink-soft,var(--ink-soft))] ${BLOCK_GAP_TIERS} [@media(max-height:720px)]:text-xs [@media(max-height:720px)]:leading-snug`}>
             {`${t('goal.estimateWords', {
               fresh: newWordsPerDay,
               review: estimate.desiredReviewTarget,
@@ -430,9 +460,19 @@ export function StudyGoalPicker({
               minutesPerDay,
               newWordsPerDay,
             })}
-            className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] active:translate-y-0 disabled:cursor-wait disabled:opacity-50"
+            className={`onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold ${BLOCK_GAP_TIERS} transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] active:translate-y-0 disabled:cursor-wait disabled:opacity-50`}
           >
-            {submitLabel ?? t('settings.studyGoalSave')}
+            {/* Writing the goal is a round trip, and the button used to do
+                nothing visible for the length of it. The spinner rides in the
+                button's own colour so the slab does not change shape. */}
+            {pending ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <OnboardingActionSpinner />
+                <span>{pendingLabel ?? t('goal.setupSubmitPending')}</span>
+              </span>
+            ) : (
+              submitLabel ?? t('settings.studyGoalSave')
+            )}
           </button>
         </div>
       </div>

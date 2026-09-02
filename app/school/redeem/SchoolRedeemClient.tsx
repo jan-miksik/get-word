@@ -185,7 +185,7 @@ function SchoolRedeemContent() {
               </p>
               <button
                 type="button"
-                className="mt-5 rounded-xl bg-sea px-4 py-2 text-sm font-semibold text-white"
+                className="mt-5 rounded-xl border-2 border-ink bg-sea px-4 py-2 text-sm font-semibold text-white"
                 // Both roles land in the app itself. A student has nothing to
                 // edit, and a teacher who wants the list editor can reach it
                 // from the menu — arriving in an editor makes the product look
@@ -202,7 +202,7 @@ function SchoolRedeemContent() {
               <p className="mt-3 text-sm text-ink-soft">{t('school.signInBody')}</p>
               <button
                 type="button"
-                className="mt-5 rounded-xl bg-sea px-4 py-2 text-sm font-semibold text-white"
+                className="mt-5 rounded-xl border-2 border-ink bg-sea px-4 py-2 text-sm font-semibold text-white"
                 onClick={() =>
                   router.push(`/login?next=${encodeURIComponent('/school/redeem')}`)
                 }

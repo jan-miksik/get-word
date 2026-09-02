@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 
 const MINUTE_STEPS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
@@ -122,6 +122,13 @@ export function StudyTimeField({
   const coarsePointer = useCoarsePointer();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  // How far the popover has to slide sideways to stay on screen. It is anchored
+  // to the field's left edge, and the field is not always near the left of the
+  // window — in the settings panel it is a 8rem control in a narrow column, and
+  // the 20rem panel it opens would otherwise run off the right edge and be
+  // clipped by the panel's own `overflow`.
+  const [shiftX, setShiftX] = useState(0);
   const hours = Math.floor(value / 60);
   const minutes = value % 60;
   // A stored time need not sit on a five-minute step — an older setting, or one
@@ -131,8 +138,33 @@ export function StudyTimeField({
     [minutes],
   );
 
+  const clampIntoViewport = useCallback(() => {
+    const popover = popoverRef.current;
+    const anchor = containerRef.current;
+    if (!popover || !anchor) return;
+    // Measured from the anchor rather than from the popover's own box, so the
+    // result does not depend on the shift already applied — running this again
+    // on a resize converges instead of drifting.
+    const margin = 8;
+    const left = anchor.getBoundingClientRect().left;
+    const width = popover.offsetWidth;
+    const overflowRight = left + width - (window.innerWidth - margin);
+    const shift = overflowRight > 0 ? -overflowRight : 0;
+    setShiftX(left + shift < margin ? margin - left : shift);
+  }, []);
+
+  /**
+   * Measured as the popover mounts rather than in an effect, so the panel is
+   * already in place on its first paint instead of jumping sideways after it.
+   */
+  const attachPopover = useCallback((node: HTMLDivElement | null) => {
+    popoverRef.current = node;
+    if (node) clampIntoViewport();
+  }, [clampIntoViewport]);
+
   useEffect(() => {
     if (!open) return;
+    window.addEventListener('resize', clampIntoViewport);
     const onPointerDown = (event: PointerEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -142,10 +174,11 @@ export function StudyTimeField({
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
     return () => {
+      window.removeEventListener('resize', clampIntoViewport);
       document.removeEventListener('pointerdown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [open]);
+  }, [clampIntoViewport, open]);
 
   if (coarsePointer) {
     return (
@@ -178,8 +211,10 @@ export function StudyTimeField({
       </button>
       {open ? (
         <div
+          ref={attachPopover}
           role="dialog"
           aria-label={label}
+          style={shiftX ? { transform: `translateX(${shiftX}px)` } : undefined}
           className="absolute left-0 top-full z-30 mt-2 flex w-[min(20rem,90vw)] gap-2 rounded-2xl border-2 border-[color:var(--ob-ink,var(--text))] bg-[color:var(--ob-surface,var(--bg))] p-3"
         >
           <Column

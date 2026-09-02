@@ -122,9 +122,26 @@ function DayRail({ blocks, activeIndex }: { blocks: readonly SessionBlockProgres
   );
 }
 
-export function SessionRail({ flow }: { flow: SessionFlowState }) {
+export function SessionRail({
+  flow,
+  heldBlock = null,
+}: {
+  flow: SessionFlowState;
+  /**
+   * The stretch that has just ended, while the learner is still standing at
+   * the seam.
+   *
+   * The flow moves to the next block on the answer that finishes the current
+   * one, which is correct for the day rail and wrong for this one: the left
+   * rail was emptied and re-labelled for the repeats *behind* the breather,
+   * so the last new word of the stretch filled nothing and the stretch was
+   * never seen complete. Holding the finished block here lets it fill to the
+   * top and stay there until the learner steps over the seam.
+   */
+  heldBlock?: SessionBlockProgress | null;
+}) {
   const { t } = useI18n();
-  const { block } = flow;
+  const block = heldBlock ?? flow.block;
   if (flow.dayTotal === 0) return null;
   // Nothing left to pace once the day's plan is walked. A full rail standing
   // beside the closing card is a progress bar for work that no longer exists,

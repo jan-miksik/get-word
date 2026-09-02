@@ -34,6 +34,20 @@ const WRONG_SHOCKWAVE = 95;
 const SHARD_COUNT = 7;
 /** Breathing room between the simulated field and the card's real edges, px. */
 const FIELD_INSET = 6;
+/** Touch devices trade imperceptible sub-pixel updates for substantially less work. */
+const TOUCH_FRAME_MS = 1000 / 30;
+/**
+ * Slack on that budget, ms.
+ *
+ * Without it the throttle sits exactly on a frame boundary — two frames of a
+ * 60 Hz display, four of a 120 Hz one, are 33.33 ms, the budget to the last
+ * decimal. Timestamp jitter then decides per frame whether the field steps now
+ * or one whole frame later, so the cadence flickers between 33 and 50 ms and
+ * the drift reads as a vibration. A slack of a few ms is shorter than any
+ * display's frame, so it can only ever pull the decision off the boundary and
+ * lock the loop onto a steady every-Nth-frame beat.
+ */
+const FRAME_SLACK_MS = 4;
 
 /** Per-bubble breathing clock, so the field never pulses in unison. */
 function breatheStyle(id: string): CSSProperties {
@@ -66,10 +80,19 @@ function prefersReducedMotion(): boolean {
   );
 }
 
+function isCoarsePointer(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(any-pointer: coarse)').matches
+  );
+}
+
 export function BubbleChoiceGame({
   words,
   role,
   soundEnabled = false,
+  isActive = true,
   topControls,
   onScore,
   onReviewOutcome,
@@ -90,6 +113,8 @@ export function BubbleChoiceGame({
    * bubble speaks its word exactly when the learner has asked it to.
    */
   soundEnabled?: boolean;
+  /** Off-screen virtualized rounds stay mounted, but must not keep running physics. */
+  isActive?: boolean;
   /** Card-level controls (the sound toggle) that share the card's top lane. */
   topControls?: ReactNode;
   onScore: (delta: number) => void;
@@ -225,19 +250,29 @@ export function BubbleChoiceGame({
   }, []);
 
   useEffect(() => {
-    if (!placed || reducedMotion.current || typeof requestAnimationFrame === 'undefined') return;
+    if (
+      !placed ||
+      !isActive ||
+      complete ||
+      reducedMotion.current ||
+      typeof requestAnimationFrame === 'undefined'
+    ) return;
     let frame = 0;
     let last = performance.now();
+    const minimumFrameMs = isCoarsePointer() ? TOUCH_FRAME_MS - FRAME_SLACK_MS : 0;
     const tick = (now: number) => {
-      const seconds = (now - last) / 1000;
+      const elapsed = now - last;
+      frame = requestAnimationFrame(tick);
+      if (elapsed < minimumFrameMs) return;
+
+      const seconds = elapsed / 1000;
       last = now;
       stepBubbleField(bodies.current, fieldSize.current, seconds, random.current!);
       writeTransforms();
-      frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [placed, writeTransforms]);
+  }, [complete, isActive, placed, writeTransforms]);
 
   // A cleared field has nothing left to say: rather than parking the learner on
   // a "well done" screen, the round hands straight over to the next card once
@@ -308,7 +343,8 @@ export function BubbleChoiceGame({
       <CardTopControls>{topControls}</CardTopControls>
       <div
         ref={fieldRef}
-        className={`bubble-field relative min-h-0 flex-1 overflow-hidden ${placed ? 'is-placed' : ''}`}
+        data-bubble-field
+        className={`bubble-field relative mt-14 min-h-0 flex-1 overflow-hidden ${placed ? 'is-placed' : ''}`}
       >
         {fieldWords.map((word) => {
           const wrong = wrongId === word.id;

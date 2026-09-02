@@ -675,6 +675,15 @@
   }
 }
 
+/* The physics already supplies motion on phones. Avoid promoting and scaling a
+   second composited layer for every bubble while the user is trying to tap it. */
+@media (any-pointer: coarse) {
+  .bubble:not(.bubble-pop):not(.bubble-wrong) {
+    animation: none;
+    will-change: auto;
+  }
+}
+
 @keyframes bubble-breathe {
   0%,
   100% {
@@ -1102,5 +1111,107 @@
   .session-seal-glow {
     animation: none;
     opacity: 0;
+  }
+}
+
+/* The seal's one size knob. `SessionDoneCard` draws it against a fixed 128px
+   box and scales the whole group, so these two must always agree: the scale is
+   the size over 128. */
+.session-close-seal {
+  --seal-size: 96px;
+  --seal-scale: 0.75;
+}
+
+/* The closing card on a phone that is not tall.
+
+   It is the tallest thing the study surface draws — seal, headline, three recap
+   chips, the goal tally, both streaks, the week and up to two offers — and on a
+   667px-high phone it had grown past its slot, so the heading or the buttons
+   were off-screen depending on which end the scroll was at. Nothing is dropped
+   here: every part still shows, at the size a short screen can pay for.
+
+   Height is the right question to ask rather than width, because the card is
+   already narrow — a landscape phone is wide and short, and it wants this too.
+   Below the break the card comes in around 200px shorter, which is what a
+   568px-high screen needs. Taller phones and desktop keep the full design; the
+   only change they see is the surplus badge moving onto the tally line, which
+   is a merge worth having at any height. */
+@media (max-height: 760px) {
+  .session-close-shell {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .session-close-card {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  /* The seal is the first thing to give: it is the one element whose whole job
+     is done in the first second, and it reads at two thirds the size. */
+  .session-close-seal {
+    --seal-size: 66px;
+    --seal-scale: 0.515625;
+  }
+
+  .session-close-headline {
+    margin-top: 0.25rem;
+    font-size: 1.35rem;
+  }
+
+  .session-close-body {
+    margin-top: 0.25rem;
+  }
+
+  /* The chips are long sentences and wrap to a line each whatever happens, so
+     the saving is in their own height rather than in the packing. */
+  .session-close-recap {
+    margin-top: 0.5rem;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+  }
+
+  .session-close-recap li {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .session-close-tally {
+    margin-top: 0.25rem;
+  }
+
+  .session-close-streak {
+    margin-top: 0.625rem;
+  }
+
+  .session-close-streak > div {
+    gap: 0.25rem;
+  }
+
+  /* Every series shape draws itself into a viewBox, so one height scales all of
+     them; `bars` is spans rather than an svg and keeps its own size. */
+  .session-close-streak svg {
+    height: 32px;
+    width: auto;
+  }
+
+  .session-close-actions {
+    margin-top: 0.625rem;
+  }
+
+  .session-close-actions > div {
+    gap: 0.375rem;
+  }
+
+  /* The offers keep their two lines of type and lose only the air around it:
+     these are the targets a thumb has to hit. */
+  .session-close-actions button {
+    min-height: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .session-close-actions button > span:first-child {
+    font-size: 1rem;
   }
 }

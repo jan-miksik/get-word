@@ -1,5 +1,7 @@
 'use client';
 
+import type { Ref } from 'react';
+
 import { useI18n } from '@/components/I18nProvider';
 
 /**
@@ -73,11 +75,16 @@ const SKINS: Record<ContinueButtonVariant, VariantSkin> = {
   // plus a small shrink instead (see `PRESS`).
   slab: {
     base: [
-      'border-ink bg-paper text-ink shadow-none',
+      // The edge is true black and stays black through hover and press: it is
+      // the outline of the control, not one more state to read. Only the fill
+      // moves. Warm ink (`border-ink`) drawn on the study surface's cream
+      // gradient reads as a slightly darker patch of paper rather than as a
+      // line, which is why this one border leaves the warm scale.
+      'border-ink-black bg-paper text-ink shadow-none',
       'hover:bg-sea hover:text-paper',
-      `active:border-sea active:bg-sea active:text-paper ${PRESS}`,
+      `active:bg-sea active:text-paper ${PRESS}`,
     ].join(' '),
-    pressed: `!border-sea !bg-sea !text-paper ${PRESSED}`,
+    pressed: `!bg-sea !text-paper ${PRESSED}`,
   },
   // Dark ink bar — matches the typing card's continue and the minigame overlay,
   // and reads as "advance the session" rather than "another answer".
@@ -129,34 +136,69 @@ export function ContinueButton({
   onClick,
   disabled = false,
   label,
+  hint,
   className = '',
+  showArrow = true,
   forcePressed = false,
+  buttonRef,
 }: {
   variant?: ContinueButtonVariant;
   onClick?: () => void;
   disabled?: boolean;
   /** Defaults to the translated `card.continue`. */
   label?: string;
+  /**
+   * A quiet second line under the label — the typing card's "and then in three
+   * days". It is a promise about the card being left behind, so it belongs on
+   * the control that leaves it rather than somewhere else on the card.
+   */
+  hint?: string;
   /** Layout only — width, margins, position. Never the skin. */
   className?: string;
+  /**
+   * The trailing arrow, on by default. Off for the rare label that is not a
+   * "carry on through the deck" — "Add words" opens a side errand, and the
+   * arrow read as if it were the next card.
+   */
+  showArrow?: boolean;
   /** Dev preview only: freeze the `:active` look so it can be compared. */
   forcePressed?: boolean;
+  /** For cards that move focus here once an answer is in. */
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   const { t } = useI18n();
   const skin = SKINS[variant] ?? SKINS[CONTINUE_BUTTON_DEFAULT_VARIANT];
+  const text = label ?? t('card.continue');
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onClick}
       disabled={disabled}
       data-continue-variant={variant}
-      className={[SHAPE, skin.base, forcePressed && !disabled ? skin.pressed : '', className]
+      className={[
+        SHAPE,
+        // The hint turns the row of children into two stacked lines. The
+        // button's own height, radius and type are untouched — that is the
+        // whole point of this component.
+        hint ? 'flex-col !gap-1' : '',
+        skin.base,
+        forcePressed && !disabled ? skin.pressed : '',
+        className,
+      ]
         .filter(Boolean)
         .join(' ')}
     >
-      <span>{label ?? t('card.continue')}</span>
-      <span aria-hidden="true">→</span>
+      <span className="inline-flex items-center gap-2">
+        <span>{text}</span>
+        {showArrow ? <span aria-hidden="true">→</span> : null}
+      </span>
+      {hint ? (
+        <span className="text-[0.58rem] font-bold normal-case leading-none tracking-[0.06em] opacity-60">
+          {hint}
+        </span>
+      ) : null}
     </button>
   );
 }

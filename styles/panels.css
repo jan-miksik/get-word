@@ -1047,7 +1047,10 @@
      surface the sheets are drawn in: onboarding shares that backdrop now, and
      a different colour under the same motif made the hand-off from the loader
      read as a flash. */
-  background: var(--paper-glow);
+  /* The fixed ground in OnboardingBackdrop owns this colour. The scroll
+     viewport is deliberately transparent because it is raised above the
+     scratch canvas as one iOS-safe stacking context. */
+  background: transparent;
   color: var(--ob-ink);
   /* The onboarding screen renders outside `.app`, and in standalone/PWA mode
      `html, body` are locked to `overflow: hidden` (see tokens.css). Give this
@@ -1097,7 +1100,9 @@
   width: 3.5rem;
 }
 
-@media (max-height: 720px) {
+/* A phone-height window is where a step starts running out of room, so the
+   glyph shrinks a rung before anything a learner has to read or press does. */
+@media (max-height: 900px) {
   .onboarding-step-icon {
     height: 2.5rem;
     width: 2.5rem;
@@ -1280,9 +1285,12 @@
   cursor: pointer;
 }
 
+/* The primary blue slab. Its border is ink, not the fill it sits on: a blue
+   button with a blue border loses its edge against the sheet, and every other
+   control in the flow is drawn with the same 2px ink outline. */
 .onboarding-option-highlight {
   background: var(--ob-accent, var(--sea));
-  border-color: var(--ob-accent, var(--sea));
+  border-color: var(--ob-ink, var(--ink));
   color: var(--ob-surface, var(--paper));
 }
 
@@ -1326,7 +1334,7 @@
 
   .onboarding-option-highlight:hover:not(:disabled) {
     background: var(--ob-accent, var(--sea));
-    border-color: var(--ob-accent, var(--sea));
+    border-color: var(--ob-ink, var(--ink));
     color: var(--ob-surface, var(--paper));
   }
 

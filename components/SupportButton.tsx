@@ -5,9 +5,23 @@ import { useI18n } from '@/components/I18nProvider';
 // Opens a private 1:1 chat with the Get Word support bot on Telegram.
 export const SUPPORT_TELEGRAM_URL = 'https://t.me/get_word_support_bot';
 
-export function SupportButton() {
+/**
+ * Where the button is drawn.
+ *
+ * `floating` is the standing bottom-right chat bubble. `inline` hands the link
+ * back to the layout that asks for it — onboarding puts it in the step header,
+ * because a fixed corner button lands on top of a full-width primary action and
+ * gets hit by a thumb aiming for it.
+ */
+export type SupportButtonVariant = 'floating' | 'inline';
+
+const SHARED_CLASS =
+  'inline-flex items-center justify-center rounded-full border border-accent/40 bg-accent-soft text-accent transition-colors hover:bg-accent hover:text-background';
+
+export function SupportButton({ variant = 'floating' }: { variant?: SupportButtonVariant } = {}) {
   const { t } = useI18n();
   const label = t('support.chat');
+  const floating = variant === 'floating';
 
   return (
     <a
@@ -16,11 +30,14 @@ export function SupportButton() {
       rel="noopener noreferrer"
       aria-label={label}
       title={label}
-      className="fixed z-50 inline-flex h-12 w-12 items-center justify-center rounded-full border border-accent/40 bg-accent-soft text-accent shadow-sm transition-colors hover:bg-accent hover:text-background"
-      style={{
+      className={[
+        SHARED_CLASS,
+        floating ? 'fixed z-50 h-12 w-12 shadow-sm' : 'h-10 w-10 shrink-0',
+      ].join(' ')}
+      style={floating ? {
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
         right: 'calc(env(safe-area-inset-right, 0px) + 1rem)',
-      }}
+      } : undefined}
     >
       {/* Telegram glyph — signals the chat opens in Telegram */}
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

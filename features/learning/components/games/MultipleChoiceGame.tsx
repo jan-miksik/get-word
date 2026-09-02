@@ -20,6 +20,7 @@ import { SuccessMarkSlot } from './SuccessMark';
 import { StudyOptionButton, type StudyOptionSize } from './StudyOptionButton';
 import { StageBadge } from '../StageBadge';
 import { CardTopControls } from '../CardTopControls';
+import { CardAudioButton } from '../card-audio/CardAudioButton';
 import { useCardAudio } from '../card-audio/useCardAudio';
 import type { SimilarityBand } from '@/features/learning/minigames/similarity';
 
@@ -114,6 +115,10 @@ export function MultipleChoiceGame({
     [answerSide, learningSide, optionOrder, questionWord.id, words]
   );
 
+  // The word being learned, which is what the round is about however the
+  // options are written. It is spoken once the answer is out in the open and
+  // stays available under the board for a second listen.
+  const correctAnswerAudioSrcs = getWordAudioSrcsBySide(questionWord, learningSide);
   const answered = selected !== null;
   const selectedOption = options.find((option) => option.id === selected);
   const choiceLayout = getChoiceLayout(options.length);
@@ -123,9 +128,10 @@ export function MultipleChoiceGame({
     if (answered) return;
     const selectedOption = options.find(o => o.id === optionId);
     const isCorrect = selectedOption?.isCorrect ?? false;
-    if (isCorrect && soundEnabled) {
-      void playAuto(selectedOption?.answerAudioSrcs ?? []);
-    }
+    // Always the right answer, never the pick. A wrong guess is precisely the
+    // moment the word being learned is worth hearing, and playing back what the
+    // learner chose would teach them the distractor instead.
+    if (soundEnabled) void playAuto(correctAnswerAudioSrcs);
     setSelected(optionId);
     // One point for a right answer; a wrong one costs nothing. The score
     // counts what the learner got, so it never walks backwards.
@@ -135,6 +141,10 @@ export function MultipleChoiceGame({
 
   const replayPrompt = () => {
     void play(promptAudioSrc);
+  };
+
+  const replayAnswer = () => {
+    void play(correctAnswerAudioSrcs);
   };
 
   return (
@@ -173,7 +183,7 @@ export function MultipleChoiceGame({
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2">
-          <div {...noTranslateProps('game-prompt !p-0 !text-4xl !font-extrabold !leading-none sm:!text-5xl')}>
+          <div {...noTranslateProps('game-prompt !p-0 !text-3xl !font-extrabold !leading-none max-sm:[@media(max-height:700px)]:!text-2xl sm:!text-5xl')}>
             {prompt}
           </div>
         </div>
@@ -182,7 +192,7 @@ export function MultipleChoiceGame({
           option: a plain flex gap put it close enough to the grid that the eye
           ran straight past it. */}
       <div
-        className={`mx-auto mt-4 grid w-full gap-3 sm:mt-8 sm:gap-4 ${choiceGridClasses} ${choiceLayout === 'compact' ? 'max-w-4xl' : 'max-w-3xl'}`}
+        className={`mx-auto mt-3 grid w-full gap-2 sm:mt-8 sm:gap-4 ${choiceGridClasses} ${choiceLayout === 'compact' ? 'max-w-4xl' : 'max-w-3xl'}`}
         data-option-count={options.length}
         data-choice-layout={choiceLayout}
       >
@@ -212,16 +222,19 @@ export function MultipleChoiceGame({
           );
         })}
       </div>
-      {answered && !selectedOption?.isCorrect ? (
-        <div className="game-feedback">
-          {/* The two branches are separate elements so the wrong-answer one can
-              carry the study-text opt-out on a single text node, rather than
-              splitting the line around an inner span. */}
-          <span {...noTranslateProps('game-feedback--wrong')}>{`✗  ${correctAnswer}`}</span>
-        </div>
-      ) : (
-        <div className="min-h-[44px]" aria-hidden="true" />
-      )}
+      {/* One reserved row under the board, so nothing moves when the answer
+          lands. It carries the correct answer after a wrong pick, and — once
+          there is an answer at all — the speaker for a second listen. */}
+      <div className="mt-3 flex min-h-[44px] items-center justify-center gap-3">
+        {answered && !selectedOption?.isCorrect ? (
+          <span className="game-feedback !flex-none !border-0 !bg-transparent !p-0">
+            <span {...noTranslateProps('game-feedback--wrong')}>{`✗  ${correctAnswer}`}</span>
+          </span>
+        ) : null}
+        {answered && correctAnswerAudioSrcs.length > 0 ? (
+          <CardAudioButton onPlay={replayAnswer} />
+        ) : null}
+      </div>
     </article>
   );
 }

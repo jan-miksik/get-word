@@ -479,9 +479,27 @@ export function useLearningPageState({
       return timedStream.block ? [timedStream.block] : [];
     }
     if (session.streamMode !== 'planned' || !session.dailyPlan) {
+      // A pinned or personal word the learner has never met is still a new
+      // word. `priorityWords` leads with the repeats among them and ends with
+      // the unseen ones (see `useWordStream`), so handing the whole bucket to
+      // the opening review block put brand-new words under a rail labelled
+      // "review" — and left them out of the new-word block entirely. This path
+      // runs before the day's plan resolves, so it is the very first thing the
+      // learner sees; `planSession` and the minutes stream both split the same
+      // bucket the same way.
       return [
-        { key: 'review-0', kind: 'review' as const, blockIndex: 0, words: [...priorityWords, ...dueWords] },
-        { key: 'new-0', kind: 'new' as const, blockIndex: 1, words: newWords },
+        {
+          key: 'review-0',
+          kind: 'review' as const,
+          blockIndex: 0,
+          words: [...priorityWords.slice(0, priorityDueCount), ...dueWords],
+        },
+        {
+          key: 'new-0',
+          kind: 'new' as const,
+          blockIndex: 1,
+          words: [...priorityWords.slice(priorityDueCount), ...newWords],
+        },
       ].filter((block) => block.words.length > 0);
     }
     return session.dailyPlan.blocks
@@ -512,7 +530,7 @@ export function useLearningPageState({
           .filter((word): word is NormalizedWord => Boolean(word)),
       }))
       .filter((block) => block.words.length > 0);
-  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, priorityWords, progress, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
+  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, priorityDueCount, priorityWords, progress, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
   const plannedDueWords = session.dailyPlan
     ? dueWords.filter((word) => session.dailyPlan!.dueIds.includes(word.id))
     : dueWords;

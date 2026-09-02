@@ -4,12 +4,12 @@
  * Drawn in the onboarding line weights (2–3px ink) so it sits with the rest of
  * the flow rather than looking like a sticker dropped on it.
  */
-export function StudyGoalIcon() {
+export function StudyGoalIcon({ className = '' }: { className?: string }) {
   return (
     <svg
       aria-hidden
       viewBox="0 0 64 64"
-      className="onboarding-step-icon"
+      className={`onboarding-step-icon ${className}`}
       fill="none"
     >
       <circle

@@ -13,7 +13,7 @@ import { useCallback, useState } from 'react';
  */
 const SKIP_SOUND_KEY = 'get-word-skip-sound';
 
-export function readCardSoundEnabled(): boolean {
+function readCardSoundEnabled(): boolean {
   if (typeof window === 'undefined') return true;
   return localStorage.getItem(SKIP_SOUND_KEY) !== 'true';
 }

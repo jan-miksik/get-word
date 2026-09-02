@@ -37,11 +37,13 @@ import {
 } from '@/features/learning/fine-tune/types';
 import { TypingMemoryHook } from './typing-study/TypingMemoryHook';
 import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
-import { SuccessMark } from './games/SuccessMark';
 import { StageBadge } from './StageBadge';
 import { CardTopControls } from './CardTopControls';
 import { ContinueButton } from './ContinueButton';
 import { useCardAudio } from './card-audio/useCardAudio';
+import { useCardSound } from './card-audio/cardSound';
+import { SoundToggle } from './card-audio/SoundToggle';
+import { TypingFeedback } from './typing-study/TypingFeedback';
 
 import {
   evaluateTypingAnswer,
@@ -60,7 +62,6 @@ interface TypingStudyCardProps {
   variant: TypingVariant;
   audioPromptEnabled: boolean;
   prefillPunctuation: boolean;
-  playAudioAfterCheck?: boolean;
   /** @deprecated Typing answers now always use explicit confirmation. */
   checkButtonEnabled?: boolean;
   /** Fires as soon as the answer is checked, so the score updates immediately. */
@@ -110,7 +111,6 @@ export function TypingStudyCard({
   variant,
   audioPromptEnabled,
   prefillPunctuation,
-  playAudioAfterCheck = false,
   onScore,
   onOutcome,
   onAnswered,
@@ -191,6 +191,11 @@ export function TypingStudyCard({
   const hintTouchActiveRef = useRef(false);
   const compactContinueRef = useRef<HTMLButtonElement>(null);
   const { play, playAuto } = useCardAudio();
+  // The same switch every other card carries, and the only thing standing
+  // between a checked answer and hearing the word said back. There used to be a
+  // second gate for this in Advanced settings; two controls for one sound meant
+  // the visible one on the card could be on and the card still stay silent.
+  const { soundEnabled, toggleSound } = useCardSound();
   const audioPressStartedAtRef = useRef(Number.NEGATIVE_INFINITY);
   const audioTouchActiveRef = useRef(false);
   const isComposingRef = useRef(false);
@@ -407,7 +412,9 @@ export function TypingStudyCard({
     // browsers start closing it before the result layout is painted.
     inputRef.current?.blur();
     setResult(nextResult);
-    if (playAudioAfterCheck) void playAuto(promptAudioSrcs);
+    // Hearing the word the moment it is checked is the point of typing it, so
+    // this is unconditional apart from the card's own mute.
+    if (soundEnabled) void playAuto(promptAudioSrcs);
     // Score and session progress both land the moment the answer is checked;
     // only the SR stage waits for the continue tap.
     if (nextResult.points > 0) onScore?.(nextResult.points);
@@ -703,34 +710,6 @@ export function TypingStudyCard({
   });
   flushWord();
 
-  const resultLabels: Record<TypingResult['presentation'], React.ReactNode> = {
-    exact: <SuccessMark key={word.id} label={t('game.perfect')} />,
-    close: (
-      <>
-        ~ {t('game.close')}{' '}
-        <strong {...noTranslateProps()}>{result?.matchedAnswer ?? correctAnswer}</strong>
-      </>
-    ),
-    typo: (
-      <>
-        ~ {t('game.close')}{' '}
-        <strong {...noTranslateProps()}>{result?.matchedAnswer ?? correctAnswer}</strong>
-      </>
-    ),
-    wrong: (
-      <>
-        ✗ {t('game.correctAnswer')}{' '}
-        <strong {...noTranslateProps()}>{result?.matchedAnswer ?? correctAnswer}</strong>
-      </>
-    ),
-  };
-  const feedbackToneClass =
-    result?.presentation === 'close' || result?.presentation === 'typo'
-      ? '!border-[#C28A24] !bg-[#FFF0BD] !text-[#5B3A00] shadow-[0_2px_0_rgba(91,58,0,0.12)]'
-      : result?.presentation === 'wrong'
-        ? '!border-brick/30 !bg-brick/10 !text-brick-deep'
-        : '!border-transparent !bg-transparent !text-moss !shadow-none';
-
   return (
     <article
       ref={articleRef}
@@ -741,6 +720,7 @@ export function TypingStudyCard({
     >
       <CardTopControls>
         <StageBadge stageIndex={stageIndex} />
+        <SoundToggle soundEnabled={soundEnabled} onToggle={toggleSound} />
       </CardTopControls>
       {/* min-h-0 + overflow-y-auto: with the keyboard open this box is ~25px
           shorter than its content, and without them the overflow spilled out
@@ -753,13 +733,13 @@ export function TypingStudyCard({
         {/* Reserve the full 80px badge plus padding even before answering.
             Keep it in flow and never shrink the slot on short viewports, where
             a smaller absolute slot let the badge overlap the prompt. */}
-        <div
-          role={result ? 'status' : undefined}
-          aria-hidden={result ? undefined : true}
-          className={`game-feedback relative self-center min-h-24 shrink-0 w-[min(34rem,calc(100vw-2rem))] !justify-center !border !border-transparent !px-3 !py-1.5 text-center !text-[1rem] leading-tight sm:!text-[1.1rem] [&_strong]:font-extrabold ${result ? `game-feedback--${result.presentation === 'typo' ? 'close' : result.presentation} ${feedbackToneClass}` : 'invisible'}`}
-        >
-          {result ? resultLabels[result.presentation] : '\u00A0'}
-        </div>
+        {/* Two boxes, one job each. The outer one only reserves the height —
+            it is the same 80px badge slot before and after the answer, so
+            nothing on the card moves when the verdict lands. The tint, border
+            and padding are on the inner one, which is sized by its own text:
+            "almost — <word>" is one short line, and wrapping it in a 34rem
+            slab was reading as a wide empty margin around three words. */}
+        <TypingFeedback result={result} correctAnswer={correctAnswer} wordId={word.id} />
         {usesAudioPrompt ? (
           <div className="flex flex-col items-center gap-2 py-1">
             <button
@@ -869,18 +849,19 @@ export function TypingStudyCard({
           </div>
         ) : (
           <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 md:relative md:block md:h-[72px] md:!w-[33rem] md:!max-w-[33rem] md:[@media(max-height:800px)]:!h-14">
+            {/* The slot is the wrapper; the button inside it is the same
+                shared Continue every other card ends on, so the typing card no
+                longer has a continue of its own invention. */}
             {result && (
-              <button
-                ref={compactContinueRef}
-                type="button"
-                className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-ink !bg-ink px-3 !text-paper shadow-none hover:!border-ink-600 hover:!bg-ink-600 hover:!text-paper focus-visible:!border-ink-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
-                onClick={handleContinue}
-              >
-                <span className="srs-btn-copy">
-                  <span className="srs-btn-label">{t('card.continue')} →</span>
-                  <span className="srs-btn-hint !opacity-[0.55] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{continueHint}</span>
-                </span>
-              </button>
+              <div className="typing-continue-enter mx-auto hidden w-full max-w-md md:absolute md:right-0 md:top-0 md:mx-0 md:block md:h-[72px] md:w-64 md:[@media(max-height:800px)]:h-14">
+                <ContinueButton
+                  variant="slab"
+                  buttonRef={compactContinueRef}
+                  hint={continueHint || undefined}
+                  className="!h-full"
+                  onClick={handleContinue}
+                />
+              </div>
             )}
             <div
               data-typing-secondary-actions
@@ -895,7 +876,7 @@ export function TypingStudyCard({
               <div
                 data-mobile-result-actions-spacer
                 aria-hidden="true"
-                className="h-[calc(60px+env(safe-area-inset-bottom,0px))] shrink-0 md:hidden"
+                className="h-[calc(88px+env(safe-area-inset-bottom,0px))] shrink-0 md:hidden"
               />
             )}
           </div>
@@ -929,17 +910,24 @@ export function TypingStudyCard({
 
         `}</style>
       </div>
+      {/* Phones keep the docked bar — it is the only place a thumb can reach
+          without moving — but what sits in it is the shared Continue, not a
+          bar-shaped one-off.
+
+          The dock paints nothing of its own. It used to carry a flat `bg-paper`
+          fill, a hairline top border and an upward shadow, and the session
+          surface behind it is a cream-to-blue gradient, not `--paper` — so the
+          dock showed up as a wrong-coloured band framing the button. Nothing
+          scrolls under it either: the content column reserves the dock's height
+          with the spacer above, so there is nothing for a fill to hide. */}
       {!practice && result && (
-        <button
-          type="button"
-          className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-ink bg-ink px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-paper shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"
-          onClick={handleContinue}
-        >
-          <span className="srs-btn-copy gap-1">
-            <span className="text-sm font-bold uppercase tracking-[0.08em]">{t('card.continue')} →</span>
-            <span className="text-[0.58rem] font-bold uppercase leading-none tracking-[0.06em] opacity-60">{continueHint}</span>
-          </span>
-        </button>
+        <div className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] md:hidden">
+          <ContinueButton
+            variant="slab"
+            hint={continueHint || undefined}
+            onClick={handleContinue}
+          />
+        </div>
       )}
     </article>
   );

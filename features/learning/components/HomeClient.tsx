@@ -1,5 +1,4 @@
 'use client';
-
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { LearningStudyContent } from '@/features/learning/components/LearningStudyContent';
 import { LearningAddWordsSurface } from '@/features/learning/components/LearningAddWordsSurface';
@@ -12,6 +11,7 @@ import { useLearningRenderers } from '@/features/learning/hooks/useLearningRende
 import { resolveSessionFlow } from '@/features/learning/session/flow';
 import { countIntroducedOnDay } from '@/features/learning/session/dayProgress';
 import { useSessionBreather } from '@/features/learning/session/useSessionBreather';
+import { useBonusWork } from '@/features/learning/session/useBonusWork';
 import { useSessionCompletions } from '@/features/learning/hooks/useSessionCompletions';
 import { setActivitySurfaceOverride } from '@/lib/activity/runtime';
 import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
@@ -170,7 +170,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     learningFineTune,
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
-    typingPlayAudioAfterCheck,
     typingCheckButtonEnabled,
     markKnown,
     markReallyKnown,
@@ -532,7 +531,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     distractorPool: filteredWords,
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
-    typingPlayAudioAfterCheck,
     typingCheckButtonEnabled,
     dismissedGames,
     setDismissedGames,
@@ -659,7 +657,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
     typingPrefillPunctuation,
-    typingPlayAudioAfterCheck,
     typingCheckButtonEnabled,
   }), [
     categoryOrder,
@@ -670,7 +667,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     studyNoteMinimizeFromStage,
     studyNotesEnabled,
     typingCheckButtonEnabled,
-    typingPlayAudioAfterCheck,
     typingPrefillPunctuation,
   ]);
   // A practice block writes no spaced-repetition stage, but a correct answer
@@ -760,6 +756,9 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // and again when a bonus round taken on top of it runs out. Without the
   // second read the card would report the day as it stood before the bonus.
   const bonusClosed = continueAnyway && bonusFlow.dayTotal > 0 && bonusFlow.settled;
+  const extraScope = `${goalSummary?.today ?? 'day'}|${session.planIdentity ?? 'unplanned'}`;
+  const { extra, startBonusRound } = useBonusWork({ closed: bonusClosed, flow: bonusFlow,
+    scope: extraScope, setContinuing: setContinueAnyway });
   useEffect(() => {
     // Settled, not complete: the day closes on the answer, but the rollup this
     // reads is written from the answer that is still on its way to the server.
@@ -1180,6 +1179,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               isSwipeBlockedForWord={isTypingCard}
               streamGroups={streamGroups}
               sessionFlow={railFlow}
+              sessionRailHeldBlock={sessionBreatherCard ? breather?.finished ?? null : null}
               sessionTimeGoal={sessionTimeGoal ? {
                 ...sessionTimeGoal,
                 phaseShares: session.dailyPlan?.timePhaseShares,
@@ -1198,7 +1198,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               // and it has to agree with the Upcoming panel, which counts live.
               dueNowCount={continueAnyway ? 0 : dueNowCount}
               newNowCount={continueAnyway ? 0 : newNowCount}
-              onStudyExtra={() => setContinueAnyway(true)}
+              onStudyExtra={startBonusRound}
               onPractice={quickPractice.available ? quickPractice.start : undefined}
               practiceSize={quickPractice.size}
               // The day's own plan, not the rail's: during a bonus round the
@@ -1207,6 +1207,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               dayFlow={sessionFlow}
               dayScore={dayScore}
               shortfall={effectiveSessionShortfall}
+              extra={extra}
               streak={streak}
               onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
             />

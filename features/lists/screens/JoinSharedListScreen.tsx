@@ -203,7 +203,7 @@ function JoinContent() {
           <p className="mt-2 text-sm text-ink-soft">{t('join.invalidBody')}</p>
           <button
             type="button"
-            className="mt-5 rounded-2xl border-2 border-sea bg-sea px-4 py-2 text-sm font-semibold text-paper transition-colors hover:border-sea-600 hover:bg-sea-600"
+            className="mt-5 rounded-2xl border-2 border-ink bg-sea px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-sea-600"
             onClick={() => router.push('/lists')}
           >
             {t('join.goToLists')}
@@ -249,7 +249,7 @@ function JoinContent() {
           <button
             type="button"
             disabled={busy}
-            className="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-[#7CA7C5] bg-[#7CA7C5] px-5 py-3 text-base font-semibold text-paper transition-colors hover:border-sea hover:bg-sea disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-ink bg-[#7CA7C5] px-5 py-3 text-base font-semibold text-paper transition-colors hover:bg-sea disabled:cursor-not-allowed disabled:opacity-60"
             onClick={handleAddAndSwitch}
           >
             {busy ? t('join.adding') : t('join.addAndSwitch')}

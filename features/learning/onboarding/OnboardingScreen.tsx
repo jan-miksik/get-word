@@ -98,43 +98,61 @@ export function OnboardingScreen({
       // window is the case where a step stops fitting, and giving the frame
       // back its outer padding there is the cheapest 64px on the screen.
       className={[
-        'onboarding-screen flex flex-col items-center py-6 sm:py-10 [@media(max-height:820px)]:py-3',
+        // The backdrop host is a sibling of this scroll viewport. On iOS,
+        // momentum scrolling can make the viewport its own stacking context,
+        // which used to trap the sheet's z-10 underneath the sibling scratch
+        // canvas at z-2. Raise the whole transparent viewport instead: the
+        // decorative field remains visible through it, while every question
+        // and control is unconditionally above the canvas.
+        // Two rungs, written as a closed range so neither can out-order the
+        // other: a short laptop window gives the frame back its outer
+        // padding, and a phone-sized height keeps only a hairline of it.
+        'onboarding-screen relative z-[4] flex flex-col items-center py-6 sm:py-10 [@media(min-height:721px)_and_(max-height:820px)]:py-3 [@media(max-height:720px)]:py-1.5',
         // A phone has no width to spare: the sheet is the screen there, so the
         // frame keeps only enough gutter to show its border.
         gutter === 'tight' ? 'px-1 sm:px-4' : 'px-2 sm:px-4',
       ].join(' ')}
     >
       {backdropHosted ? null : <OnboardingBackdrop />}
-      <SupportButton />
+      {/* Support rides in the step header wherever there is one. It only floats
+          on a step with no header at all, because the fixed corner it floats in
+          is exactly where a step's full-width primary action ends up. */}
+      {showHeader ? null : <SupportButton />}
       {overlay}
       <section
-        className={`onboarding-page-card relative z-10 m-auto w-full p-4 ${enterClass} sm:p-7 ${WIDTH_CLASS[width]}`}
+        className={`onboarding-page-card relative z-10 m-auto w-full p-4 ${enterClass} max-sm:[@media(max-height:720px)]:p-3 sm:p-7 ${WIDTH_CLASS[width]}`}
       >
         {/* The rail gets a row of its own. Sharing one with Back cost it about
             a fifth of the card's width, which on a phone left the five segments
             too short to read as a position at all. */}
         {showHeader ? (
-          <div className="onboarding-step-head mb-4 flex flex-col gap-2">
+          <div className="onboarding-step-head mb-4 flex flex-col gap-2 [@media(min-height:721px)_and_(max-height:900px)]:mb-3 [@media(max-height:720px)]:mb-2">
             {step ? <OnboardingProgress step={step} /> : null}
-            {onBack ? (
-              <button
-                type="button"
-                onClick={onBack}
-                aria-label={t('onboarding.back')}
-                className="onboarding-back -ml-1 inline-flex min-h-11 w-fit items-center justify-center gap-1.5 px-2 text-sm font-extrabold sm:px-3"
-              >
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path
-                    d="M16 10H5m4-4-4 4 4 4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span>{t('onboarding.back')}</span>
-              </button>
-            ) : null}
+            {/* Back on the left, support on the right: the row exists either
+                way, so support costs no height and sits as far from the step's
+                primary action as the sheet allows. */}
+            <div className="flex items-center justify-between gap-2">
+              {onBack ? (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  aria-label={t('onboarding.back')}
+                  className="onboarding-back -ml-1 inline-flex min-h-11 w-fit items-center justify-center gap-1.5 px-2 text-sm font-extrabold sm:px-3"
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path
+                      d="M16 10H5m4-4-4 4 4 4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>{t('onboarding.back')}</span>
+                </button>
+              ) : <span />}
+              <SupportButton variant="inline" />
+            </div>
           </div>
         ) : null}
         <div className={`onboarding-step-body ${contentClassName}`}>{children}</div>
@@ -160,6 +178,10 @@ function OnboardingBackdrop() {
   const layer = useLettersLayer();
   return (
     <>
+      {/* The scroll viewport itself must stay transparent so it can sit above
+          the scratch canvas. This fixed ground supplies the colour that the
+          cover reveals when no second motif is configured. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 bg-paper-glow" />
       <ScratchFieldRevealTint className="z-0" />
       <ScratchFieldBase className="z-0" />
       <RisingLettersBackground
@@ -203,5 +225,23 @@ export function OnboardingBody({
     <p className={`m-0 text-sm leading-relaxed text-[color:var(--ob-ink-soft)] lg:text-base ${className}`}>
       {children}
     </p>
+  );
+}
+
+/**
+ * The "working on it" mark inside a step's primary button.
+ *
+ * Saving a goal or asking for notification permission takes long enough on a
+ * real connection that the button looked stuck: it dimmed and stopped
+ * responding, with nothing to say the press had landed. Drawn in `currentColor`
+ * so it reads on the blue slab and on the pale options alike, and marked
+ * `aria-hidden` because the button's own label already changes.
+ */
+export function OnboardingActionSpinner({ className = '' }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none ${className}`}
+    />
   );
 }

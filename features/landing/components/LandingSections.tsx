@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AppLogo } from '@/components/AppLogo';
 import { useI18n } from '@/components/I18nProvider';
+import { FACEBOOK_URL } from '@/lib/social-links';
 import type { I18nKey } from '@/lib/i18n/messages';
 import { CompactStoreCta, DesktopStoreNote } from './LandingAppStores';
 import { LandingPaceSlider } from './LandingPaceSlider';
@@ -303,6 +304,9 @@ export function SiteFooter({
       <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="lp-foot-link">
           {t('landing.footer.github')}
+        </a>
+        <a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer" className="lp-foot-link">
+          {t('social.facebook')}
         </a>
         <a href={`mailto:${CONTACT_EMAIL}`} className="lp-foot-link">{t('landing.footer.contact')}</a>
         <Link href="/support" className="lp-foot-link">{t('landing.footer.support')}</Link>

@@ -63,6 +63,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 function renderCard(props?: Partial<React.ComponentProps<typeof TypingStudyCard>>) {
@@ -440,14 +441,24 @@ describe('TypingStudyCard', () => {
     expect(onOutcome).toHaveBeenCalledWith('known');
   });
 
-  it('plays the word audio after checking only when enabled', () => {
-    renderCard({ playAudioAfterCheck: true });
+  it('says the word back as soon as the answer is checked', () => {
+    renderCard();
     fireEvent.change(input(), { target: { value: 'conchó' } });
     checkAnswer();
 
     expect(perfectMark()).toBeInTheDocument();
     expect(playCalls).toBe(1);
     expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+  });
+
+  it('stays silent when the card\'s own sound toggle is muted', () => {
+    localStorage.setItem('get-word-skip-sound', 'true');
+    renderCard();
+    fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
+
+    expect(perfectMark()).toBeInTheDocument();
+    expect(playCalls).toBe(0);
   });
 
   it('always waits for the check button', () => {
@@ -604,8 +615,11 @@ describe('TypingStudyCard', () => {
     fireEvent.change(input(), { target: { value: 'concho' } });
     checkAnswer();
     expect(screen.getByText(/Close! Correct:/)).toBeInTheDocument();
-    expect(screen.getByRole('status').className).toContain('!bg-[#FFF0BD]');
-    expect(screen.getByRole('status').className).toContain('!text-[#5B3A00]');
+    // The verdict's tint sits on the inner box, which is sized by its own
+    // text; the status wrapper only reserves the slot's height.
+    const verdict = screen.getByRole('status').querySelector('.game-feedback');
+    expect(verdict?.className).toContain('!bg-[#FFF0BD]');
+    expect(verdict?.className).toContain('!text-[#5B3A00]');
     expect(onScore).toHaveBeenCalledWith(1);
     expect(onOutcome).not.toHaveBeenCalled();
     fireEvent.click(continueOverlay());
@@ -763,7 +777,7 @@ describe('TypingStudyCard', () => {
     expect(screen.getByRole('button', { name: /replay prompt audio/i })).toBeInTheDocument();
   });
 
-  it('does not auto-play the foreign audio after a correct answer', () => {
+  it('says nothing until the answer is actually checked', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
@@ -772,11 +786,14 @@ describe('TypingStudyCard', () => {
     expect(audioSources).not.toContain('/speech/vi/con-cho.mp3');
   });
 
-  it('does not play audio after a wrong answer', () => {
+  // A wrong answer is the one that most needs hearing the word said properly,
+  // so the clip is tied to the check and not to the verdict.
+  it('says the word back after a wrong answer too', () => {
     renderCard();
     fireEvent.change(input(), { target: { value: 'xxxxxx' } });
     checkAnswer();
-    expect(playCalls).toBe(0);
+    expect(playCalls).toBe(1);
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
   });
 
   it('shows the expected character under each wrong slot after the check', () => {
@@ -832,7 +849,7 @@ describe('TypingStudyCard', () => {
     expect(hintButtons).toHaveLength(1);
     expect(checkButton.className).toContain('!h-11');
     expect(hintButtons[0].className).toContain('!h-11');
-    expect(document.querySelector('.game-feedback')).toHaveClass('invisible');
+    expect(document.querySelector('.game-feedback')?.parentElement).toHaveClass('invisible');
     expect(checkButton).toBeDisabled();
     fireEvent.change(input(), { target: { value: 'con' } });
     expect(checkButton).toBeDisabled();
@@ -844,7 +861,9 @@ describe('TypingStudyCard', () => {
     expect(perfectMark()).toBeInTheDocument();
     const continueButtons = screen.getAllByRole('button', { name: /continue/i });
     expect(continueButtons).toHaveLength(2);
-    expect(continueButtons[1].className).toContain('absolute');
+    // The shared Continue keeps its own geometry; the slot it is docked into
+    // is what pins it to the bottom of the card on a phone.
+    expect(continueButtons[1].parentElement?.className).toContain('absolute');
     expect(continueButtons[1]).toHaveTextContent(/repeat/i);
   });
 

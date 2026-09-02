@@ -3,7 +3,12 @@
 import { useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { StudyTimeField } from '@/features/learning/components/goals/StudyTimeField';
-import { OnboardingBody, OnboardingScreen, OnboardingTitle } from './OnboardingScreen';
+import {
+  OnboardingActionSpinner,
+  OnboardingBody,
+  OnboardingScreen,
+  OnboardingTitle,
+} from './OnboardingScreen';
 import {
   reminderPermissionEnablesReminders,
   requestStudyReminderPermission,
@@ -152,13 +157,25 @@ export function StudyReminderOnboarding({
         }}
         className="onboarding-option onboarding-option-highlight mt-6 w-full px-5 py-3.5 text-base font-extrabold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent)_28%,transparent)] active:translate-y-0 disabled:cursor-wait disabled:opacity-50"
       >
-        {permissionPending
-          ? t('goal.reminderPermissionPending')
-          : remindersAllowed
-            ? t('onboarding.continue')
-            : permissionResult
-              ? t('goal.reminderContinueWithout')
-              : t('goal.reminderEnable')}
+        {/* Asking the browser for permission and then writing the reminder are
+            both round trips, and the button had nothing to show for either —
+            it only dimmed. Same treatment as the goal step's Save. */}
+        {disabled ? (
+          <span className="inline-flex items-center justify-center gap-2">
+            <OnboardingActionSpinner />
+            <span>
+              {permissionPending
+                ? t('goal.reminderPermissionPending')
+                : t('goal.reminderSaving')}
+            </span>
+          </span>
+        ) : remindersAllowed ? (
+          t('onboarding.continue')
+        ) : permissionResult ? (
+          t('goal.reminderContinueWithout')
+        ) : (
+          t('goal.reminderEnable')
+        )}
       </button>
       {!permissionResult ? (
         <button

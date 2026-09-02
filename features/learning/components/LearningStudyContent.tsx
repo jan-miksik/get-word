@@ -14,6 +14,7 @@ import { useI18n } from '@/components/I18nProvider';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning/minigames';
 import type { LearningStreamGroup } from '@/features/learning/types';
+import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import type { SessionFlowState } from '@/features/learning/session/flow';
 import type { NormalizedWord } from '@/lib/words';
 import type { ViewMode } from '../app-state/types';
@@ -90,6 +91,12 @@ interface LearningStudyContentProps {
   streamGroups: LearningStreamGroup[];
   sessionFlow?: SessionFlowState;
   /**
+   * The stretch that has just ended while the breather is on screen, so the
+   * block rail can stay full through the seam instead of resetting to the
+   * repeats waiting on the other side of it.
+   */
+  sessionRailHeldBlock?: SessionBlockProgress | null;
+  /**
    * Present only for a `minutes` goal, and then the rails count the day's time
    * down instead of its cards.
    */
@@ -137,6 +144,8 @@ interface LearningStudyContentProps {
   } | null;
   /** How far the day's plan fell short of the goal for want of words. */
   shortfall?: number;
+  /** Bonus rounds taken past the day's plan, counted locally. */
+  extra?: { reviewed: number; fresh: number } | null;
   /** The study series, shown on the closing card at the end of a day. */
   streak?: StreakChipData | null;
   onToggleShowNotReady: () => void;
@@ -173,6 +182,7 @@ export function LearningStudyContent({
   isSwipeBlockedForWord,
   streamGroups,
   sessionFlow,
+  sessionRailHeldBlock = null,
   sessionTimeGoal,
   renderCardForDeck,
   renderMiniGameForDeck,
@@ -188,6 +198,7 @@ export function LearningStudyContent({
   dayFlow = null,
   dayScore = null,
   shortfall = 0,
+  extra = null,
   streak = null,
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
@@ -244,6 +255,7 @@ export function LearningStudyContent({
       dayFlow={dayFlow}
       dayScore={dayScore}
       shortfall={shortfall}
+      extra={extra}
       streak={streak}
       onStudyExtra={onStudyExtra}
       onPractice={onPractice}
@@ -283,7 +295,7 @@ export function LearningStudyContent({
           <SessionTimeStrip goal={sessionTimeGoal} />
         ) : null}
         {sessionFlow && activeSurface === 'study' && !practice && !sessionTimeGoal ? (
-          <SessionRail flow={sessionFlow} />
+          <SessionRail flow={sessionFlow} heldBlock={sessionRailHeldBlock} />
         ) : null}
         {/* The bonus block gets the same edge the session had, for the same
             reason: the panel below it scrolls, and this must not. */}

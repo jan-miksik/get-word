@@ -14,10 +14,10 @@ function block(
   return { key, kind, done, total, pending: 0, liveRemaining: total - done, unavailable: 0 };
 }
 
-function renderRail(blocks: SessionBlockProgress[]) {
+function renderRail(blocks: SessionBlockProgress[], heldBlock: SessionBlockProgress | null = null) {
   return render(
     <I18nProvider language="en">
-      <SessionRail flow={resolveSessionFlow(blocks)} />
+      <SessionRail flow={resolveSessionFlow(blocks)} heldBlock={heldBlock} />
     </I18nProvider>,
   );
 }
@@ -87,6 +87,35 @@ describe('SessionRail', () => {
     const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
     expect(ticks).toHaveLength(6);
     expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(3);
+  });
+
+  // The flow steps to the next block on the answer that finishes the current
+  // one, so the last new word of a stretch used to empty the block rail and
+  // re-label it for the repeats waiting behind the breather — the stretch was
+  // never once seen full.
+  it('holds the finished stretch on the block rail while the seam is up', () => {
+    const finished = block('new-0', 5, 5, 'new');
+    const { container, getByText } = renderRail(
+      [finished, block('review-1', 0, 5)],
+      finished,
+    );
+
+    const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
+    expect(ticks).toHaveLength(5);
+    expect(ticks.every((tick) => tick.style.background.includes('--rail-new'))).toBe(true);
+    expect(getByText('New')).toBeInTheDocument();
+  });
+
+  it('hands the block rail back to the flow once the seam is dismissed', () => {
+    const { container, getByText } = renderRail([
+      block('new-0', 5, 5, 'new'),
+      block('review-1', 0, 5),
+    ]);
+
+    const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
+    expect(ticks).toHaveLength(5);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(0);
+    expect(getByText('Review')).toBeInTheDocument();
   });
 
   it('drops the tick of a round the learner walked away from', () => {

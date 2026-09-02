@@ -47,6 +47,16 @@ const START_SPEED_MIN = 14;
 const START_SPEED_MAX = 30;
 /** Random acceleration, px/s². This is what makes the paths look unplanned. */
 const WANDER = 26;
+/**
+ * The frame length the wander term is tuned for.
+ *
+ * The wander is a random walk, so its strength per *second* depends on how many
+ * steps that second is cut into: a naive `WANDER * dt` kick doubles the walk's
+ * variance when the loop halves its rate, which is what made a throttled field
+ * look like it was vibrating rather than drifting. Scaling the kick with
+ * `sqrt(dt)` instead keeps the drift identical at 30, 60 or 120 frames a second.
+ */
+const WANDER_REFERENCE_SECONDS = 1 / 60;
 /** Bubbles keep a little air between them instead of touching, in px. */
 const GAP = 6;
 /** Slightly inelastic, so a shockwave settles instead of ringing forever. */
@@ -249,10 +259,12 @@ export function stepBubbleField(
   const dt = Math.min(Math.max(seconds, 0), MAX_STEP_SECONDS);
   if (dt === 0 || field.width <= 0 || field.height <= 0) return;
 
+  const wanderStep = WANDER * Math.sqrt(dt * WANDER_REFERENCE_SECONDS);
+
   for (const body of bodies) {
     if (body.frozen) continue;
-    body.vx += (random() * 2 - 1) * WANDER * dt;
-    body.vy += (random() * 2 - 1) * WANDER * dt;
+    body.vx += (random() * 2 - 1) * wanderStep;
+    body.vy += (random() * 2 - 1) * wanderStep;
     clampSpeed(body, random);
     body.x += body.vx * dt;
     body.y += body.vy * dt;

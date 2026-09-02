@@ -52,6 +52,13 @@
   --ink-300: #735D43;
   --ink-250: #7C6A55;
 
+  /* True black. Every ink above is warm — deliberately, because warm ink on
+     warm paper is what makes the surface read as paper. The Continue button is
+     the one exception: it is the single control that ends a card, and it wants
+     an edge that is unmistakably a line rather than a darker shade of the
+     page. Do not reach for this for text or for ordinary borders. */
+  --ink-black: #000000;
+
   /* Neutral grey — a plain, untinted button edge. Every ink above is warm,
      so an outline drawn with one reads as part of the paper rather than as a
      border; the choice and matching options want a line that says "button".

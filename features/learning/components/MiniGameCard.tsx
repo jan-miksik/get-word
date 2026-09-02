@@ -20,37 +20,9 @@ import {
   type PromptMode,
   type WordSide,
 } from './games/types';
-import { useI18n } from '@/components/I18nProvider';
 import { useCardSound } from './card-audio/cardSound';
+import { SoundToggle } from './card-audio/SoundToggle';
 import { ContinueButton } from './ContinueButton';
-
-function SoundToggle({ soundEnabled, onToggle }: { soundEnabled: boolean; onToggle: () => void }) {
-  const { t } = useI18n();
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onToggle(); }}
-      aria-label={soundEnabled ? t('game.soundOn') : t('game.soundOff')}
-      title={soundEnabled ? t('game.disableAudio') : t('game.enableAudio')}
-      className="inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-ink bg-paper text-ink transition-colors duration-150 hover:bg-sea hover:border-sea hover:text-paper active:bg-sea active:border-sea active:text-paper"
-    >
-      {soundEnabled ? (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-        </svg>
-      ) : (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-          <line x1="23" y1="9" x2="17" y2="15" />
-          <line x1="17" y1="9" x2="23" y2="15" />
-        </svg>
-      )}
-    </button>
-  );
-}
 
 interface Props {
   config: MiniGameConfig;
@@ -363,6 +335,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
         onScore={(delta) => onResult?.(delta)}
         onReviewOutcome={onReviewOutcome}
         soundEnabled={soundEnabled}
+        isActive={isActive}
         topControls={topControls}
         // A cleared field raises the same tap-to-continue bar every other game
         // ends on. Popping the last bubble used to advance on its own, which

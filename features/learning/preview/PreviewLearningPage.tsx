@@ -198,7 +198,6 @@ function PreviewStudy({
   const [showAll, setShowAll] = useState(false);
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(false);
   const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(false);
-  const [typingPlayAudioAfterCheck, setTypingPlayAudioAfterCheck] = useState(false);
   const [typingCheckButtonEnabled, setTypingCheckButtonEnabled] = useState(false);
   // Remounts the typing card after each answer so the preview can be exercised
   // repeatedly (the real app advances the stream instead).
@@ -231,7 +230,11 @@ function PreviewStudy({
       ([
         { key: 'review-0', kind: 'review', total: 6, done: 0, pending: 0, liveRemaining: 6, unavailable: 0 },
         { key: 'new-0', kind: 'new', total: 4, done: 0, pending: 0, liveRemaining: 4, unavailable: 0 },
-        { key: 'review-1', kind: 'review', total: 12, done: 0, pending: 0, liveRemaining: 12, unavailable: 0 },
+        // The real plan closes on a second pass over the words just introduced,
+        // which is paced as review and deliberately kept out of the daily review
+        // total. Marking it here is what lets the preview rehearse the recap the
+        // learner actually gets.
+        { key: 'review-1', kind: 'review', total: 12, done: 0, pending: 0, liveRemaining: 12, unavailable: 0, reinforcement: true },
       ] satisfies SessionBlockProgress[]).map((block, index) =>
         index <= breatherStep ? { ...block, done: block.total, liveRemaining: 0 } : block,
       ),
@@ -327,8 +330,6 @@ function PreviewStudy({
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     setTypingMobileKeyboardAutoFocus,
-    typingPlayAudioAfterCheck,
-    setTypingPlayAudioAfterCheck,
     typingCheckButtonEnabled,
     setTypingCheckButtonEnabled,
     // Chrome the preview is there to show; the real page reads these from the
@@ -442,6 +443,7 @@ function PreviewStudy({
                   dayFlow={resolveSessionFlow([
                     { ...previewBlocks[0], done: 6, liveRemaining: 0 },
                     { ...previewBlocks[1], done: 4, liveRemaining: 0 },
+                    { ...previewBlocks[2], done: 4, total: 4, liveRemaining: 0 },
                   ])}
                   // Regression harness: this visit exhausted a smaller frozen
                   // remainder, but the whole day was already earned and went
@@ -547,7 +549,6 @@ function PreviewStudy({
                   studyNotesEnabled={false}
                   studyNoteMinimizeFromStage={2}
                   typingPrefillPunctuation={typingPrefillPunctuation}
-                  typingPlayAudioAfterCheck={typingPlayAudioAfterCheck}
                   typingCheckButtonEnabled={typingCheckButtonEnabled}
                   fullscreen
                   autoFocusOnMobile={typingMobileKeyboardAutoFocus}

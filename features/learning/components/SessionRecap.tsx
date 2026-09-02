@@ -18,6 +18,11 @@ const RECAP_NEW = {
   few: 'learning.sessionRecapNew.few',
   many: 'learning.sessionRecapNew.many',
 } satisfies Record<string, I18nKey>;
+const RECAP_REINFORCED = {
+  one: 'learning.sessionRecapReinforced.one',
+  few: 'learning.sessionRecapReinforced.few',
+  many: 'learning.sessionRecapReinforced.many',
+} satisfies Record<string, I18nKey>;
 
 /**
  * What the work so far has actually amounted to, in the two units the learner
@@ -28,20 +33,32 @@ const RECAP_NEW = {
  * finished is the whole subject, and the numbers are the answer to the question
  * the pause raises by itself. Both the breather and the card that closes the
  * day are such seams, which is why this lives on its own.
+ *
+ * The same-session second pass over the words just introduced gets a chip of
+ * its own rather than being folded into either number. It is not a daily
+ * review — the goal and the server both count words that were due when the day
+ * started — but the learner answered those cards, under a rail labelled
+ * "review", so leaving them out entirely made the recap read short: a day lived
+ * as twenty-something cards closed on a number in the teens with no account of
+ * the difference. The muted chip says the work happened and, by not sharing the
+ * rails' colours, that it is not part of what the goal is measuring.
  */
 export function SessionRecap({
   reviewed,
   fresh,
+  reinforced = 0,
   className = '',
   style,
 }: {
   reviewed: number;
   fresh: number;
+  /** Same-day second-pass answers over words introduced in this session. */
+  reinforced?: number;
   className?: string;
   style?: React.CSSProperties;
 }) {
   const { t, language } = useI18n();
-  if (reviewed === 0 && fresh === 0) return null;
+  if (reviewed === 0 && fresh === 0 && reinforced === 0) return null;
 
   return (
     <ul
@@ -56,6 +73,11 @@ export function SessionRecap({
       {fresh > 0 ? (
         <RecapChip color="var(--rail-new)">
           {t(pluralForm(RECAP_NEW, language, fresh), { count: fresh })}
+        </RecapChip>
+      ) : null}
+      {reinforced > 0 ? (
+        <RecapChip color="var(--ink-350)">
+          {t(pluralForm(RECAP_REINFORCED, language, reinforced), { count: reinforced })}
         </RecapChip>
       ) : null}
     </ul>
@@ -77,6 +99,18 @@ export function countPlanDone(flow: SessionFlowState, kind: SessionBlockKind): n
       block.kind === kind && !block.reinforcement
         ? sum + block.done + block.pending
         : sum,
+    0,
+  );
+}
+
+/**
+ * The answers the plan's reinforcement blocks took — the work `countPlanDone`
+ * deliberately leaves out of both goal figures, counted so the recap can still
+ * show it.
+ */
+export function countPlanReinforced(flow: SessionFlowState): number {
+  return flow.blocks.reduce(
+    (sum, block) => (block.reinforcement ? sum + block.done + block.pending : sum),
     0,
   );
 }

@@ -48,7 +48,7 @@ describe('DoneStep', () => {
     const onDone = vi.fn();
     renderStep({ onAddMore, onDone });
 
-    expect(screen.getByRole('button', { name: /add more words/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add words/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /back to study/i })).toBeInTheDocument();
   });
 });

@@ -18,12 +18,22 @@ export function acceptedOnSide(word: NormalizedWord, side: WordSide): string[] {
  */
 const STRUCTURAL_CATEGORIES = new Set(['word', 'phrase']);
 
+/**
+ * What the learner would see written, ignoring only the differences the eye
+ * does not read as a different word: case, spacing and punctuation.
+ *
+ * Accents stay in. Folding them away used to make "bàn" and "bán" count as the
+ * same visible answer, which quietly barred every real tone twin from ever
+ * being offered as an option — in a language where telling those apart is the
+ * whole exercise, and where the list often already holds the perfect distractor.
+ * Two entries that really are the same word written twice still collide on
+ * their other side, which is where this guard catches them.
+ */
 function visibleAnswerSignature(value: string): string {
   const normalized = value
     .trim()
     .toLocaleLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFC')
     .replace(/[^\p{L}\p{N}]+/gu, '');
   return normalized || value.trim().toLocaleLowerCase();
 }
