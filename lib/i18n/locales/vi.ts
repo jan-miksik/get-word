@@ -125,6 +125,7 @@ export const viMessages: I18nMessages = {
   "landing.stores.otherOptions": "Tùy chọn khác",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word cũng có sẵn dưới dạng ứng dụng cho Android và iPhone:",
   "landing.openSource.title": "Mã nguồn mở",
   "landing.openSource.body":
     "Chúng tôi là một ứng dụng mã nguồn mở. Chúng tôi rất vui nếu bạn đóng góp mã, tặng một ngôi sao trên GitHub hoặc báo lỗi.",

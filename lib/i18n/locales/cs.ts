@@ -125,6 +125,7 @@ export const csMessages: I18nMessages = {
   "landing.stores.otherOptions": "Další možnosti",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word je dostupný i jako aplikace pro Android a iPhone:",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "Jsme open-source app. Budeme rádi za přispění do kódu, hvězdičku na GitHubu nebo nahlášení problému.",

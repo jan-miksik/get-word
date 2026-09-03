@@ -128,6 +128,42 @@ export function PlayStoreLink() {
 }
 
 /**
+ * A desktop-only line saying the phone apps exist, with both listings.
+ *
+ * Below 960px the stores *are* the call to action, so there is nothing to
+ * mention. A desktop reader was the one visitor the page never told: the
+ * picker and the closing button both lead to the browser build, which is the
+ * right answer for the machine they are reading on, and left the phone
+ * unsaid.
+ *
+ * Quiet on purpose — small type, both listings as equals, no "this device's
+ * store" reordering, because a desktop is on neither. It carries no visibility
+ * class of its own: the callers already sit inside a `.lp-desktop-only`
+ * wrapper, and adding a second `display` rule to that element is what the
+ * breakpoint comment in the stylesheet warns against.
+ */
+export function DesktopStoreNote() {
+  const { t } = useI18n();
+  const { primary, rest } = useStoreChoice();
+  // On a desktop `primary` is null and `rest` is both stores; the branch is
+  // only for a narrow desktop window on a phone-shaped UA, where CSS hides
+  // this anyway. Someone already in the app gets neither.
+  const links = primary ? [primary, ...rest] : rest;
+  if (links.length === 0) return null;
+
+  return (
+    <div className="lp-store-note">
+      <p className="lp-store-note-label">{t('landing.stores.desktopNote')}</p>
+      <div className="lp-stores">
+        {links.map((link) => (
+          <StoreLinkButton key={link.target} link={link} stacked={false} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Anchor on the compact store block in the hero, so a link further down the
  * page can bring the visitor back to it.
  */

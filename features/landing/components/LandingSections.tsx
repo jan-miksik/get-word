@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { AppLogo } from '@/components/AppLogo';
 import { useI18n } from '@/components/I18nProvider';
 import type { I18nKey } from '@/lib/i18n/messages';
-import { CompactStoreCta } from './LandingAppStores';
+import { CompactStoreCta, DesktopStoreNote } from './LandingAppStores';
 import { LandingPaceSlider } from './LandingPaceSlider';
 import { useDoubleActivate } from './LandingScratchBackground';
 import {
@@ -257,11 +257,15 @@ export function FinalCta({ showLogin = true }: { showLogin?: boolean }) {
         // The toggle sits on a wrapper, not on the button: .lp-desktop-only
         // sets `display`, and on the button that would overwrite the
         // inline-flex that keeps its label and arrow on one line.
-        <div className="lp-desktop-only">
+        <div className="lp-desktop-only lp-finish-desktop">
           <Link href="/login" className="lp-btn-primary lp-btn-finish group">
             {t('landing.cta.button')}
             <IconArrow className="lp-btn-arrow" />
           </Link>
+          {/* The phone apps, mentioned once, after the browser close rather
+              than instead of it: a desktop reader is being offered the build
+              that runs on the screen in front of them first. */}
+          <DesktopStoreNote />
         </div>
       ) : null}
       <div className="lp-compact-only lp-finish-compact">

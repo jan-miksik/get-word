@@ -123,6 +123,7 @@ export const enMessages = {
   "landing.stores.otherOptions": "Other options",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word is also available as an app for Android and iPhone:",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "We are an open-source app. We will be glad for a contribution to the code, a star on GitHub, or a reported problem.",

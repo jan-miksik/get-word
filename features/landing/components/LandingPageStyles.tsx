@@ -654,6 +654,24 @@ export function LandingPageStyles() {
 .lp-store-link:hover{ transform:translateY(-2px); box-shadow:var(--shadow-soft); }
 .lp-store-icon{ width:1.15rem; height:1.15rem; flex:none; }
 
+/* The desktop footnote about the phone apps. Sits under the closing button and
+   is deliberately smaller than it: the page's close is still the browser build,
+   and this is the aside that the same app is in both stores.
+
+   No display rule of its own — its wrapper is .lp-desktop-only, which is given
+   no base display so that the max-width:959px display:none has nothing to
+   fight with. */
+/* Centres the closing button over the note, which is the wider of the two.
+   Alignment only: a display rule on this element would land after the
+   breakpoint's .lp-desktop-only{display:none} and undo it. */
+.lp-finish-desktop{ text-align:center; }
+.lp-store-note{ margin-top:1.5rem; text-align:center; }
+.lp-store-note-label{
+  margin:0 0 .75rem; font-size:.9rem; line-height:1.5; color:var(--ink-soft);
+}
+.lp-store-note .lp-store-link{ padding:.55rem 1.05rem; font-size:.9rem; }
+.lp-store-note .lp-store-icon{ width:1rem; height:1rem; }
+
 /* The page's own definition of "desktop", reused rather than reinvented: 960px
    is where the hero splits into two columns (see .lp-hero-top). Below it the
    language pickers and the closing sign-in button give way to the stores.

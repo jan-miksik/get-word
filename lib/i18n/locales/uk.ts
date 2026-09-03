@@ -125,6 +125,7 @@ export const ukMessages: I18nMessages = {
   "landing.stores.otherOptions": "Інші можливості",
   "landing.stores.play": "Google Play",
   "landing.stores.appStore": "App Store",
+  "landing.stores.desktopNote": "Get Word також доступний як застосунок для Android та iPhone:",
   "landing.openSource.title": "З відкритим кодом",
   "landing.openSource.body":
     "Ми застосунок з відкритим кодом. Будемо раді внеску в код, зірочці на GitHub або повідомленню про проблему.",
