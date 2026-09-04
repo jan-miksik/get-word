@@ -205,7 +205,14 @@ export function StudyExerciseCard({
       onUnknown={onUnknown}
       // Practice records nothing, so the card asks the learner to look rather
       // than to judge: one way on, in place of "I know it" / "forgotten".
-      onContinue={practice ? () => onOutcome('stay') : undefined}
+      //
+      // The immediate second pass asks the same way. Nothing was checked here —
+      // the learner uncovered the answer themselves — and the pass never moves
+      // the stage or the due date, so offering "forgotten / I know it" under
+      // their five-minute interval hints promised a decision this card cannot
+      // keep. A checked exercise (typing, choice, assembly) still reports its
+      // real outcome.
+      onContinue={practice || reinforcement ? () => onOutcome('stay') : undefined}
       onMemoryHookChange={onMemoryHookChange}
       isMoved={isMoved}
       showEnglish={showEnglish}

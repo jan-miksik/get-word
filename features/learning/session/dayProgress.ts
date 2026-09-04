@@ -1,6 +1,7 @@
 import type { ProgressData } from '@/features/sync/contracts';
 import { localDayKeyAt } from '@/lib/local-day';
 import { hasIntroducedWord } from '@/packages/domain/goals/goal';
+import { skipsReinforcement } from './blockClassification';
 import type { SessionBlock, SessionBlockKind } from './blocks';
 
 export interface SessionBlockProgress {
@@ -107,9 +108,16 @@ export function computeBlockProgress(
     // A minutes plan may carry more unseen words than its estimate so a fast
     // learner does not hit an artificial wall. Its closing reinforcement only
     // owns the subset actually introduced before the clock boundary.
-    const ids = block.phase !== undefined && block.reinforcement
-      ? block.ids.filter((id) =>
-          hasIntroducedWord(progress[id]) || input.pendingAnswers?.[id] !== undefined)
+    //
+    // Either way the pass drops a word whose introduction chose a longer
+    // interval, exactly as the stream does — counting a card that will never be
+    // dealt would leave the stretch permanently one short.
+    const ids = block.reinforcement
+      ? block.ids.filter((id) => {
+          if (skipsReinforcement(progress[id])) return false;
+          if (block.phase === undefined) return true;
+          return hasIntroducedWord(progress[id]) || input.pendingAnswers?.[id] !== undefined;
+        })
       : block.ids;
     // A single pass with no recorded floor is settled by "answered today", which
     // survives a reload and a second device. Anything with a floor counts

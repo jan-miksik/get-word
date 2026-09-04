@@ -14,6 +14,19 @@ export function wasIntroducedOnDay(
 }
 
 /**
+ * A word the learner deliberately pushed past the immediate pass.
+ *
+ * The introduction offers a longer interval — a custom stage, or "I know this
+ * one perfectly" — and taking it is a statement: this word does not need
+ * checking again in a minute. Asking anyway would contradict the schedule the
+ * learner just chose. Everything the introduction leaves at the default
+ * five-minute step (or drops back to stage zero) is still checked.
+ */
+export function skipsReinforcement(progress: ProgressData | undefined): boolean {
+  return (progress?.stageIndex ?? 0) > 1;
+}
+
+/**
  * Whether a live word may be rendered under a block's promise to the learner.
  *
  * A reinforcement block is technically stored as `review`, but it may only
@@ -27,7 +40,7 @@ export function wordMatchesSessionBlock(
   hasCommittedPendingAnswer = false,
 ): boolean {
   const introduced = hasIntroducedWord(progress) || hasCommittedPendingAnswer;
-  if (block.reinforcement) return introduced;
+  if (block.reinforcement) return introduced && !skipsReinforcement(progress);
   return block.kind === 'review' ? introduced : !introduced;
 }
 

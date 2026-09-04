@@ -165,6 +165,36 @@ describe('session day progress', () => {
     expect(progress).toMatchObject({ total: 1, done: 0, liveRemaining: 1, unavailable: 0 });
   });
 
+  // The stream never deals a word whose introduction chose a longer interval,
+  // so the second pass must not keep a slot open for it either.
+  it('drops a word that opted out of the immediate second pass', () => {
+    const today = Date.parse('2026-08-20T10:00:00Z');
+    const introduced = (stageIndex: number, answers: number) => ({
+      stageIndex, knownCount: answers, unknownCount: 0,
+      introducedAt: today, lastKnownAt: today,
+    });
+    const [pass] = computeBlockProgress(
+      [{ key: 'review-1', kind: 'review', ids: ['kept', 'checked', 'skipped'], pass: 2, reinforcement: true }],
+      {
+        progress: {
+          kept: introduced(1, 1),
+          checked: introduced(1, 2),
+          // Sent to the one-day interval on its very first card.
+          skipped: introduced(2, 1),
+        },
+        liveIds: new Set(),
+        settlingIds: new Set(['kept', 'checked', 'skipped']),
+        answerBaseline: { kept: 0, checked: 0, skipped: 0 },
+        dayKey,
+        timezone: 'UTC',
+      },
+    );
+
+    expect(pass).toMatchObject({
+      total: 2, done: 1, liveRemaining: 2, unavailable: 0, reinforcement: true,
+    });
+  });
+
   it('carries each block\'s minigame rounds alongside its words', () => {
     const [progress] = computeBlockProgress(
       [{ key: 'review-0', kind: 'review', ids: ['a', 'b'] }],

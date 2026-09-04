@@ -57,4 +57,22 @@ describe('exercise outcome persistence', () => {
     expect(actions.markStay).toHaveBeenCalledWith('w1');
     expect(actions.setCustomStage).not.toHaveBeenCalled();
   });
+
+  // The reveal card in the immediate second pass offers only Continue, which
+  // reports 'stay'. That has to land as a completed pass — the stage and the
+  // five-minute due date the introduction set stay exactly where they were.
+  it('records the second pass from a Continue tap without moving the schedule', () => {
+    const actions = {
+      markKnown: vi.fn(),
+      markStay: vi.fn(),
+      markUnknown: vi.fn(),
+      setCustomStage: vi.fn(),
+    };
+
+    commitExerciseOutcome('w1', 1, 'stay', true, actions);
+
+    expect(actions.setCustomStage).toHaveBeenCalledWith('w1', 1, { countAsKnown: true });
+    expect(actions.markStay).not.toHaveBeenCalled();
+    expect(actions.markKnown).not.toHaveBeenCalled();
+  });
 });

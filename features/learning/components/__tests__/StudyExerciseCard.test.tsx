@@ -207,6 +207,93 @@ describe('StudyExerciseCard — reveal', () => {
     expect(onUnknown).not.toHaveBeenCalled();
     expect(onCustomStage).not.toHaveBeenCalled();
   });
+
+  // The immediate second pass checks nothing on a reveal card: the learner
+  // uncovers the answer themselves, and the pass never moves the stage or the
+  // due date. Grading buttons there advertised intervals it cannot apply.
+  it('uses only Continue in the immediate second pass', () => {
+    const onKnown = vi.fn();
+    const onUnknown = vi.fn();
+    const onCustomStage = vi.fn();
+    const onOutcome = vi.fn();
+
+    render(
+      <StudyExerciseCard
+        word={WORD}
+        progress={PROGRESS}
+        role="knownLanguage"
+        exercise={{ method: 'reveal', variant: 'known' }}
+        reinforcement
+        showAll
+        memoryHook=""
+        suggestedHook=""
+        onMemoryHookChange={vi.fn()}
+        showMemoryHook={false}
+        onKnown={onKnown}
+        onReallyKnown={vi.fn()}
+        onUnknown={onUnknown}
+        onCustomStage={onCustomStage}
+        onScore={vi.fn()}
+        onOutcome={onOutcome}
+        showEnglish={false}
+        showCategoryBadges={false}
+        showPronunciation={false}
+        categoryOrder={[]}
+        studyNotesEnabled={false}
+        studyNoteMinimizeFromStage={2}
+        typingPrefillPunctuation
+        typingCheckButtonEnabled={false}
+        typingAudioReplayHideFromStage={5}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /don't know/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^i know/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(onOutcome).toHaveBeenCalledWith('stay');
+    expect(onKnown).not.toHaveBeenCalled();
+    expect(onUnknown).not.toHaveBeenCalled();
+    expect(onCustomStage).not.toHaveBeenCalled();
+  });
+
+  // A checked exercise still reports what actually happened.
+  it('keeps a checked answer reporting its own outcome in the second pass', () => {
+    const onOutcome = vi.fn();
+    render(
+      <StudyExerciseCard
+        word={WORD}
+        progress={PROGRESS}
+        role="knownLanguage"
+        exercise={choiceExercise('I')}
+        reinforcement
+        showAll={false}
+        memoryHook=""
+        suggestedHook=""
+        onMemoryHookChange={vi.fn()}
+        showMemoryHook={false}
+        onKnown={vi.fn()}
+        onReallyKnown={vi.fn()}
+        onUnknown={vi.fn()}
+        onCustomStage={vi.fn()}
+        onScore={vi.fn()}
+        onOutcome={onOutcome}
+        showEnglish={false}
+        showCategoryBadges={false}
+        showPronunciation={false}
+        categoryOrder={[]}
+        studyNotesEnabled={false}
+        studyNoteMinimizeFromStage={2}
+        typingPrefillPunctuation
+        typingCheckButtonEnabled={false}
+        typingAudioReplayHideFromStage={5}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('con chó'));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(onOutcome).toHaveBeenCalledWith('known');
+  });
 });
 
 describe('StudyExerciseCard — typing', () => {
