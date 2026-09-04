@@ -17,8 +17,9 @@ export interface SessionBlockProgress {
   unavailable: number;
   /**
    * Minigame rounds planned inside this block, and how many were finished.
-   * Kept as separate telemetry: `total`/`done`, the rail, and the daily goal
-   * all stay in the same unit — words.
+   * Kept apart from `total`/`done` so every word-counted reading — the daily
+   * goal, the recap — stays in words. Only the block rail, which paces the
+   * cards actually met, adds these in.
    */
   gameTotal?: number;
   gameDone?: number;
