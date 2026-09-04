@@ -228,7 +228,7 @@ describe('WordAssemblyGame', () => {
       placedParts: ['o', 'k'],
       draggedPart: 'k',
     },
-  ])('re-bases a dropped $label before it is allowed to animate', ({
+  ])('carries an overshot $label from the pointer without pausing on it', ({
     variant,
     answerParts,
     placedParts,
@@ -254,6 +254,12 @@ describe('WordAssemblyGame', () => {
         return frames.length;
       });
     const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const animate = vi.fn();
+    // jsdom has no Web Animations; the settle is driven by one, so it is stood
+    // up here rather than spied on.
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      value: animate, configurable: true, writable: true,
+    });
 
     try {
       render(
@@ -272,36 +278,37 @@ describe('WordAssemblyGame', () => {
       }
       const dragged = screen.getByRole('button', { name: draggedPart });
       fireEvent.pointerDown(dragged, { pointerId: 1, button: 0, clientX: 85, clientY: 20 });
-      fireEvent.pointerMove(window, { pointerId: 1, clientX: 25, clientY: 20 });
-      expect(dragged.style.transitionProperty).toBe('none');
-      const carried = dragged.style.transform;
-
-      fireEvent.pointerUp(window, { pointerId: 1, clientX: 25, clientY: 20 });
-
-      // The tile stays under the pointer, but its offset is now measured from
-      // the slot it was just committed into, so the value changes. That change
-      // has to land with transitions still off: animating it would run the
-      // tile a whole slot sideways — leftwards on a right-to-left drag — and
-      // then slide it back.
+      // Dropped 20px past the slot it is aimed at, which is the case that used
+      // to stutter: the tile sat at the overshoot for a frame or more before
+      // any motion began, reading as a twitch towards the overshot side.
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 5, clientY: 20 });
       expect(dragged.style.transform).toContain('translate(');
-      expect(dragged.style.transform).not.toBe(carried);
       expect(dragged.style.transitionProperty).toBe('none');
-      const rebased = dragged.style.transform;
-      expect(frames).toHaveLength(1);
+      animate.mockClear();
 
-      // Transitions come back on their own frame, with nothing else moving.
-      act(() => { frames[0]?.(0); });
-      expect(dragged.style.transform).toBe(rebased);
-      expect(dragged.style.transitionProperty).toBe('transform');
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 5, clientY: 20 });
 
-      // Only now is the offset released, and it glides.
-      act(() => { frames[1]?.(0); });
+      // The commit itself is silent: no offset left anywhere, and nothing that
+      // could transition its removal.
       expect(dragged.style.transform).toBe('');
-      expect(dragged.style.transitionProperty).toBe('transform');
+      expect(dragged.style.transitionProperty).toBe('none');
+
+      // The distance the drop was off by is travelled by an animation that was
+      // started before this frame is painted, so the tile is never seen at rest
+      // where the pointer left it.
+      expect(animate).toHaveBeenCalledTimes(1);
+      const [keyframes] = animate.mock.calls[0] as [Array<Record<string, unknown>>];
+      expect(keyframes[0].transform).toBe('translate(-20px, 0px) scale(1.06)');
+      expect(keyframes[keyframes.length - 1].transform).toBe('none');
+
+      // Ordinary transitions are back one frame later.
+      act(() => { frames[0]?.(0); });
+      expect(dragged.style.transitionProperty).toBe('');
     } finally {
       requestFrame.mockRestore();
       cancelFrame.mockRestore();
       layout.mockRestore();
+      delete (HTMLElement.prototype as { animate?: unknown }).animate;
     }
   });
 

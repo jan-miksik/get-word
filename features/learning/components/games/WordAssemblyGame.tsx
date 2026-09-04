@@ -46,8 +46,6 @@ const FLIP_DURATION_MS = 220;
 const FLIP_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 /** How far a pointer has to travel before a tap on a tile becomes a drag. */
 const DRAG_THRESHOLD_PX = 5;
-/** Comfortably past the tiles' own 200ms transform transition. */
-const DROP_SETTLE_MS = 260;
 
 function prefersReducedMotion(): boolean {
   return (
@@ -183,26 +181,24 @@ export function WordAssemblyGame({
    * got right standing, so the mistake is the thing that stands out.
    */
   const [slotVerdicts, setSlotVerdicts] = useState<boolean[]>([]);
-  /**
-   * A drop is walked through in phases rather than in one commit, because a
-   * transition may only ever be started from a style that already declares it.
-   *
-   * `active`   — under the pointer, transforms applied with transitions off.
-   * `landing`  — the frame the new order is committed. Every transform changes
-   *              to match the new flow slots, so all of them must be applied
-   *              instantly; a transition here would run from the slot the tile
-   *              has *already* moved into and drag it a whole slot sideways.
-   * `arming`   — transitions switched back on with nothing else changing, so
-   *              nothing animates but the next frame can.
-   * `settling` — the offset released, gliding into the committed slot.
-   */
   const [drag, setDrag] = useState<{
     id: string;
     x: number;
     y: number;
-    phase: 'active' | 'landing' | 'arming' | 'settling';
     neighbourOffsets: Record<string, { x: number; y: number }>;
   } | null>(null);
+  /**
+   * True for exactly the commit that follows a release.
+   *
+   * Every transform in the tray is measured against the slot its tile occupied
+   * while the pointer was down, and committing the new order moves all of those
+   * slots at once. Dropping the transforms in that same commit is what keeps
+   * the tray still — but only if they go instantly. Left to a CSS transition
+   * they animate back to zero from the slot the tile has *already* moved into,
+   * which throws it a full slot sideways and slides it back: the twitch, always
+   * against the direction of the drag.
+   */
+  const [dropCommit, setDropCommit] = useState(false);
 
   const isLetters = variant.startsWith('letters');
   const joiner = isLetters ? '' : ' ';
@@ -286,6 +282,9 @@ export function WordAssemblyGame({
    * grid — every tile in a round is the same width — so one snapshot stays
    * true for the whole gesture, and each move is then pure arithmetic on it.
    */
+  /** The released tile's parting offset, read once by the settle animation. */
+  const settle = useRef<{ id: string; x: number; y: number } | null>(null);
+
   const gesture = useRef<{
     id: string;
     fromIndex: number;
@@ -414,7 +413,6 @@ export function WordAssemblyGame({
       id,
       x: held.x - centres[fromIndex].x,
       y: held.y - centres[fromIndex].y,
-      phase: 'active',
       neighbourOffsets,
     });
   };
@@ -430,52 +428,62 @@ export function WordAssemblyGame({
     const next = snapshot.order.filter((placedId) => placedId !== snapshot.id);
     next.splice(snapshot.toIndex, 0, snapshot.id);
 
-    // Before release, neighbour transforms already put them at these final
-    // slots, and the held tile's offset is measured against the slot it came
-    // from. Committing the order re-bases every one of those: the neighbours
-    // lose their offsets and the held tile's is re-measured against the slot
-    // it landed in. That is the `landing` frame, and it has to be silent —
-    // see the phase note on the state above.
+    // The whole tray goes back to untransformed flow in one commit, and the
+    // released tile's journey from the pointer to its slot is handed to the
+    // animation below rather than to a transition — a transition cannot be
+    // started from a style that is being rewritten in the same commit, and
+    // waiting frames for one to become startable is a visible stall exactly
+    // as long as the drop was inaccurate.
     skipNextFlipRef.current = true;
-    setPlaced(next);
-    setDrag({
+    freezeFlipRef.current = false;
+    settle.current = {
       id: snapshot.id,
       x: snapshot.held.x - snapshot.centres[snapshot.toIndex].x,
       y: snapshot.held.y - snapshot.centres[snapshot.toIndex].y,
-      phase: 'landing',
-      neighbourOffsets: {},
-    });
+    };
+    setPlaced(next);
+    setDrag(null);
+    setDropCommit(true);
     draggingId.current = null;
     gesture.current = null;
     suppressClick.current = true;
   };
 
-  // Walks a released tile through the phases above, one frame at a time. Each
-  // step only ever changes the transform or the transition, never both, so no
-  // step can start an animation from a position the tile is no longer at.
+  /**
+   * Carries the released tile from the pointer into its committed slot.
+   *
+   * Started before the browser paints the release, so the very first frame
+   * already shows the tile where the finger left it — there is no frame where
+   * it sits still, which is what made an overshot drop read as a stutter
+   * towards the side it was overshot on.
+   */
+  useLayoutEffect(() => {
+    const pending = settle.current;
+    if (!pending) return;
+    settle.current = null;
+    if (prefersReducedMotion()) return;
+    // A drop right on the slot has nothing to travel.
+    if (Math.abs(pending.x) < 1 && Math.abs(pending.y) < 1) return;
+    const node = nodes.current.get(pending.id);
+    if (!node || typeof node.animate !== 'function') return;
+    // Held above its neighbours for the trip, the way it was while dragged;
+    // the same value in both frames, so it simply holds for the duration.
+    node.animate(
+      [
+        { transform: `translate(${pending.x}px, ${pending.y}px) scale(1.06)`, zIndex: 30 },
+        { transform: 'none', zIndex: 30 },
+      ],
+      { duration: FLIP_DURATION_MS, easing: FLIP_EASING },
+    );
+  });
+
+  // One frame of silence is all the commit needs; transitions come back for
+  // the ordinary hover and grading motion straight after.
   useEffect(() => {
-    const phase = drag?.phase;
-    if (phase === 'landing' || phase === 'arming') {
-      const next = phase === 'landing' ? 'arming' : 'settling';
-      const frame = window.requestAnimationFrame(() => {
-        // The transforms are gone as of the settling frame, so the flip hook
-        // can measure real boxes again from there on.
-        if (next === 'settling') freezeFlipRef.current = false;
-        setDrag((current) => (current?.phase === phase ? { ...current, phase: next } : current));
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
-    if (phase === 'settling') {
-      // Held until the glide is over: dropping it early would take the tile's
-      // transform transition away mid-flight. A drag started in the meantime
-      // owns the state instead, so this only ever clears its own phase.
-      const timer = window.setTimeout(() => {
-        setDrag((current) => (current?.phase === 'settling' ? null : current));
-      }, DROP_SETTLE_MS);
-      return () => window.clearTimeout(timer);
-    }
-    return undefined;
-  }, [drag]);
+    if (!dropCommit) return;
+    const frame = window.requestAnimationFrame(() => setDropCommit(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [dropCommit]);
 
   // Kept fresh every render so the listeners below, which are attached once per
   // press, always run the current round's handlers.
@@ -561,9 +569,8 @@ export function WordAssemblyGame({
           aria-label={t('game.assembledAnswer')}
         >
           {placedTiles.map((tile, index) => {
-            const phase = drag?.id === tile.id ? drag.phase : null;
             /** Lifted look, and an offset that tracks the pointer. */
-            const held = phase === 'active' || phase === 'landing' || phase === 'arming';
+            const held = drag?.id === tile.id;
             // Right tiles stay right even in a wrong assembly; only the ones
             // actually out of place are called out.
             const slotWrong = outcome === 'unknown' && slotVerdicts[index] === false;
@@ -571,19 +578,14 @@ export function WordAssemblyGame({
             let transform: string | undefined;
             if (held && drag) {
               transform = `translate(${drag.x}px, ${drag.y}px) scale(1.06)`;
-            } else if (!phase) {
+            } else {
               const offset = drag?.neighbourOffsets[tile.id];
               if (offset) transform = `translate(${offset.x}px, ${offset.y}px)`;
             }
-            // Silent on the landing frame — for the held tile and for every
-            // neighbour, since all of their transforms are re-based there —
-            // then armed so the release can glide.
-            let transitionProperty: string | undefined;
-            if (phase === 'active' || phase === 'landing' || drag?.phase === 'landing') {
-              transitionProperty = 'none';
-            } else if (phase === 'arming' || phase === 'settling') {
-              transitionProperty = 'transform';
-            }
+            // Two things must never be animated: the offset that keeps the held
+            // tile under the pointer, and the release commit, where every
+            // transform is dropped in the same frame its slot moves to match.
+            const transitionProperty = held || dropCommit ? 'none' : undefined;
             return (
               <button
                 key={tile.id}
@@ -599,7 +601,7 @@ export function WordAssemblyGame({
                   // shorthand: mixing it with `transitionDelay` across renders
                   // makes React complain.
                   transitionProperty,
-                  transitionDelay: !phase && outcome ? `${index * 45}ms` : undefined,
+                  transitionDelay: !held && outcome ? `${index * 45}ms` : undefined,
                 }}
                 {...noTranslateProps(
                   [

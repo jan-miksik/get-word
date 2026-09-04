@@ -167,6 +167,124 @@ describe('useLearningPageState', () => {
     expect(result.current.streamGroups[0].items).toEqual(words);
   });
 
+  // The real session answers one card at a time, and a new word that was just
+  // got wrong is due again on the very next render. Both must still land in the
+  // immediate second pass rather than falling between the two blocks.
+  it('grows the immediate second pass one introduction at a time', () => {
+    const now = Date.now();
+    const words = Array.from({ length: 3 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+    const { result, rerender } = renderHook(({ progress }) =>
+      useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress,
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        studyGoal: { ...cappingGoal, wordsPerDay: 3, newWordsPerDay: 3 },
+        isSessionDataReady: true,
+        dayTargets: { resolvedNewTarget: 3, resolvedReviewTarget: 0, resolvedItemBudget: 6 },
+      }), { initialProps: { progress: {} as Record<string, ProgressData> } }
+    );
+    const groups = () => result.current.streamGroups.map((group) => ({
+      kind: group.reinforcement ? 'reinforcement' : group.kind,
+      ids: group.items.map((item) => ('id' in item ? item.id : 'game')),
+    }));
+
+    expect(groups()).toEqual([{ kind: 'new', ids: ['new-0', 'new-1', 'new-2'] }]);
+
+    const progress: Record<string, ProgressData> = {
+      'new-0': {
+        stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: now,
+        lastKnownAt: now, nextDueAt: now + 5 * 60_000,
+      },
+    };
+    rerender({ progress: { ...progress } });
+    expect(groups()).toEqual([
+      { kind: 'new', ids: ['new-1', 'new-2'] },
+      { kind: 'reinforcement', ids: ['new-0'] },
+    ]);
+
+    // Answered "I don't know": stage zero, due again this second.
+    progress['new-1'] = {
+      stageIndex: 0, knownCount: 0, unknownCount: 1, introducedAt: now + 1_000,
+      lastUnknownAt: now + 1_000, nextDueAt: now,
+    };
+    rerender({ progress: { ...progress } });
+    expect(groups()).toEqual([
+      { kind: 'new', ids: ['new-2'] },
+      { kind: 'reinforcement', ids: ['new-0', 'new-1'] },
+    ]);
+
+    progress['new-2'] = {
+      stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: now + 2_000,
+      lastKnownAt: now + 2_000, nextDueAt: now + 5 * 60_000,
+    };
+    rerender({ progress: { ...progress } });
+    expect(groups()).toEqual([
+      { kind: 'reinforcement', ids: ['new-0', 'new-1', 'new-2'] },
+    ]);
+  });
+
+  // A day that opens on repeats must still close on the introductions it made,
+  // and the second pass must not start before the repeats are behind it.
+  it('runs the immediate second pass after both stretches of a mixed day', () => {
+    const now = Date.now();
+    const due = [makeWord('due-0', 'list-a', 'basics', 0, 0)];
+    const fresh = [makeWord('new-0', 'list-a', 'basics', 0, 1)];
+    const { result, rerender } = renderHook(({ progress }) =>
+      useLearningPageState({
+        filteredWords: [...due, ...fresh],
+        selectedCategories: new Set<string>(),
+        progress,
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        studyGoal: { ...cappingGoal, wordsPerDay: 2, newWordsPerDay: 1 },
+        isSessionDataReady: true,
+        dayTargets: { resolvedNewTarget: 1, resolvedReviewTarget: 1, resolvedItemBudget: 3 },
+      }), {
+        initialProps: {
+          progress: {
+            // Last answered days ago: a repeat answered earlier *today* counts
+            // as settled and its block would never open.
+            'due-0': {
+              stageIndex: 2, knownCount: 1, unknownCount: 0, introducedAt: now - 5 * 86_400_000,
+              lastKnownAt: now - 3 * 86_400_000, nextDueAt: now - 60_000,
+            },
+          } as Record<string, ProgressData>,
+        },
+      }
+    );
+    const kinds = () => result.current.streamGroups.map(
+      (group) => group.reinforcement ? 'reinforcement' : group.kind,
+    );
+
+    expect(kinds()).toEqual(['review', 'new']);
+
+    const answered: Record<string, ProgressData> = {
+      'due-0': {
+        stageIndex: 2, knownCount: 2, unknownCount: 0, introducedAt: now - 86_400_000,
+        lastKnownAt: now, nextDueAt: now + 86_400_000,
+      },
+    };
+    rerender({ progress: { ...answered } });
+    expect(kinds()).toEqual(['new']);
+
+    answered['new-0'] = {
+      stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: now,
+      lastKnownAt: now, nextDueAt: now + 5 * 60_000,
+    };
+    rerender({ progress: { ...answered } });
+    expect(kinds()).toEqual(['reinforcement']);
+    expect(result.current.streamGroups[0].items.map((item) => 'id' in item && item.id))
+      .toEqual(['new-0']);
+  });
+
   it('ends a new-only day after reinforcement even when the last answers are due again', () => {
     const now = Date.now();
     const words = Array.from({ length: 7 }, (_, index) =>
