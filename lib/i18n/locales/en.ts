@@ -641,14 +641,15 @@ export const enMessages = {
   "goal.reminderPermissionDismissedBody": "The browser prompt was closed without an answer. You can continue and turn reminders on later in your study-goal settings.",
   "goal.reminderInsecureTitle": "Reminders need a secure connection",
   "goal.reminderInsecureBody": "Browsers only allow notifications on an https page. Open the app over https and reminders can be enabled there.",
-  "goal.reminderLocalOnlyTitle": "Background push is not enabled in this browser",
-  "goal.reminderLocalOnlyBody": "Notification permission is allowed, but the browser did not provide a background push connection. In Brave, open Settings → Privacy and security and enable “Use Google services for push messaging”, then try again. Reminders stay off until push is available.",
+  "goal.reminderLocalOnlyTitle": "This browser did not provide background push",
+  "goal.reminderLocalOnlyBody": "Notification permission is allowed, but the browser did not open a background push connection, so nothing can reach you while the app is closed. Reminders stay off until it does.",
+  "goal.reminderLocalOnlyBrave": "You are using Brave: open Settings → Privacy and security and enable “Use Google services for push messaging”, then try again.",
   "goal.reminderNoWorkerTitle": "Reminders could not start on this page",
   "goal.reminderNoWorkerBody": "Notification permission is allowed, but the background worker that receives reminders did not start. Reload the page and try again. On a development build the worker is switched off on purpose, so browser push only works on the installed or deployed app.",
   "goal.reminderSaveFailedTitle": "Reminders could not be saved",
   "goal.reminderSaveFailedBody": "The browser accepted push, but this device could not be registered with Get Word — the request failed. Check that you are signed in and online, then try again.",
-  "goal.reminderUnconfiguredTitle": "Push is not configured in this app build",
-  "goal.reminderUnconfiguredBody": "Brave is configured correctly, but this deployed Get Word build has no public VAPID key and cannot connect to push. Set NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY and deploy the app again.",
+  "goal.reminderUnconfiguredTitle": "Background reminders are not available in this version yet",
+  "goal.reminderUnconfiguredBody": "Notifications are allowed on your device, and nothing is wrong with your settings. This version of Get Word simply cannot deliver reminders while the app is closed yet. You can continue; reminders will start working after one of the next updates.",
   // Sent from the server as a Web Push payload, so the browser never picks
   // these strings — `supabase/functions/send-study-reminders/messages.ts`
   // carries a copy and `reminder-push-copy.test.ts` keeps the two identical.
