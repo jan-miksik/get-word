@@ -77,12 +77,19 @@ export function resolveStreakWeek(summary: GoalSummary, weeksBack = 0): StreakDa
 /** Everything the chip and the end-of-day card draw, from one summary. */
 export function resolveStreakData(
   summary: GoalSummary,
-  { optimisticTodayComplete = false }: { optimisticTodayComplete?: boolean } = {},
+  {
+    optimisticTodayComplete = false,
+    optimisticTodayExceeded = false,
+  }: {
+    optimisticTodayComplete?: boolean;
+    /** The learner completed an explicit bonus round after closing today's plan. */
+    optimisticTodayExceeded?: boolean;
+  } = {},
 ): StreakChipData | null {
   if (!summary.goal.active?.enabled) return null;
   const serverDays = resolveStreakWeek(summary);
   const serverWeeks = Array.from({ length: 6 }, (_, index) => resolveStreakWeek(summary, 5 - index));
-  if (!optimisticTodayComplete) {
+  if (!optimisticTodayComplete && !optimisticTodayExceeded) {
     return {
       days: serverDays,
       weeks: serverWeeks,
@@ -95,8 +102,13 @@ export function resolveStreakData(
 
   const today = serverDays.find((day) => day.isToday);
   const alreadyKept = today?.status === 'met' || today?.status === 'exceeded';
-  const markToday = (day: StreakDay): StreakDay =>
-    day.isToday && day.status !== 'exceeded' ? { ...day, status: 'met' } : day;
+  const markToday = (day: StreakDay): StreakDay => {
+    if (!day.isToday || day.status === 'exceeded') return day;
+    return {
+      ...day,
+      status: optimisticTodayExceeded ? 'exceeded' : 'met',
+    };
+  };
   const keptThisWeek = summary.currentWeek.keptDays + (alreadyKept ? 0 : 1);
   const completesWeekNow =
     !alreadyKept &&

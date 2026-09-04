@@ -141,4 +141,22 @@ describe('resolveStreakData', () => {
       keptThisWeek: 2,
     });
   });
+
+  it('marks today exceeded immediately after an explicit bonus round', () => {
+    const streak = resolveStreakData(summary({
+      dailyStreak: 2,
+      weeklyStreak: 1,
+      currentWeek: { keptDays: 1, target: 2 },
+    }), {
+      optimisticTodayComplete: true,
+      optimisticTodayExceeded: true,
+    });
+
+    expect(streak?.days.find((day) => day.isToday)?.status).toBe('exceeded');
+    expect(streak).toMatchObject({
+      dailyStreak: 3,
+      weeklyStreak: 2,
+      keptThisWeek: 2,
+    });
+  });
 });

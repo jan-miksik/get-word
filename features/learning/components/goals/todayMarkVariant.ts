@@ -6,8 +6,10 @@ import { useSyncExternalStore } from 'react';
  * How "today" is called out inside the chain streak — the shape actually
  * shipped to real learners (the others live only on `/dev/study-goal`).
  *
- * `halo` is the shipped default: a translucent ring in the day's own colour,
- * drawn behind the bead. `solid` is the same ring made opaque instead of
+ * `viewfinder` is the shipped default: four autofocus corners around today's
+ * bead, giving it a unique silhouette without competing with the status fill.
+ * `halo` is the older translucent ring in the day's own colour, drawn behind
+ * the bead. `solid` is the same ring made opaque instead of
  * faded, so it does not have to compete with the neighbouring rings that mark
  * planned-but-undecided days. `pulse` keeps the solid ring but breathes it, so
  * motion — not contrast — is what says "now" (still than a still picture
@@ -42,7 +44,10 @@ export const TODAY_MARK_VARIANTS = [
 
 export type TodayMarkVariant = (typeof TODAY_MARK_VARIANTS)[number];
 
-const DEFAULT_TODAY_MARK: TodayMarkVariant = 'halo';
+// The viewfinder was selected as the production "you are here" mark. Keeping
+// halo here left that decision confined to the dev comparison page, so real
+// learners continued to receive the old translucent ring.
+export const DEFAULT_TODAY_MARK: TodayMarkVariant = 'viewfinder';
 
 const STORAGE_KEY = 'get-word-today-mark-variant';
 /** Same-tab notification; `storage` only fires in the *other* tabs. */
