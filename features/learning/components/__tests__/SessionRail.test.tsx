@@ -117,6 +117,20 @@ describe('SessionRail', () => {
     expect(getByText('Review')).toBeInTheDocument();
   });
 
+  it('names the same-day second pass as a new-word check, not ordinary review', () => {
+    const reinforcement = {
+      ...block('review-1', 0, 5),
+      reinforcement: true,
+    };
+    const { getByText, queryByText } = renderRail([
+      block('new-0', 5, 5, 'new'),
+      reinforcement,
+    ]);
+
+    expect(getByText('New-word check')).toBeInTheDocument();
+    expect(queryByText('Review')).not.toBeInTheDocument();
+  });
+
   it('keeps the tick of a round the learner walked away from and marks it passed', () => {
     const { container } = renderRail([
       {

@@ -87,16 +87,17 @@ describe('useLearningPageState', () => {
       .toEqual(['mine-0', 'mine-1']);
   });
 
-  it('exposes a minigame-free reinforcement block for a beginner\'s new-only day', () => {
+  it('opens a minigame-free reinforcement block only after its new words were introduced', () => {
+    const now = Date.now();
     const words = Array.from({ length: 5 }, (_, index) =>
       makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
     );
 
-    const { result } = renderHook(() =>
+    const { result, rerender } = renderHook(({ progress }) =>
       useLearningPageState({
         filteredWords: words,
         selectedCategories: new Set<string>(),
-        progress: {},
+        progress,
         isHydrated: true,
         viewMode: 'card',
         minigameFrequency: { min: 2, max: 2 },
@@ -104,16 +105,21 @@ describe('useLearningPageState', () => {
         studyGoal: { ...cappingGoal, wordsPerDay: 5, newWordsPerDay: 5 },
         isSessionDataReady: true,
         dayTargets: { resolvedNewTarget: 5, resolvedReviewTarget: 0, resolvedItemBudget: 17 },
-      })
+      }), { initialProps: { progress: {} as Record<string, ProgressData> } }
     );
 
-    expect(result.current.streamGroups).toHaveLength(2);
+    expect(result.current.streamGroups).toHaveLength(1);
     expect(result.current.streamGroups[0]).toMatchObject({ kind: 'new' });
-    expect(result.current.streamGroups[1]).toMatchObject({
+    const introduced = Object.fromEntries(words.map((entry) => [entry.id, {
+      stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: now,
+      lastKnownAt: now, nextDueAt: now + 5 * 60_000,
+    }])) as Record<string, ProgressData>;
+    rerender({ progress: introduced });
+    expect(result.current.streamGroups[0]).toMatchObject({
       kind: 'review',
       reinforcement: true,
     });
-    expect(result.current.streamGroups[1].items).toEqual(words);
+    expect(result.current.streamGroups[0].items).toEqual(words);
   });
 
   it('ends a new-only day after reinforcement even when the last answers are due again', () => {
@@ -155,7 +161,7 @@ describe('useLearningPageState', () => {
       { initialProps: { progress: initialProgress } },
     );
 
-    expect(result.current.streamGroups.map((group) => group.kind)).toEqual(['new', 'review']);
+    expect(result.current.streamGroups.map((group) => group.kind)).toEqual(['new']);
     rerender({ progress: afterFirstPass });
     expect(result.current.streamGroups.map((group) => group.kind)).toEqual(['review']);
     rerender({ progress: afterReinforcement });
@@ -621,10 +627,8 @@ describe('useLearningPageState', () => {
       { kind: 'new', total: 10, reinforcement: false },
       { kind: 'review', total: 10, reinforcement: true },
     ]);
-    expect(result.current.streamGroups[1]).toMatchObject({
-      kind: 'review',
-      reinforcement: true,
-    });
+    expect(result.current.streamGroups).toHaveLength(1);
+    expect(result.current.streamGroups[0]).toMatchObject({ kind: 'new' });
 
     const afterFirstPass = Object.fromEntries(words.slice(0, 10).map((word) => [
       word.id,

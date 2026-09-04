@@ -22,7 +22,7 @@ const between = () => {
     // The answer that crossed the seam is already the learner's, even while
     // its SRS write is still queued.
     { key: 'new-0', kind: 'new', phase: 1, done: 2, total: 10, pending: 1, liveRemaining: 8, unavailable: 0 },
-    { key: 'review-1', kind: 'review', phase: 2, done: 0, total: 12, pending: 0, liveRemaining: 12, unavailable: 0 },
+    { key: 'review-1', kind: 'review', phase: 2, reinforcement: true, done: 0, total: 12, pending: 0, liveRemaining: 12, unavailable: 0 },
   ];
   const flow = resolveSessionFlow(blocks, 2);
   return { finished: blocks[1], next: blocks[2], flow, words: ANSWERED };
@@ -85,5 +85,12 @@ describe('SessionBreatherCard at the seam between two stretches', () => {
 
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(screen.getByRole('button', { name: /keep going/i })).toBeInTheDocument();
+  });
+
+  it('describes the second pass as checking new words, not ordinary review', () => {
+    renderBetween();
+
+    expect(screen.getByText('Now: check new words')).toBeInTheDocument();
+    expect(screen.queryByText('Now: review')).not.toBeInTheDocument();
   });
 });

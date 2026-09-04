@@ -164,7 +164,11 @@ export function SessionRail({
       (block.gameDone ?? 0) + (block.gameUnavailable ?? 0)
     : 0;
   const color = block ? blockColor(block.kind) : 'var(--rail-review)';
-  const label = block?.kind === 'new' ? t('learning.sessionPlanNew') : t('learning.sessionPlanReview');
+  const label = block?.reinforcement
+    ? t('learning.sessionPlanReinforcement')
+    : block?.kind === 'new'
+      ? t('learning.sessionPlanNew')
+      : t('learning.sessionPlanReview');
 
   return (
     <>

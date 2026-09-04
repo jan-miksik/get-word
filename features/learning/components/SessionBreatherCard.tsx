@@ -172,7 +172,9 @@ export function SessionBreatherCard({
           style={{ color: `color-mix(in srgb, ${kindColor(breather.next.kind)} 70%, var(--ink-800))` }}
         >
           {t(
-            breather.next.kind === 'review'
+            breather.next.reinforcement
+              ? 'learning.sessionBreatherNextUpReinforcement'
+              : breather.next.kind === 'review'
               ? 'learning.sessionBreatherNextUpReview'
               : 'learning.sessionBreatherNextUpNew',
           )}

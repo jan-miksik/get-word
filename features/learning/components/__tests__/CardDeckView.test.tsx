@@ -499,12 +499,43 @@ describe('CardDeckView', () => {
         fireEvent.click(completeButton);
         // Second tap during the exit must be a no-op (no extra completion).
         fireEvent.click(completeButton);
-        expect(onWordCardCompleted).toHaveBeenCalledTimes(1);
+        expect(onWordCardCompleted).not.toHaveBeenCalled();
 
         const animating = container.querySelector('[class*="animate-deck-exit"]');
         fireExitAnimationEnd(animating!);
+        expect(onWordCardCompleted).toHaveBeenCalledTimes(1);
         // Only advanced one card, not two.
         expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('reports completion only after the SRS outcome has been committed', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      const outcome = vi.fn();
+      const onWordCardCompleted = vi.fn();
+      try {
+        const { container } = render(
+          <CardDeckView
+            groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+            onWordCardCompleted={onWordCardCompleted}
+            renderCard={(word, _index, onComplete) => (
+              <button onClick={() => onComplete(outcome)}>{word.id}</button>
+            )}
+            renderMiniGame={vi.fn()}
+          />,
+        );
+
+        fireEvent.click(screen.getByText('w1'));
+        expect(outcome).not.toHaveBeenCalled();
+        expect(onWordCardCompleted).not.toHaveBeenCalled();
+
+        fireExitAnimationEnd(container.querySelector('[class*="animate-deck-exit"]')!);
+        expect(outcome).toHaveBeenCalledTimes(1);
+        expect(onWordCardCompleted).toHaveBeenCalledTimes(1);
+        expect(outcome.mock.invocationCallOrder[0])
+          .toBeLessThan(onWordCardCompleted.mock.invocationCallOrder[0]);
       } finally {
         vi.unstubAllEnvs();
       }

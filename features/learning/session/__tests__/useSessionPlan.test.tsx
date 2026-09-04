@@ -1,7 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { WordStream } from '@/features/learning/hooks/useWordStream';
-import { readSessionPlan } from '../storage';
+import type { ProgressData } from '@/features/sync/contracts';
+import { readSessionPlan, storeSessionPlan } from '../storage';
 import { extendTimeSessionPlan, extendWordsSessionPlan, useSessionPlan } from '../useSessionPlan';
 
 const scope = { dayKey: '2026-08-20', scopeKey: 'pair:cs:vi|categories:all', goalVersionId: 'goal-1' };
@@ -14,6 +15,9 @@ const word = (id: string) => ({ id, cz: id, vi: id, en: '', category: [] });
 const stream: WordStream = {
   priorityWords: [], priorityDueCount: 0, dueWords: [word('review')], newWords: [word('new')], settlingWords: [],
 };
+const reviewProgress: Record<string, ProgressData> = {
+  review: { stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: 1, nextDueAt: 1 },
+};
 
 describe('useSessionPlan persistence', () => {
   beforeEach(() => localStorage.clear());
@@ -21,7 +25,7 @@ describe('useSessionPlan persistence', () => {
   it('does not freeze a plan before session data is ready, then persists it once ready', async () => {
     const { result, rerender } = renderHook(
       ({ ready }) => useSessionPlan({
-        stream, progress: {}, goal, isSessionDataReady: ready,
+        stream, progress: reviewProgress, goal, isSessionDataReady: ready,
         dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
       }),
       { initialProps: { ready: false } },
@@ -37,7 +41,7 @@ describe('useSessionPlan persistence', () => {
   it('keeps the frozen plan available while overflow uses the unbounded stream', async () => {
     const { result, rerender } = renderHook(
       ({ continueAnyway }) => useSessionPlan({
-        stream, progress: {}, goal, isSessionDataReady: true, continueAnyway,
+        stream, progress: reviewProgress, goal, isSessionDataReady: true, continueAnyway,
         dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
       }),
       { initialProps: { continueAnyway: false } },
@@ -54,7 +58,7 @@ describe('useSessionPlan persistence', () => {
     };
     const { result, rerender } = renderHook(
       ({ currentStream }) => useSessionPlan({
-        stream: currentStream, progress: {}, goal, isSessionDataReady: true,
+        stream: currentStream, progress: reviewProgress, goal, isSessionDataReady: true,
         dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
       }),
       { initialProps: { currentStream: stream } },
@@ -68,7 +72,7 @@ describe('useSessionPlan persistence', () => {
 
   it('recovers a completed frozen plan after reload when the live stream is empty', async () => {
     const first = renderHook(() => useSessionPlan({
-      stream, progress: {}, goal, isSessionDataReady: true,
+      stream, progress: reviewProgress, goal, isSessionDataReady: true,
       dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
     }));
     await waitFor(() => expect(readSessionPlan(scope)?.blocks).toHaveLength(3));
@@ -78,11 +82,37 @@ describe('useSessionPlan persistence', () => {
       priorityWords: [], priorityDueCount: 0, dueWords: [], newWords: [], settlingWords: [],
     };
     const second = renderHook(() => useSessionPlan({
-      stream: emptyStream, progress: {}, goal, isSessionDataReady: true,
+      stream: emptyStream, progress: reviewProgress, goal, isSessionDataReady: true,
       dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
     }));
 
     await waitFor(() => expect(second.result.current.dailyPlan?.blocks).toHaveLength(3));
+  });
+
+  it('discards a cached plan that labels an unseen word as review', async () => {
+    const freshOnly: WordStream = {
+      priorityWords: [], priorityDueCount: 0, dueWords: [], newWords: [word('fresh')], settlingWords: [],
+    };
+    storeSessionPlan(scope, {
+      enabled: true,
+      sessionItemCap: 2,
+      priorityIds: [],
+      dueIds: ['fresh'],
+      newIds: [],
+      deferredDueCount: 0,
+      shortfall: 0,
+      newShortfall: 0,
+      reason: 'normal',
+      blocks: [{ key: 'review-0', kind: 'review', ids: ['fresh'] }],
+    });
+
+    const { result } = renderHook(() => useSessionPlan({
+      stream: freshOnly, progress: {}, goal, isSessionDataReady: true,
+      dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
+    }));
+
+    await waitFor(() => expect(result.current.dailyPlan?.blocks[0]?.kind).toBe('new'));
+    expect(readSessionPlan(scope)?.blocks[0]?.kind).toBe('new');
   });
 });
 

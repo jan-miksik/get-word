@@ -7,7 +7,9 @@ import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { hasIntroducedWord } from '@/packages/domain/goals/goal';
 import { localDayKeyAt } from '@/lib/local-day';
 import { planSession, type SessionPlan } from './plan';
+import { sessionPlanMatchesProgress } from './blockClassification';
 import {
+  discardSessionPlan,
   pruneSessionPlans,
   readSessionPlan,
   sessionPlanIdentity,
@@ -216,7 +218,14 @@ export function useSessionPlan(args: {
       }
       return;
     }
-    const stored = readSessionPlan(storageScope);
+    const cached = readSessionPlan(storageScope);
+    const stored = cached && sessionPlanMatchesProgress(
+      cached,
+      args.progress,
+      args.dayKey,
+      args.timezone,
+    ) ? cached : null;
+    if (cached && !stored) discardSessionPlan(storageScope);
     // A completed session has no remaining words in the live stream. Keep (or
     // recover after a reload) the frozen plan so its final progress can still
     // resolve to the completion breather instead of collapsing to no session.
@@ -232,7 +241,7 @@ export function useSessionPlan(args: {
     // This state mirrors an external localStorage read; it intentionally settles
     // after the render that supplied the candidate fallback.
     setResolved({ identity: nextIdentity, plan });
-  }, [args.isSessionDataReady, args.progress, args.stream, candidate, candidateCount, canFreezeEmptyPlan, resolved, storageScope]);
+  }, [args.dayKey, args.isSessionDataReady, args.progress, args.stream, args.timezone, candidate, candidateCount, canFreezeEmptyPlan, resolved, storageScope]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!storageScope) return { dailyPlan: null, streamMode: 'unbounded', planIdentity: null };

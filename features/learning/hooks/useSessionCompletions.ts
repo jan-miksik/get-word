@@ -8,13 +8,11 @@ import type { NormalizedWord } from '@/lib/words';
 /**
  * What this session has already got through, ahead of the server.
  *
- * Two things run behind the learner's own sense of progress. A card that ends
- * in a check — choice, assembly, typing — holds its verdict until the continue
- * tap, and the deck then writes the SRS answer only once the exit animation
- * ends. Between marking an answer and seeing the rails move there were
- * therefore a tap and an animation. Everything here bridges that gap: the rails
- * read these as work already done, and each record expires by itself as the
- * real progress lands.
+ * The deck writes an SRS answer when its exit finishes. This state bridges the
+ * render where that commit has happened but the optimistic progress snapshot
+ * has not caught up yet. A checked-but-unconfirmed answer is deliberately not
+ * represented here: advancing the session before Continue could replace the
+ * card and strand the write that makes a new word genuinely introduced.
  */
 export interface SessionCompletions {
   /** Word cards finished in the deck, however they were answered. */
@@ -46,15 +44,12 @@ export interface SessionCompletions {
    */
   answeredWords: readonly NormalizedWord[];
   /**
-   * The learner has given their answer — the option is picked, the phrase is
-   * checked. This is the moment progress belongs to them, whatever the card
-   * still has to show them about it before it will advance.
+   * The learner committed the card. This is called from stream view after its
+   * outcome and from the deck only after its exit callback applied that outcome.
    */
   recordAnswerGiven: (word: NormalizedWord, progress: Record<string, ProgressData>) => void;
   /**
-   * A word card left the deck. Also records the answer, for the reveal card
-   * that has no separate check to report — the appearance guard means a card
-   * that already reported one is not counted twice.
+   * A word card left the deck after its outcome callback ran.
    */
   recordDeckCardCompleted: (word: NormalizedWord, progress: Record<string, ProgressData>) => void;
   recordGameFinished: (config: { id: string }) => void;
@@ -67,9 +62,8 @@ function answerCount(entry: ProgressData | undefined): number {
 export function useSessionCompletions(
   /**
    * Fires exactly once per genuinely new appearance answered — the same
-   * de-dupe guard `recordAnswerGiven` already keeps, so a card that reports
-   * twice (once on `onAnswered`, once again via `recordDeckCardCompleted` on
-   * deck exit) or a minigame round never double-counts. Used to drive the
+   * de-dupe guard `recordAnswerGiven` already keeps, so a repeated callback or
+   * a minigame round never double-counts. Used to drive the
    * mini-survey progress counter, which needs a view-mode-agnostic "a real
    * answer just happened" signal (`completedDeckWordCards` only increments in
    * card mode).
@@ -83,11 +77,9 @@ export function useSessionCompletions(
     () => new Set<string>(),
   );
   /**
-   * One appearance reports its answer twice — once when it is marked, once when
-   * the card leaves the deck — and both carry the same answer count, because
-   * the SRS write happens after the card is gone. Recording the appearance
-   * rather than the word is what tells those two apart from the genuine second
-   * answer a repeat block asks for, which arrives at a higher count.
+   * Recording the appearance rather than the bare word distinguishes duplicate
+   * completion signals from the genuine second answer a reinforcement block
+   * asks for, which arrives at a higher answer count.
    */
   const recordedAppearancesRef = useRef<Set<string>>(new Set());
 
