@@ -6,7 +6,15 @@ import { useUserProfile } from '@/features/auth/state/userProfile';
 import { useActiveListState } from '@/features/learning/app-state/useActiveListState';
 import { buildProgressBindings } from '@/features/learning/app-state/progressBindings';
 import { useServerSync } from '@/features/learning/app-state/useServerSync';
-import { useCategoryFilter, useGameScore, useMemoryHooks, usePreferences, useProgress } from '@/features/learning/state';
+import {
+  useCategoryFilter,
+  useGameScore,
+  useMemoryHooks,
+  usePreferences,
+  useProgress,
+  useSurveyProgress,
+  useSurveyResponses,
+} from '@/features/learning/state';
 import type { NormalizedWord } from '@/lib/words';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
@@ -182,6 +190,8 @@ export function useAppState(words: NormalizedWord[]) {
     ];
   }, [categories.filteredWords, personalWordsForActivePair]);
   const gameScore = useGameScore(isHydrated, isUpdatingFromServerRef);
+  const surveyProgress = useSurveyProgress(isHydrated, isUpdatingFromServerRef);
+  const surveyResponses = useSurveyResponses();
 
   // Warm the active list only on a suitable network, resuming after reconnect
   // or a switch back to an unmetered connection.
@@ -221,6 +231,9 @@ export function useAppState(words: NormalizedWord[]) {
     applyServerProfile: userProfile.applyServerProfile,
     applyServerPreferences: preferences.applyServerPreferences,
     applyServerGameScore: gameScore.applyServerGameScore,
+    applyServerSurveyCount: surveyProgress.applyServerSurveyCount,
+    applyServerSurveyResponses: surveyResponses.applyServerSurveyResponses,
+    applyServerSurveyEligibility: surveyResponses.applyServerSurveyEligibility,
     setSyncedWords,
     setSubscribedLists,
     setActiveListId,
@@ -236,6 +249,8 @@ export function useAppState(words: NormalizedWord[]) {
     // belongs to the non-personal base list.
     filteredWords,
     ...gameScore,
+    ...surveyProgress,
+    ...surveyResponses,
     progress,
     markKnown,
     markReallyKnown,

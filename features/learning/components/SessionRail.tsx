@@ -4,7 +4,6 @@ import { useI18n } from '@/components/I18nProvider';
 import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import type { SessionFlowState } from '@/features/learning/session/flow';
 import {
-  reachableTotal,
   segmentFillPercent,
   segmentFlexGrow,
   toProgressSegments,
@@ -148,18 +147,22 @@ export function SessionRail({
   // and it competes with the card that is actually saying how the day ended.
   if (flow.complete) return null;
 
-  // The block rail measures the walk, so it counts only what the stream can
-  // still serve. Items the block planned but cannot deliver used to sit in the
-  // denominator, which left the rail short of the top on the very answer that
-  // finished the block.
+  // The block rail is a fixed itinerary: a ten-card bonus round keeps ten marks
+  // from its first card to its last. Deriving the denominator from the live
+  // stream made it shrink while answers were settling — most visibly after a
+  // typing card — so a round planned for ten could suddenly show only seven.
+  // An item that became unreachable is already behind the learner for pacing
+  // purposes, just as the day rail treats an unreachable segment as passed.
   //
-  // Every card in the stretch gets a slot, minigames included: a round is
-  // something the learner has to work through, and a rail that stood still
-  // through a matching card read as a session that had stopped counting. The
-  // day's goal is untouched by this — that is counted in words, over on the day
-  // rail and on the ring that closes the day.
-  const blockGames = block ? Math.max(0, (block.gameTotal ?? 0) - (block.gameUnavailable ?? 0)) : 0;
-  const blockTotal = block ? reachableTotal(block) + blockGames : 0;
+  // Every card in the stretch gets a slot, minigames included. The day's goal
+  // is untouched by this — that is counted in distinct words on the day rail
+  // and on the ring that closes the day.
+  const blockGames = block?.gameTotal ?? 0;
+  const blockTotal = block ? block.total + blockGames : 0;
+  const blockPassed = block
+    ? block.done + block.pending + block.unavailable +
+      (block.gameDone ?? 0) + (block.gameUnavailable ?? 0)
+    : 0;
   const color = block ? blockColor(block.kind) : 'var(--rail-review)';
   const label = block?.kind === 'new' ? t('learning.sessionPlanNew') : t('learning.sessionPlanReview');
 
@@ -167,7 +170,7 @@ export function SessionRail({
     <>
       {block && blockTotal > 0 ? (
         <BlockRail
-          done={Math.min(block.done + block.pending + (block.gameDone ?? 0), blockTotal)}
+          done={Math.min(blockPassed, blockTotal)}
           total={blockTotal}
           color={color}
         />

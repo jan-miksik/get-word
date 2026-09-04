@@ -15,6 +15,11 @@ import {
   useStreakVariant,
   writeStreakVariant,
 } from '@/features/learning/components/goals/streakVariant';
+import {
+  TODAY_MARK_VARIANTS,
+  useTodayMarkVariant,
+  writeTodayMarkVariant,
+} from '@/features/learning/components/goals/todayMarkVariant';
 import type { StreakChipData, StreakDay } from '@/features/learning/goals/streakWeek';
 import {
   SESSION_TIME_STRIP_VARIANTS,
@@ -118,6 +123,7 @@ function streakDay(index: number, overrides: Partial<StreakDay>): StreakDay {
 
 function StreakView() {
   const variant = useStreakVariant();
+  const todayMark = useTodayMarkVariant();
 
   // A four-day goal preferring Mon/Wed/Fri/Sun, lived differently: Monday met,
   // Tuesday exceeded though it was not a preferred day, Wednesday only partial,
@@ -185,6 +191,47 @@ function StreakView() {
         </div>
       </Card>
 
+      <Card title="Označení dnešního dne">
+        <p className="m-0 mb-3 text-xs text-ink-300">
+          Jen `chain` — je to jediná forma, kterou appka vůbec reálně kreslí
+          (ostatních sedm žije jen tady). `halo` je současný stav: průsvitný
+          prstenec za korálkem. `solid` ho udělá plný, `pulse` ho navíc
+          rozdýchá, `ink` ho obarví natvrdo inkoustovou barvou místo barvy dne
+          (černý kroužek). `border` je to samé dotažené do nejjednoduššího
+          tvaru: rovná 2px černá linka, na 100 % krytí, bez záře. `pin` dnešek
+          místo prstence označí špendlíkem nad korálkem, `diamond` mu dá
+          kosočtvercový obrys místo kruhového — jediný den v řadě, který není
+          kolečko. `orbit` kolem korálku pořád krouží malý satelit.
+        </p>
+        <p className="m-0 mb-3 text-xs text-ink-300">
+          Poslední čtyři jsou zaměřovače/celohledáčky na tom samém borderu:
+          `crosshair` nechá `border`ův prstenec a přidá přes něj přerušovaný
+          kříž (optická muška). `ticks` má místo kříže čtyři rysky na
+          hlavních světových stranách (buzola). `target` zamění jeden
+          prstenec za dva soustředné (terč). `viewfinder` prstenec úplně
+          zahodí a nahradí ho čtyřmi rohovými závorkami těsně u korálku, jako
+          u zaostřování fotoaparátu.
+        </p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {TODAY_MARK_VARIANTS.map((option) => (
+            <button
+              key={option} type="button" onClick={() => writeTodayMarkVariant(option)}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold ${todayMark === option ? 'bg-brown text-white' : 'bg-paper-deeper'}`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-col gap-3">
+          {TODAY_MARK_VARIANTS.map((option) => (
+            <div key={option} className="flex items-center gap-4 rounded-xl bg-paper-tint p-4">
+              <span className="w-12 shrink-0 text-xs font-black uppercase tracking-wide text-ink-300">{option}</span>
+              <StreakDays days={week} weeks={history} size="full" variant="chain" value={1} todayMark={option} />
+            </div>
+          ))}
+        </div>
+      </Card>
+
       {/* Deliberately outside `Card`, and wrapped in the same two constraints
           the real deck imposes — the 800px viewport cap and the phone gutter —
           because escaping those is the whole point of the card's full-bleed. */}
@@ -197,7 +244,7 @@ function StreakView() {
             <SessionCardShell celebratory>
               <h2 className="m-0 text-2xl font-black text-ink-800">Pro dnešek hotovo!</h2>
               <p className="m-0 mt-2 text-sm text-ink-500">Další várka čeká zítra.</p>
-              <StreakSummary streak={streak} />
+              <StreakSummary streak={streak} emphasis="large" />
             </SessionCardShell>
           </div>
         </div>

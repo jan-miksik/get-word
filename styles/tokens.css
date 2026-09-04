@@ -92,6 +92,11 @@
   --amber-deep: #C79320;
   --brown: #A95E2A;
   --brown-deep: #4F2F24;
+  /* A brighter, colder yellow than --amber — the star drawn inside an
+     exceeded day in the chain streak (features/learning/components/goals/
+     StreakShapes.tsx) wants to read as a star's own colour, not as another
+     shade of the app's warm gold. */
+  --star-gold: #F8E65C;
 
   color-scheme: light dark;
   --bg: #060a18;

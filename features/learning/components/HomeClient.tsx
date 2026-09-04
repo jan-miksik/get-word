@@ -44,6 +44,7 @@ import {
   markLandingLanguagePairConsumed,
 } from '@/features/shared/languages/landingPairStorage';
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
+import { useSurveyPromptCard } from '@/features/learning/surveys/useSurveyPromptCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import { AddPersonalWordsPrompt } from '@/features/learning/components/AddPersonalWordsPrompt';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
@@ -121,12 +122,19 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).get('wordChat') === '1',
   );
+  // Latest-ref indirection because useAppState (the actual source of
+  // incrementSurveyProgress) is called further down, after this hook.
+  const incrementSurveyProgressRef = useRef<() => void>(() => {});
+  // Stable by construction — the ref above is what absorbs the change, so this
+  // must never be an inline arrow: `recordAnswerGiven` depends on it, and
+  // through `handleCardAnswered` so does every memoised card renderer.
+  const notifyAnswerRecorded = useCallback(() => incrementSurveyProgressRef.current(), []);
   // Work this session has finished but the server has not caught up with yet.
   const {
     completedDeckWordCards,
     pendingAnswers, completedGameIds, answeredWords,
     recordAnswerGiven, recordDeckCardCompleted, recordGameFinished,
-  } = useSessionCompletions();
+  } = useSessionCompletions(notifyAnswerRecorded);
   const [continueAnyway, setContinueAnyway] = useState(false);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const [preflightDismissed, setPreflightDismissed] = useState(false);
@@ -171,6 +179,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     typingCheckButtonEnabled,
+    typingAudioReplayHideFromStage,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -204,7 +213,16 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     isEditor,
     refreshFullSnapshot,
     photoLabEnabled,
+    surveyProgressCount,
+    surveyResponses,
+    surveyEligibility,
+    submitSurveyResponse,
+    dismissSurvey,
+    incrementSurveyProgress,
   } = appState;
+  useEffect(() => {
+    incrementSurveyProgressRef.current = incrementSurveyProgress;
+  }, [incrementSurveyProgress]);
   const {
     activeSurface,
     navigateSurface,
@@ -532,6 +550,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     typingCheckButtonEnabled,
+    typingAudioReplayHideFromStage,
     dismissedGames,
     setDismissedGames,
     setGameScore,
@@ -623,6 +642,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     />
   ) : null;
 
+  const surveyPromptCard = useSurveyPromptCard({
+    surveyProgressCount, surveyResponses, surveyEligibility, submitSurveyResponse, dismissSurvey,
+  });
+
   const {
     dismissPWAInstallIntro,
     isPreviewPWAActive,
@@ -658,6 +681,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     studyNoteMinimizeFromStage,
     typingPrefillPunctuation,
     typingCheckButtonEnabled,
+    typingAudioReplayHideFromStage,
   }), [
     categoryOrder,
     progress,
@@ -668,6 +692,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     studyNotesEnabled,
     typingCheckButtonEnabled,
     typingPrefillPunctuation,
+    typingAudioReplayHideFromStage,
   ]);
   // A practice block writes no spaced-repetition stage, but a correct answer
   // still earns its point — the same one a session card gives, never negative,
@@ -864,7 +889,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   ) : null;
 
   const interstitialCard =
-    timeTransitionCard ?? timePhaseEmptyCard ?? sessionBreatherCard ?? preflightCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
+    timeTransitionCard ?? timePhaseEmptyCard ?? sessionBreatherCard ?? preflightCard ?? surveyPromptCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
   const hasNoSelectedWordList = Boolean(
     onboardingCompletedAt &&
       learningLanguageFrom &&

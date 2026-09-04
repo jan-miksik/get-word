@@ -3,6 +3,7 @@
 import type { ProgressData } from '@/features/sync/contracts';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import { StudyExerciseCard } from '@/features/learning/components/StudyExerciseCard';
+import { DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE } from '@/lib/words';
 import type { PracticeStep } from './rounds';
 
 /**
@@ -24,6 +25,7 @@ export interface PracticeCardSettings {
   studyNoteMinimizeFromStage?: number;
   typingPrefillPunctuation?: boolean;
   typingCheckButtonEnabled?: boolean;
+  typingAudioReplayHideFromStage?: number;
 }
 
 const NEW_WORD_PROGRESS: ProgressData = { stageIndex: 0, knownCount: 0, unknownCount: 0 };
@@ -95,6 +97,9 @@ export function PracticeExerciseCard({
       studyNoteMinimizeFromStage={settings?.studyNoteMinimizeFromStage ?? 0}
       typingPrefillPunctuation={settings?.typingPrefillPunctuation ?? false}
       typingCheckButtonEnabled={settings?.typingCheckButtonEnabled ?? true}
+      typingAudioReplayHideFromStage={
+        settings?.typingAudioReplayHideFromStage ?? DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE
+      }
     />
   );
 }

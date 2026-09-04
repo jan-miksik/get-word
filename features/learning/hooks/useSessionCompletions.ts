@@ -64,7 +64,18 @@ function answerCount(entry: ProgressData | undefined): number {
   return (entry?.knownCount ?? 0) + (entry?.unknownCount ?? 0);
 }
 
-export function useSessionCompletions(): SessionCompletions {
+export function useSessionCompletions(
+  /**
+   * Fires exactly once per genuinely new appearance answered — the same
+   * de-dupe guard `recordAnswerGiven` already keeps, so a card that reports
+   * twice (once on `onAnswered`, once again via `recordDeckCardCompleted` on
+   * deck exit) or a minigame round never double-counts. Used to drive the
+   * mini-survey progress counter, which needs a view-mode-agnostic "a real
+   * answer just happened" signal (`completedDeckWordCards` only increments in
+   * card mode).
+   */
+  onNewAnswerRecorded?: () => void,
+): SessionCompletions {
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [answeredWords, setAnsweredWords] = useState<readonly NormalizedWord[]>([]);
   const [pendingAnswers, setPendingAnswers] = useState<Record<string, number>>({});
@@ -86,10 +97,11 @@ export function useSessionCompletions(): SessionCompletions {
       const appearance = `${word.id}:${answersAtAnswerTime}`;
       if (recordedAppearancesRef.current.has(appearance)) return;
       recordedAppearancesRef.current.add(appearance);
+      onNewAnswerRecorded?.();
       setPendingAnswers((previous) => ({ ...previous, [word.id]: answersAtAnswerTime }));
       setAnsweredWords((previous) => [...previous, word]);
     },
-    [],
+    [onNewAnswerRecorded],
   );
 
   const recordDeckCardCompleted = useCallback(

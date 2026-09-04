@@ -6,6 +6,7 @@ import type { StreakChipData, StreakDay } from '@/features/learning/goals/streak
 import { ChainShape, RingShape, StepsShape, TrailShape, type ShapeProps } from './StreakShapes';
 import { CometShape, PulseShape, StackShape, WaveShape } from './StreakShapesAlt';
 import { useStreakVariant, type StreakVariant } from './streakVariant';
+import type { TodayMarkVariant } from './todayMarkVariant';
 
 const SHAPES: Record<Exclude<StreakVariant, 'bars'>, (props: ShapeProps) => React.ReactNode> = {
   chain: ChainShape,
@@ -125,6 +126,8 @@ export function StreakDays({
   size = 'full',
   variant,
   value,
+  scale,
+  todayMark,
 }: {
   days: StreakDay[];
   weeks?: StreakDay[][];
@@ -133,6 +136,10 @@ export function StreakDays({
   variant?: StreakVariant;
   /** Folded into the shape where one has room for it (the ring). */
   value?: number;
+  /** Draws the shape bigger than its everyday size; only `chain` reads it. */
+  scale?: number;
+  /** Overrides the stored today-mark choice; only `chain` reads it. */
+  todayMark?: TodayMarkVariant;
 }) {
   const { t } = useI18n();
   const compact = size === 'compact';
@@ -141,7 +148,7 @@ export function StreakDays({
 
   if (shape !== 'bars') {
     const Shape = SHAPES[shape];
-    return <Shape days={days} weeks={weeks} compact={compact} value={value} />;
+    return <Shape days={days} weeks={weeks} compact={compact} value={value} scale={scale} todayMark={todayMark} />;
   }
 
   return (
@@ -203,30 +210,49 @@ export function StreakDays({
  * figure and misleading for a plan kept on different days than intended, so the
  * counts stand alone and the seven segments say what was counted.
  */
-export function StreakSummary({ streak }: { streak: StreakChipData }) {
+export function StreakSummary({
+  streak,
+  emphasis = 'default',
+}: {
+  streak: StreakChipData;
+  /**
+   * `large` is for the one place the series is looked at rather than glanced
+   * at — the day's closing card, which used to draw it at the same size as
+   * the Upcoming panel's sidebar despite having far more room to spend. Every
+   * part scales together: the numbers, the shape, and the week-progress line.
+   */
+  emphasis?: 'default' | 'large';
+}) {
   const { t } = useI18n();
+  const large = emphasis === 'large';
   return (
-    <div className="mt-5 flex flex-col items-center gap-2.5">
-      <div className="flex items-baseline justify-center gap-5">
+    <div className={`mt-5 flex flex-col items-center ${large ? 'gap-3' : 'gap-2.5'}`}>
+      <div className={`flex items-baseline justify-center ${large ? 'gap-6' : 'gap-5'}`}>
         {streak.dailyStreak === 0 && streak.weeklyStreak === 0 ? (
-          <p className="m-0 text-base font-black tabular-nums text-ink-500 sm:text-lg">
+          <p className={`m-0 font-black tabular-nums text-ink-500 ${large ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg'}`}>
             {t('goal.streakLabel', { count: streak.dailyStreak })}
           </p>
         ) : null}
         {streak.dailyStreak > 0 ? (
-          <p className="m-0 text-base font-black tabular-nums text-ink-500 sm:text-lg">
+          <p className={`m-0 font-black tabular-nums text-ink-500 ${large ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg'}`}>
             {t('goal.streakLabel', { count: streak.dailyStreak })}
           </p>
         ) : null}
         {streak.weeklyStreak > 0 ? (
-          <p className="m-0 text-base font-black tabular-nums text-ink-500 sm:text-lg">
+          <p className={`m-0 font-black tabular-nums text-ink-500 ${large ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg'}`}>
             {t('goal.streakWeeksLabel', { count: streak.weeklyStreak })}
           </p>
         ) : null}
       </div>
-      <StreakDays days={streak.days} weeks={streak.weeks} size="full" value={streak.dailyStreak} />
+      <StreakDays
+        days={streak.days}
+        weeks={streak.weeks}
+        size="full"
+        value={streak.dailyStreak}
+        scale={large ? 1.35 : undefined}
+      />
       {streak.weekTarget > 0 ? (
-        <p className="m-0 text-sm font-semibold tabular-nums text-[#6b5b45]">
+        <p className={`m-0 font-semibold tabular-nums text-[#6b5b45] ${large ? 'text-base' : 'text-sm'}`}>
           {t('goal.streakWeekProgress', { count: streak.keptThisWeek, target: streak.weekTarget })}
         </p>
       ) : null}

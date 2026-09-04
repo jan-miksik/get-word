@@ -46,6 +46,8 @@ const FLIP_DURATION_MS = 220;
 const FLIP_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 /** How far a pointer has to travel before a tap on a tile becomes a drag. */
 const DRAG_THRESHOLD_PX = 5;
+/** Comfortably past the tiles' own 200ms transform transition. */
+const DROP_SETTLE_MS = 260;
 
 function prefersReducedMotion(): boolean {
   return (
@@ -181,11 +183,24 @@ export function WordAssemblyGame({
    * got right standing, so the mistake is the thing that stands out.
    */
   const [slotVerdicts, setSlotVerdicts] = useState<boolean[]>([]);
+  /**
+   * A drop is walked through in phases rather than in one commit, because a
+   * transition may only ever be started from a style that already declares it.
+   *
+   * `active`   — under the pointer, transforms applied with transitions off.
+   * `landing`  — the frame the new order is committed. Every transform changes
+   *              to match the new flow slots, so all of them must be applied
+   *              instantly; a transition here would run from the slot the tile
+   *              has *already* moved into and drag it a whole slot sideways.
+   * `arming`   — transitions switched back on with nothing else changing, so
+   *              nothing animates but the next frame can.
+   * `settling` — the offset released, gliding into the committed slot.
+   */
   const [drag, setDrag] = useState<{
     id: string;
     x: number;
     y: number;
-    landing: boolean;
+    phase: 'active' | 'landing' | 'arming' | 'settling';
     neighbourOffsets: Record<string, { x: number; y: number }>;
   } | null>(null);
 
@@ -399,7 +414,7 @@ export function WordAssemblyGame({
       id,
       x: held.x - centres[fromIndex].x,
       y: held.y - centres[fromIndex].y,
-      landing: false,
+      phase: 'active',
       neighbourOffsets,
     });
   };
@@ -416,18 +431,18 @@ export function WordAssemblyGame({
     next.splice(snapshot.toIndex, 0, snapshot.id);
 
     // Before release, neighbour transforms already put them at these final
-    // slots. Commit the DOM order and remove those transforms in one render —
-    // with their transform transition switched off for that frame, or the
-    // removal animates out of the slot they just moved into — so they never
-    // jump. Only the held tile keeps its pointer offset for one paint
-    // and then eases into the slot beneath it.
+    // slots, and the held tile's offset is measured against the slot it came
+    // from. Committing the order re-bases every one of those: the neighbours
+    // lose their offsets and the held tile's is re-measured against the slot
+    // it landed in. That is the `landing` frame, and it has to be silent —
+    // see the phase note on the state above.
     skipNextFlipRef.current = true;
     setPlaced(next);
     setDrag({
       id: snapshot.id,
       x: snapshot.held.x - snapshot.centres[snapshot.toIndex].x,
       y: snapshot.held.y - snapshot.centres[snapshot.toIndex].y,
-      landing: true,
+      phase: 'landing',
       neighbourOffsets: {},
     });
     draggingId.current = null;
@@ -435,16 +450,31 @@ export function WordAssemblyGame({
     suppressClick.current = true;
   };
 
-  // Let the released tile paint once where the pointer left it; removing the
-  // transform on the next frame uses the tile's ordinary transition to settle
-  // it into the committed slot.
+  // Walks a released tile through the phases above, one frame at a time. Each
+  // step only ever changes the transform or the transition, never both, so no
+  // step can start an animation from a position the tile is no longer at.
   useEffect(() => {
-    if (!drag?.landing) return;
-    const frame = window.requestAnimationFrame(() => {
-      freezeFlipRef.current = false;
-      setDrag(null);
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const phase = drag?.phase;
+    if (phase === 'landing' || phase === 'arming') {
+      const next = phase === 'landing' ? 'arming' : 'settling';
+      const frame = window.requestAnimationFrame(() => {
+        // The transforms are gone as of the settling frame, so the flip hook
+        // can measure real boxes again from there on.
+        if (next === 'settling') freezeFlipRef.current = false;
+        setDrag((current) => (current?.phase === phase ? { ...current, phase: next } : current));
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    if (phase === 'settling') {
+      // Held until the glide is over: dropping it early would take the tile's
+      // transform transition away mid-flight. A drag started in the meantime
+      // owns the state instead, so this only ever clears its own phase.
+      const timer = window.setTimeout(() => {
+        setDrag((current) => (current?.phase === 'settling' ? null : current));
+      }, DROP_SETTLE_MS);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
   }, [drag]);
 
   // Kept fresh every render so the listeners below, which are attached once per
@@ -531,27 +561,28 @@ export function WordAssemblyGame({
           aria-label={t('game.assembledAnswer')}
         >
           {placedTiles.map((tile, index) => {
-            const dragging = drag?.id === tile.id;
+            const phase = drag?.id === tile.id ? drag.phase : null;
+            /** Lifted look, and an offset that tracks the pointer. */
+            const held = phase === 'active' || phase === 'landing' || phase === 'arming';
             // Right tiles stay right even in a wrong assembly; only the ones
             // actually out of place are called out.
             const slotWrong = outcome === 'unknown' && slotVerdicts[index] === false;
             const slotRight = outcome !== null && !slotWrong;
-            const activelyDragging = dragging && !drag.landing;
-            /**
-             * The neighbours' offsets and their flow slots swap places in the
-             * same render as the release. That is only invisible if the
-             * transform is dropped instantly: left to transition, the tile
-             * starts the fall back to zero from the slot it has *already*
-             * moved into, so it appears a whole slot further along and then
-             * slides back — the sideways twitch on every drop.
-             */
-            const landingNeighbour = Boolean(drag?.landing) && !dragging;
             let transform: string | undefined;
-            if (dragging) {
+            if (held && drag) {
               transform = `translate(${drag.x}px, ${drag.y}px) scale(1.06)`;
-            } else {
+            } else if (!phase) {
               const offset = drag?.neighbourOffsets[tile.id];
               if (offset) transform = `translate(${offset.x}px, ${offset.y}px)`;
+            }
+            // Silent on the landing frame — for the held tile and for every
+            // neighbour, since all of their transforms are re-based there —
+            // then armed so the release can glide.
+            let transitionProperty: string | undefined;
+            if (phase === 'active' || phase === 'landing' || drag?.phase === 'landing') {
+              transitionProperty = 'none';
+            } else if (phase === 'arming' || phase === 'settling') {
+              transitionProperty = 'transform';
             }
             return (
               <button
@@ -564,33 +595,23 @@ export function WordAssemblyGame({
                 onClick={() => takeBack(tile.id)}
                 style={{
                   transform,
-                  // The lifted tile must not lag behind the pointer, and the
-                  // graded tiles colour in one after another rather than all at
-                  // once. Both written longhand: mixing `transition` with
-                  // `transitionDelay` across renders makes React complain.
-                  // Pointer movement must be immediate, but the released tile
-                  // is already in its landing phase and needs its transform
-                  // transition restored before the next frame removes that
-                  // transform. Keeping this at `none` until `drag` cleared made
-                  // the tile snap — the small jump visible exactly on drop.
-                  transitionProperty: activelyDragging || landingNeighbour
-                    ? 'none'
-                    : dragging
-                      ? 'transform'
-                      : undefined,
-                  transitionDelay: !dragging && outcome ? `${index * 45}ms` : undefined,
+                  // Written longhand rather than through the `transition`
+                  // shorthand: mixing it with `transitionDelay` across renders
+                  // makes React complain.
+                  transitionProperty,
+                  transitionDelay: !phase && outcome ? `${index * 45}ms` : undefined,
                 }}
                 {...noTranslateProps(
                   [
                     TILE_SHAPE,
                     tileWidth,
                     'touch-none disabled:cursor-default',
-                    dragging ? 'z-30 cursor-grabbing shadow-[0_10px_18px_rgba(42,34,24,0.28)]' : 'cursor-grab',
+                    held ? 'z-30 cursor-grabbing shadow-[0_10px_18px_rgba(42,34,24,0.28)]' : 'cursor-grab',
                     slotWrong
                       ? 'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6]'
                       : slotRight
                         ? 'border-moss bg-wash-moss text-[#145B33] shadow-[0_3px_0_#A9D3B6]'
-                        : dragging
+                        : held
                           ? 'border-sea bg-wash-sea text-sea-mid'
                           : 'border-sea bg-wash-sea text-sea-mid shadow-[0_3px_0_#B5CFE4]',
                   ].join(' '),

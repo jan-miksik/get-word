@@ -9,6 +9,7 @@ import { getPlayableAudioFields } from '@/lib/audio-assets';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
+  DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE,
 } from '@/lib/words';
 import { applyPersonalLearningOverlay } from './personal-overlay';
 
@@ -90,6 +91,7 @@ type SyncUserShape = {
   memoryHookDisableFromStage?: number | null;
   studyNotesEnabled?: boolean | null;
   studyNoteMinimizeFromStage?: number | null;
+  typingAudioReplayHideFromStage?: number | null;
   learningFineTune?: unknown;
   goalReminderIntroAnswered?: boolean | null;
   goalIntroAnswered?: boolean | null;
@@ -103,6 +105,8 @@ type SyncUserShape = {
   onboardingCompletedAt?: Date | string | null;
   languagePairRevision?: number | null;
   gameScore: number | null;
+  surveyProgressCount?: number | null;
+  surveyPriorUser?: boolean | null;
   categoryOrder?: string[] | null;
   pinnedCategoryIds?: string[] | null;
   walletAddress: string | null;
@@ -185,6 +189,8 @@ function buildSyncUser(user: SyncUserShape) {
     study_notes_enabled: user.studyNotesEnabled ?? true,
     study_note_minimize_from_stage:
       user.studyNoteMinimizeFromStage ?? DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
+    typing_audio_replay_hide_from_stage:
+      user.typingAudioReplayHideFromStage ?? DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE,
     // Null until the learner touches the settings; the client fills in the
     // default preset rather than the server baking one into every response.
     learning_fine_tune: user.learningFineTune ?? null,
@@ -205,6 +211,7 @@ function buildSyncUser(user: SyncUserShape) {
       : null,
     language_pair_revision: user.languagePairRevision ?? 0,
     game_score: user.gameScore ?? 0,
+    survey_progress_count: user.surveyProgressCount ?? 0,
     category_order: user.categoryOrder ?? [],
     // Server-owned: set by a word-chat commit, read-only on the client.
     pinned_category_ids: user.pinnedCategoryIds ?? [],

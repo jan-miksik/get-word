@@ -25,6 +25,8 @@ const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
 const mockEnsureDayGoalSnapshot = vi.fn()
 const mockGetUserMemoryHooksDelta = vi.fn()
+const mockGetUserSurveyResponses = vi.fn()
+const mockRecordSurveyResponseIfAbsent = vi.fn()
 const mockGetUserSyncRevision = vi.fn()
 const mockGetContentRevision = vi.fn()
 const mockGetAppliedSyncClientOpIds = vi.fn()
@@ -58,6 +60,8 @@ vi.mock('@/lib/db', () => ({
   applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
   ensureDayGoalSnapshot: (...args: unknown[]) => mockEnsureDayGoalSnapshot(...args),
   getUserMemoryHooksDelta: (...args: unknown[]) => mockGetUserMemoryHooksDelta(...args),
+  getUserSurveyResponses: (...args: unknown[]) => mockGetUserSurveyResponses(...args),
+  recordSurveyResponseIfAbsent: (...args: unknown[]) => mockRecordSurveyResponseIfAbsent(...args),
   getUserSyncRevision: (...args: unknown[]) => mockGetUserSyncRevision(...args),
   getContentRevision: (...args: unknown[]) => mockGetContentRevision(...args),
   getAppliedSyncClientOpIds: (...args: unknown[]) => mockGetAppliedSyncClientOpIds(...args),
@@ -137,6 +141,7 @@ describe('GET /api/sync', () => {
     mockGetUserById.mockResolvedValue(baseUser)
     mockGetProjectedProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
+    mockGetUserSurveyResponses.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
@@ -501,6 +506,7 @@ describe('POST /api/sync', () => {
     mockGetUserById.mockResolvedValue(baseUser)
     mockGetProjectedProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
+    mockGetUserSurveyResponses.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])

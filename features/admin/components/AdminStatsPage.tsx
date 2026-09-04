@@ -11,6 +11,7 @@ import {
   StatCard,
   TrendBars,
 } from '@/components/stats/StatsPrimitives';
+import { AdminSurveysSection } from '@/features/admin/components/AdminSurveysSection';
 import { useAdminStats } from '@/features/admin/client/useAdminStats';
 import type {
   AdminUserRow,
@@ -1415,6 +1416,13 @@ function AdminStatsContent() {
             </div>
           )}
         </Section>
+
+        <AdminSurveysSection
+          surveys={stats.surveys}
+          revealedEmails={revealedEmails}
+          revealEmail={revealEmail}
+          formatDate={formatDate}
+        />
 
         <Section title={t('adminStats.sectionContent')}>
           <CardGrid>

@@ -4,6 +4,7 @@ const recordActivitySegmentsIfNew = vi.fn(async () => [] as string[]);
 const recordAppliedSyncClientOpIds = vi.fn(async () => undefined);
 const getAppliedSyncClientOpIds = vi.fn(async () => new Set<string>());
 const updateUserPreferences = vi.fn(async () => undefined);
+const recordSurveyResponseIfAbsent = vi.fn(async () => undefined);
 
 vi.mock('@/lib/db', () => ({
   applyNewReviewEvents: vi.fn(async () => []),
@@ -17,6 +18,8 @@ vi.mock('@/lib/db', () => ({
     recordActivitySegmentsIfNew(...(args as [])),
   recordAppliedSyncClientOpIds: (...args: unknown[]) =>
     recordAppliedSyncClientOpIds(...(args as [])),
+  recordSurveyResponseIfAbsent: (...args: unknown[]) =>
+    recordSurveyResponseIfAbsent(...(args as [])),
   setUserCategoryFilters: vi.fn(async () => undefined),
   updateUserPreferences: (...args: unknown[]) => updateUserPreferences(...(args as [])),
   upsertMemoryHook: vi.fn(async () => undefined),
@@ -53,6 +56,7 @@ beforeEach(() => {
   recordAppliedSyncClientOpIds.mockReset().mockResolvedValue(undefined);
   getAppliedSyncClientOpIds.mockReset().mockResolvedValue(new Set<string>());
   updateUserPreferences.mockReset().mockResolvedValue(undefined);
+  recordSurveyResponseIfAbsent.mockReset().mockResolvedValue(undefined);
 });
 
 describe('activity segments in a mixed batch', () => {
@@ -121,5 +125,109 @@ describe('learning fine tune', () => {
       learning_fine_tune?: unknown;
     };
     expect(prefs.learning_fine_tune).toBeUndefined();
+  });
+});
+
+describe('survey_progress_count', () => {
+  it('max-merges the incoming count against the stored one, same as game_score', async () => {
+    await applySyncMutations({
+      user: { ...user, surveyProgressCount: 7 } as unknown as User,
+      request: {
+        deviceId: 'device-1',
+        survey_progress_count: 12,
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    const prefs = (updateUserPreferences.mock.calls[0] as unknown as unknown[])[1] as {
+      survey_progress_count?: number;
+    };
+    expect(prefs.survey_progress_count).toBe(12);
+  });
+
+  it('never lets a lower incoming count regress the stored one', async () => {
+    await applySyncMutations({
+      user: { ...user, surveyProgressCount: 20 } as unknown as User,
+      request: {
+        deviceId: 'device-1',
+        survey_progress_count: 5,
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    const prefs = (updateUserPreferences.mock.calls[0] as unknown as unknown[])[1] as {
+      survey_progress_count?: number;
+    };
+    expect(prefs.survey_progress_count).toBe(20);
+  });
+});
+
+describe('survey_responses', () => {
+  it('records a valid answer for a known survey/option', async () => {
+    await applySyncMutations({
+      user,
+      request: {
+        deviceId: 'device-1',
+        survey_responses: {
+          bug_check: { choice: 'no_issues', free_text: null, dismissed: false },
+        },
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    expect(recordSurveyResponseIfAbsent).toHaveBeenCalledWith('user-1', 'bug_check', {
+      choice: 'no_issues',
+      freeText: null,
+      dismissed: false,
+    });
+  });
+
+  it('records a dismissal the same way', async () => {
+    await applySyncMutations({
+      user,
+      request: {
+        deviceId: 'device-1',
+        survey_responses: {
+          recent_changes: { choice: null, free_text: null, dismissed: true },
+        },
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    expect(recordSurveyResponseIfAbsent).toHaveBeenCalledWith('user-1', 'recent_changes', {
+      choice: null,
+      freeText: null,
+      dismissed: true,
+    });
+  });
+
+  it('ignores an unknown survey id — write-once means a bad row would be permanent', async () => {
+    await applySyncMutations({
+      user,
+      request: {
+        deviceId: 'device-1',
+        survey_responses: {
+          not_a_real_survey: { choice: 'whatever', free_text: null, dismissed: false },
+        },
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    expect(recordSurveyResponseIfAbsent).not.toHaveBeenCalled();
+  });
+
+  it('ignores a choice that is not one of the survey’s configured options', async () => {
+    await applySyncMutations({
+      user,
+      request: {
+        deviceId: 'device-1',
+        survey_responses: {
+          bug_check: { choice: 'banana', free_text: null, dismissed: false },
+        },
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    expect(recordSurveyResponseIfAbsent).not.toHaveBeenCalled();
   });
 });

@@ -37,6 +37,8 @@ function mockAllQueries({
   wordChatAccounts = [] as Record<string, unknown>[],
   googleApi = [] as Record<string, unknown>[],
   uiLanguageRequests = [] as Record<string, unknown>[],
+  surveyResponses = [] as Record<string, unknown>[],
+  surveyFreeText = [] as Record<string, unknown>[],
   users = [] as Record<string, unknown>[],
   userDaily = [] as Record<string, unknown>[],
   userPresenceDays = [] as Record<string, unknown>[],
@@ -71,6 +73,8 @@ function mockAllQueries({
     .mockResolvedValueOnce(wordChatAccounts)
     .mockResolvedValueOnce(googleApi)
     .mockResolvedValueOnce(uiLanguageRequests)
+    .mockResolvedValueOnce(surveyResponses)
+    .mockResolvedValueOnce(surveyFreeText)
     .mockResolvedValueOnce(users)
     .mockResolvedValueOnce(userDaily)
     .mockResolvedValueOnce(userPresenceDays)
@@ -116,9 +120,9 @@ describe('getUsageStats', () => {
 
     const stats = await getUsageStats();
 
-    // 24 panel queries + 2 app-wide activity rollups. The per-user activity
+    // 26 panel queries + 2 app-wide activity rollups. The per-user activity
     // query short-circuits without hitting the database when no users match.
-    expect(mockExecute).toHaveBeenCalledTimes(26);
+    expect(mockExecute).toHaveBeenCalledTimes(28);
     expect(stats.generatedAt).toBe(NOW.toISOString());
     expect(stats.registrations).toMatchObject({
       total: 10,
@@ -196,6 +200,7 @@ describe('getUsageStats', () => {
       sources: [],
     });
     expect(stats.uiLanguageRequests).toEqual({ totalRequests: 0, languages: [] });
+    expect(stats.surveys).toEqual({ summaries: [], freeTextResponses: [] });
   });
 
   it('returns exactly 12 zero-filled weeks with only the last marked partial', async () => {
@@ -449,6 +454,57 @@ describe('getUsageStats', () => {
         { languageCode: 'hi', requesters: 2, lastRequestedAt: '2026-07-13T10:00:00.000Z' },
       ],
     });
+  });
+
+  it('summarizes survey responses per survey, counting dismissals as their own outcome', async () => {
+    mockAllQueries({
+      surveyResponses: [
+        { survey_id: 'bug_check', option_id: 'no_issues', responses: 42 },
+        { survey_id: 'bug_check', option_id: 'minor_issues', responses: 5 },
+        { survey_id: 'bug_check', option_id: 'dismissed', responses: 70 },
+        { survey_id: 'recent_changes', option_id: 'great', responses: 3 },
+      ],
+      surveyFreeText: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          email: 'learner@example.com',
+          survey_id: 'bug_check',
+          choice: 'minor_issues',
+          free_text: 'sync feels slow',
+          updated_at: '2026-07-14T10:00:00.000Z',
+        },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.surveys.summaries).toEqual([
+      {
+        surveyId: 'bug_check',
+        totalAnswered: 47,
+        totalDismissed: 70,
+        options: [
+          { optionId: 'no_issues', responses: 42 },
+          { optionId: 'minor_issues', responses: 5 },
+        ],
+      },
+      {
+        surveyId: 'recent_changes',
+        totalAnswered: 3,
+        totalDismissed: 0,
+        options: [{ optionId: 'great', responses: 3 }],
+      },
+    ]);
+    expect(stats.surveys.freeTextResponses).toEqual([
+      {
+        handle: expect.stringMatching(/^user_[0-9a-f]{12}$/),
+        email: 'learner@example.com',
+        surveyId: 'bug_check',
+        optionId: 'minor_issues',
+        freeText: 'sync feels slow',
+        respondedAt: '2026-07-14T10:00:00.000Z',
+      },
+    ]);
   });
 
   it('maps per-user rows to a pseudonymous handle, keeping the e-mail and nullable timestamps', async () => {

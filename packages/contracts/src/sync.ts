@@ -126,6 +126,7 @@ const SyncMutationPayloadSchema = z.object({
   memory_hook_disable_from_stage: z.number().int().optional(),
   study_notes_enabled: z.boolean().optional(),
   study_note_minimize_from_stage: z.number().int().optional(),
+  typing_audio_replay_hide_from_stage: z.number().int().optional(),
   // Shape is validated by normalizeFineTuneConfig on both sides; the schema
   // only has to let the object through.
   learning_fine_tune: z.unknown().optional(),
@@ -150,6 +151,27 @@ const SyncMutationPayloadSchema = z.object({
   settings_language_base_revision: z.number().int().nonnegative().optional(),
   language_pair_base_revision: z.number().int().nonnegative().optional(),
   game_score: z.number().finite().optional(),
+  survey_progress_count: z.number().finite().optional(),
+  // A discriminated union, not a loose bag of nullable fields: "answer" and
+  // "dismiss" can't be combined into an invalid row (e.g. choice: null with
+  // free text, or a choice alongside dismissed: true). Responses are
+  // write-once server-side (see apply-mutations.ts), so keeping this shape
+  // strict matters more than for an ordinary preference.
+  survey_responses: z.record(
+    z.string(),
+    z.union([
+      // The length bound mirrors the card's own textarea. Without it the only
+      // limit on a permanently stored comment is a client attribute, and the
+      // row is write-once: an oversized one could never be replaced, yet would
+      // ride along on every sync response and every GDPR export.
+      z.object({
+        choice: z.string(),
+        free_text: z.string().max(1000).nullable(),
+        dismissed: z.literal(false),
+      }),
+      z.object({ choice: z.null(), free_text: z.null(), dismissed: z.literal(true) }),
+    ]),
+  ).optional(),
   category_order: z.array(z.string()).optional(),
   progress: z.array(SyncProgressItemSchema).optional(),
   review_events: z.array(SyncReviewEventItemSchema).optional(),

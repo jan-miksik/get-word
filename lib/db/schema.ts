@@ -351,6 +351,7 @@ export const users = pgTable("users", {
   memoryHookDisableFromStage: integer("memory_hook_disable_from_stage").default(5).notNull(),
   studyNotesEnabled: boolean("study_notes_enabled").default(true).notNull(),
   studyNoteMinimizeFromStage: integer("study_note_minimize_from_stage").default(2).notNull(),
+  typingAudioReplayHideFromStage: integer("typing_audio_replay_hide_from_stage").default(5).notNull(),
   // Per-stage learning methods, weights and variants. Null means "never
   // touched", which the client reads as the default preset.
   learningFineTune: jsonb("learning_fine_tune"),
@@ -375,6 +376,18 @@ export const users = pgTable("users", {
   // questions and keep generated prompts calibrated to the learner.
   wordChatSalutationGender: text("word_chat_salutation_gender"),
   gameScore: integer("game_score").notNull().default(0),
+  // Count of eligible study answers recorded since the mini-survey feature
+  // shipped. Starts at 0 for every user (new and pre-existing) — never
+  // backfilled from historical review_events. Reinforcement/bonus-round
+  // answers count too, same as other threshold gates in this app, so this is
+  // "eligible answers", not literally "distinct cards studied".
+  surveyProgressCount: integer("survey_progress_count").notNull().default(0),
+  // True for every account that already existed when migration 0076 ran, false
+  // for every account created after it. That migration is the environment's own
+  // rollout moment, which is what a survey asking about "the recent changes"
+  // actually needs to know — no rollout timestamp to guess in advance, and
+  // nothing that erodes as review_events are compacted.
+  surveyPriorUser: boolean("survey_prior_user").notNull().default(false),
   categoryOrder: text("category_order").array().notNull().default(sql`'{}'::text[]`),
   // Categories whose items lead the study stream, ahead even of due repeats.
   // Category IDS, not names: names are editable, repeatable across lists, and
@@ -581,6 +594,37 @@ export const uiLanguageRequests = pgTable(
     ),
   ],
 );
+
+// One row per user and mini-survey ("(user, survey)" pair), written once.
+// The first answer or dismissal for a given survey is terminal: the
+// application layer enforces this with an INSERT ... ON CONFLICT DO NOTHING
+// (see lib/db/queries/survey-responses.ts) so a later write for the same
+// pair — e.g. an offline second device answering after the first already
+// did — is silently ignored, never applied. `choice`/`freeText` are only
+// populated for an actual answer; a dismissal has both null.
+export const surveyResponses = pgTable(
+  "survey_responses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    surveyId: text("survey_id").notNull(),
+    choice: text("choice"),
+    freeText: text("free_text"),
+    dismissed: boolean("dismissed").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("survey_responses_user_survey_unique").on(
+      table.userId,
+      table.surveyId,
+    ),
+  ],
+);
+export type SurveyResponse = typeof surveyResponses.$inferSelect;
+export type NewSurveyResponse = typeof surveyResponses.$inferInsert;
 
 // User progress - tracks spaced repetition for each word
 export const userProgress = pgTable(

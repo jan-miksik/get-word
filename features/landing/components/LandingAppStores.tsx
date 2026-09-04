@@ -8,6 +8,7 @@ import type { I18nKey } from '@/lib/i18n/messages';
 import { getInstallPlatform, isAndroid } from '@/lib/pwa-install';
 import { getStoreDownloadUrl, type StoreTarget } from '@/lib/store-listing';
 import { IconApple, IconArrow, IconGooglePlay } from './LandingIcons';
+import { AppStoreBadge, GooglePlayBadge } from './LandingStoreBadges';
 
 /* ------------------------------------------------------------------ *
  * Which device is reading this
@@ -159,6 +160,43 @@ export function DesktopStoreNote() {
           <StoreLinkButton key={link.target} link={link} stacked={false} />
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The two official badges, side by side, right under the hero tagline.
+ *
+ * Every other store link on this page (`StoreLinkButton`) is deliberately
+ * recoloured to match the site's ink/paper palette. This one spot is the
+ * opposite choice on purpose: the exact black lockup a visitor has already
+ * seen on someone else's phone, so "this is a real app you install" reads on
+ * sight, before a single word of copy does. Shown on every device — a desktop
+ * reader is still one QR-scan-free way from finding out the app exists on
+ * their phone too.
+ */
+export function HeroStoreBadges() {
+  const { t } = useI18n();
+  if (STORE_LINKS.length === 0) return null;
+
+  return (
+    <div className="lp-hero-badges">
+      {STORE_LINKS.map((link) => (
+        <a
+          key={link.target}
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={t(link.labelKey)}
+          className="lp-hero-badge-link"
+        >
+          {link.target === 'play' ? (
+            <GooglePlayBadge className="lp-hero-badge" />
+          ) : (
+            <AppStoreBadge className="lp-hero-badge" />
+          )}
+        </a>
+      ))}
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { userHandle } from '@/features/admin/server/userHandle';
 import { WORD_CHAT_MONTHLY_SPEND_LIMIT_USD } from '@/features/word-chat/server/config';
 import { getActivityTotals, getUserActivityTotals } from './activity-stats';
 import { getGoogleApiFreeMonthlyUnits } from './google-api-usage';
+import { readSurveyStats } from './usage-stats-surveys';
 import { db } from '../client';
 import {
   TREND_WEEKS,
@@ -686,6 +687,8 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     `,
     'ui_language_requests',
   );
+
+  const surveyStats = await readSurveyStats({ runQuery: executeOrEmpty, userScope: includedUserCondition('u', exclusionOptions), toHandle: userHandle });
 
   // Per-user "who to write to" rows: registered users with an e-mail, including
   // one-time users (no activity filter). Each behavioural source is aggregated
@@ -1411,6 +1414,7 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       ),
       languages: uiLanguageRequestLanguages,
     },
+    surveys: surveyStats,
     activityHeatmap,
     users,
   };

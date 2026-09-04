@@ -19,7 +19,14 @@ export type GetWordTabMessage =
     }
   | { type: "preferences_changed"; sessionId: string; patch: Record<string, unknown> }
   | { type: "category_filters_changed"; sessionId: string; scopeKey: string; categories: string[] }
-  | { type: "game_score_changed"; sessionId: string; score: number };
+  | { type: "game_score_changed"; sessionId: string; score: number }
+  | { type: "survey_progress_changed"; sessionId: string; count: number }
+  | {
+      type: "survey_response_changed";
+      sessionId: string;
+      surveyId: string;
+      response: { choice: string | null; freeText: string | null; dismissed: boolean };
+    };
 
 type OutboundGetWordTabMessage = GetWordTabMessage extends infer Message
   ? Message extends { sessionId: string }

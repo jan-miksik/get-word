@@ -227,6 +227,7 @@ export function LandingPageStyles() {
 @media (min-width:768px) and (max-width:959px){
   .lp-hero-lead{ text-align:center; }
   .lp-hero-subtitle{ margin-inline:auto; }
+  .lp-hero-badges{ justify-content:center; }
 }
 .lp-hero-lead{ min-width:0; }
 /* Above the demo card in paint order: the "I want to learn" list opens
@@ -287,6 +288,19 @@ export function LandingPageStyles() {
   margin:1.5rem 0 0; max-width:32rem;
   font-size:clamp(0.95rem,1.35vw,1rem); line-height:1.35; font-weight:500;
 }
+/* The two official badges, right under the tagline. Flex rather than relying
+   on the parent's text-align, so the 768-959px breakpoint below can recentre
+   it alongside .lp-hero-lead without fighting inline layout. */
+.lp-hero-badges{
+  display:flex; flex-wrap:wrap; align-items:center; gap:.75rem;
+  margin-top:1.1rem;
+}
+.lp-hero-badge-link{
+  display:block; line-height:0;
+  transition:transform var(--transition-fast), opacity var(--transition-fast);
+}
+.lp-hero-badge-link:hover{ transform:translateY(-2px); opacity:.92; }
+.lp-hero-badge{ display:block; height:40px; width:auto; }
 .lp-demo-caption{
   margin:1.1rem 0 0;
   font-size:.94rem; line-height:1.5; text-align:center;

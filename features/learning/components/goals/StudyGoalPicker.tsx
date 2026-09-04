@@ -93,6 +93,7 @@ function CircularGoalDial({
   onRawValueChange,
   onRawValueCommit,
   onChange,
+  framed,
 }: {
   label: string;
   unit: string;
@@ -105,6 +106,15 @@ function CircularGoalDial({
   onRawValueChange: (next: string) => void;
   onRawValueCommit: () => void;
   onChange: (next: number) => void;
+  /**
+   * The Settings rendering of this dial (see `StudyGoalPicker`'s own `framed`):
+   * a section of a scrollable panel, not a screen with a Save button to keep
+   * above the fold. The vh-capped tiers below exist only to protect that fold
+   * on a short phone during setup, so a framed dial ignores them and just
+   * scales with the (much wider) column it is actually given — which is why
+   * it used to render far smaller than the space around it.
+   */
+  framed?: boolean;
 }) {
   const ringRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -156,7 +166,11 @@ function CircularGoalDial({
         onPointerMove={(event) => {
           if (event.currentTarget.hasPointerCapture(event.pointerId)) updateFromPointer(event);
         }}
-        className={`relative mt-3 aspect-square w-full max-w-[min(17rem,34vh)] touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] sm:max-w-[min(19rem,38vh)] ${DIAL_SIZE_TIERS} ${DIAL_GAP_TIERS}`}
+        className={`relative mt-3 aspect-square w-full touch-none select-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-[color:color-mix(in_srgb,var(--ob-accent,var(--sea))_28%,transparent)] ${
+          framed
+            ? 'max-w-[22rem]'
+            : `max-w-[min(17rem,34vh)] sm:max-w-[min(19rem,38vh)] ${DIAL_SIZE_TIERS} ${DIAL_GAP_TIERS}`
+        }`}
       >
         <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
           {/* The outline is the same arc drawn wider underneath, so the track
@@ -377,7 +391,7 @@ export function StudyGoalPicker({
         framed ? 'onboarding-card max-w-2xl p-4 sm:p-7' : '',
       ].join(' ')}
     >
-      <div className={`grid gap-6 @2xl:grid-cols-[17rem_minmax(0,1fr)] @2xl:items-stretch @2xl:gap-8 ${COLUMN_GAP_TIERS}`}>
+      <div className={`grid gap-6 ${framed ? '@2xl:grid-cols-[22rem_minmax(0,1fr)]' : '@2xl:grid-cols-[17rem_minmax(0,1fr)]'} @2xl:items-stretch @2xl:gap-8 ${COLUMN_GAP_TIERS}`}>
         <CircularGoalDial
           label={t('goal.newWordsPerDay')}
           unit={t('goal.wordsUnit')}
@@ -390,6 +404,7 @@ export function StudyGoalPicker({
           onRawValueChange={updateRawValue}
           onRawValueCommit={commitRawValue}
           onChange={setValue}
+          framed={framed}
         />
 
         <div className="flex flex-col @2xl:justify-between">

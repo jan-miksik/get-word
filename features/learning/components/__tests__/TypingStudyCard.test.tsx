@@ -749,6 +749,19 @@ describe('TypingStudyCard', () => {
     expect(screen.queryByRole('button', { name: /^play audio$/i })).not.toBeInTheDocument();
   });
 
+  it('keeps the floating play button before answering at a fresh stage (7 days)', () => {
+    renderCard({ audioPromptEnabled: false, progress: { stageIndex: 4, knownCount: 1, unknownCount: 0 } });
+    expect(screen.getByRole('button', { name: /^play audio$/i })).toBeInTheDocument();
+  });
+
+  it('hides the floating play button before answering once the word reaches 14 days, and shows it after checking', () => {
+    renderCard({ audioPromptEnabled: false, progress: { stageIndex: 5, knownCount: 1, unknownCount: 0 } });
+    expect(screen.queryByRole('button', { name: /^play audio$/i })).not.toBeInTheDocument();
+    fireEvent.change(input(), { target: { value: 'con chó' } });
+    checkAnswer();
+    expect(screen.getByRole('button', { name: /^play audio$/i })).toBeInTheDocument();
+  });
+
   it('falls back to the text prompt only when the foreign audio source is missing', () => {
     renderCard({ audioPromptEnabled: true, word: WORD_WITHOUT_FOREIGN_AUDIO });
     expect(screen.getByText('pes')).toBeInTheDocument();

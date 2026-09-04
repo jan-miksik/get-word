@@ -512,6 +512,34 @@
       "when": 1788220800000,
       "tag": "0072_quality_pool_events",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1788307200000,
+      "tag": "0073_typing_audio_replay_hide_from_stage",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1788393600000,
+      "tag": "0074_survey_progress_count",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1788480000000,
+      "tag": "0075_survey_responses",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1788566400000,
+      "tag": "0076_survey_prior_user",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { useId, type CSSProperties } from 'react';
 
 import type { StreakDay } from '@/features/learning/goals/streakWeek';
 import { INK, KEPT, segmentPaint, TRACK, type SegmentPaint } from './StreakDays';
+import { useTodayMarkVariant, type TodayMarkVariant } from './todayMarkVariant';
 
 /**
  * The alternative shapes the study series can take.
@@ -20,6 +21,19 @@ export interface ShapeProps {
   compact?: boolean;
   /** The number the shape may fold in, where it has room for it. */
   value?: number;
+  /**
+   * Multiplies the drawn size, 1 by default. Only `ChainShape` reads it —
+   * it is the shape real learners see, and the closing card is the one place
+   * the series is looked at rather than glanced at, so it is the one place
+   * asking to be drawn bigger than its everyday size.
+   */
+  scale?: number;
+  /**
+   * Overrides the stored today-mark choice; only `ChainShape` reads it. Lets
+   * `/dev/study-goal?view=streak` show every option side by side without each
+   * row fighting over the one stored value.
+   */
+  todayMark?: TodayMarkVariant;
 }
 
 function kept(paint: SegmentPaint): boolean {
@@ -98,8 +112,128 @@ function beadKind(day: StreakDay, link: ChainLink): BeadKind {
   return day.isFuture ? 'ahead' : 'missed';
 }
 
-export function ChainShape({ days, compact = false }: ShapeProps) {
+/** The today-mark variants drawn as a ring behind the bead, `todayRing` handles all of them. */
+const RING_MARKS: readonly TodayMarkVariant[] = ['halo', 'solid', 'pulse', 'ink', 'border', 'crosshair'];
+
+/**
+ * The ring drawn behind today's bead, for the variants that use one.
+ *
+ * `halo` fades the day's own colour to ~22% so it reads as light around the
+ * bead — too close to the faint rings already marking a planned-but-undecided
+ * day, which is the thing worth fixing. `solid` and `pulse` keep that same
+ * colour at much fuller strength instead, so today does not have to be found
+ * by spotting the one ring that looks slightly less faint than its
+ * neighbours. `pulse` breathes via the `chain-today-pulse` class in
+ * `styles/minigames.css` rather than in inline style, so it can be switched
+ * off under `prefers-reduced-motion` in one place. `ink` drops the day's own
+ * colour entirely and draws the ring in plain ink, so it reads as a neutral
+ * UI marker rather than as one more status colour competing with the rest.
+ * `border` is the plainest reading of that same idea: a flat 2px line, full
+ * opacity, no size difference between compact and full — the literal answer
+ * to "just a black border" rather than a softened version of one. `crosshair`
+ * draws exactly that same ring and adds the gapped "+" on top of it.
+ */
+function todayRing(mark: TodayMarkVariant, color: string, compact: boolean) {
+  if (mark === 'halo') {
+    return { stroke: `color-mix(in srgb, ${color} 22%, transparent)`, className: undefined };
+  }
+  if (mark === 'ink') {
+    return { stroke: INK, strokeOpacity: compact ? 0.6 : 0.72, className: undefined };
+  }
+  if (mark === 'border' || mark === 'crosshair') {
+    return { stroke: INK, strokeOpacity: 1, strokeWidth: 2, className: undefined };
+  }
+  return {
+    stroke: color,
+    strokeOpacity: compact ? 0.7 : 0.82,
+    className: mark === 'pulse' ? 'chain-today-pulse' : undefined,
+  };
+}
+
+/** How far out the ring (or, for the reticle marks, the reference radius) sits from the bead's own edge. */
+function ringRadius(mark: TodayMarkVariant, r: number, compact: boolean): number {
+  if (mark === 'border' || mark === 'crosshair') return r + (compact ? 1 : 3);
+  return r + (compact ? 1.6 : 3.5);
+}
+
+/**
+ * A small downward-pointing marker hung above today's bead, tip nearly
+ * touching it — a map pin rather than a ring, so today is found by shape
+ * instead of by spotting the one ring that reads slightly different from the
+ * others sitting right next to it.
+ */
+function pinPath(cx: number, tipY: number, size: number): string {
+  return `M ${(cx - size).toFixed(2)} ${(tipY - size * 1.7).toFixed(2)} `
+    + `L ${(cx + size).toFixed(2)} ${(tipY - size * 1.7).toFixed(2)} `
+    + `L ${cx.toFixed(2)} ${tipY.toFixed(2)} Z`;
+}
+
+/**
+ * A square rotated 45°, its points reaching the same radius a ring would.
+ *
+ * Every other day in the row is a circle; today alone is not. Breaking the
+ * shape language is a stronger claim than any amount of colour or motion —
+ * it reads even to someone who has never learned what the colours mean.
+ */
+function diamondPath(cx: number, cy: number, reach: number): string {
+  return `M ${cx.toFixed(2)} ${(cy - reach).toFixed(2)} `
+    + `L ${(cx + reach).toFixed(2)} ${cy.toFixed(2)} `
+    + `L ${cx.toFixed(2)} ${(cy + reach).toFixed(2)} `
+    + `L ${(cx - reach).toFixed(2)} ${cy.toFixed(2)} Z`;
+}
+
+/**
+ * The four arms of a gapped "+", the way an optical reticle draws one: each
+ * arm stops short of the centre so the bead's own fill still shows through,
+ * and reaches a little past the ring so it does not just repeat its outline.
+ */
+function crosshairArms(cx: number, cy: number, innerGap: number, outerReach: number) {
+  return [
+    { x1: cx, y1: cy - outerReach, x2: cx, y2: cy - innerGap },
+    { x1: cx, y1: cy + innerGap, x2: cx, y2: cy + outerReach },
+    { x1: cx - outerReach, y1: cy, x2: cx - innerGap, y2: cy },
+    { x1: cx + innerGap, y1: cy, x2: cx + outerReach, y2: cy },
+  ];
+}
+
+/**
+ * Short marks spaced evenly around a circle, radiating outward — a compass
+ * rose or a radar sweep rather than a continuous line.
+ */
+function tickMarks(cx: number, cy: number, radius: number, count: number, length: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / count - Math.PI / 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return {
+      x1: cx + cos * radius, y1: cy + sin * radius,
+      x2: cx + cos * (radius + length), y2: cy + sin * (radius + length),
+    };
+  });
+}
+
+/**
+ * Four short L-shaped corners around a square centred on the bead — a
+ * camera's autofocus brackets rather than a ring, so today reads as the thing
+ * being focused on.
+ */
+function viewfinderCorners(cx: number, cy: number, half: number, arm: number): string[] {
+  const left = cx - half;
+  const right = cx + half;
+  const top = cy - half;
+  const bottom = cy + half;
+  return [
+    `M ${(left + arm).toFixed(2)} ${top.toFixed(2)} L ${left.toFixed(2)} ${top.toFixed(2)} L ${left.toFixed(2)} ${(top + arm).toFixed(2)}`,
+    `M ${(right - arm).toFixed(2)} ${top.toFixed(2)} L ${right.toFixed(2)} ${top.toFixed(2)} L ${right.toFixed(2)} ${(top + arm).toFixed(2)}`,
+    `M ${(left + arm).toFixed(2)} ${bottom.toFixed(2)} L ${left.toFixed(2)} ${bottom.toFixed(2)} L ${left.toFixed(2)} ${(bottom - arm).toFixed(2)}`,
+    `M ${(right - arm).toFixed(2)} ${bottom.toFixed(2)} L ${right.toFixed(2)} ${bottom.toFixed(2)} L ${right.toFixed(2)} ${(bottom - arm).toFixed(2)}`,
+  ];
+}
+
+export function ChainShape({ days, compact = false, scale = 1, todayMark: todayMarkProp }: ShapeProps) {
   const uid = useId();
+  const storedTodayMark = useTodayMarkVariant();
+  const todayMark = todayMarkProp ?? storedTodayMark;
   const r = compact ? 5 : 15;
   const gap = compact ? 4 : 12;
   const pad = compact ? 3 : 7;
@@ -111,7 +245,13 @@ export function ChainShape({ days, compact = false }: ShapeProps) {
   const links = days.map(chainLink);
 
   return (
-    <svg aria-hidden width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+    <svg
+      aria-hidden
+      width={width * scale}
+      height={height * scale}
+      viewBox={`0 0 ${width} ${height}`}
+      className="overflow-visible"
+    >
       {/* Connectors first, so a welded run passes behind its own beads. */}
       {links.map((link, index) => {
         if (index === 0) return null;
@@ -141,26 +281,30 @@ export function ChainShape({ days, compact = false }: ShapeProps) {
         const kind = beadKind(day, link);
         return (
           <g key={day.dayKey} opacity={link.dim ? 0.7 : 1}>
-            {/* Today's halo sits under everything, so it reads as light around
-                the bead rather than as another ring drawn on it. */}
-            {link.halo ? (
+            {/* Today's ring sits under everything, so it reads as light around
+                the bead rather than as another ring drawn on it. Skipped for
+                the variants that mark today some other way entirely. */}
+            {link.halo && RING_MARKS.includes(todayMark) ? (
               <circle
-                cx={x} cy={cy} r={r + (compact ? 1.6 : 3.5)} fill="none"
-                stroke={`color-mix(in srgb, ${link.halo} 22%, transparent)`}
+                cx={x} cy={cy} r={ringRadius(todayMark, r, compact)} fill="none"
                 strokeWidth={compact ? 2 : 4.5}
+                {...todayRing(todayMark, link.halo, compact)}
               />
             ) : null}
 
             {kind === 'kept' ? (
               <>
                 <circle cx={x} cy={cy} r={r} fill={link.fill} />
-                {/* Beyond the goal: a star in the bead. The one mark in the
-                    week that is not about attendance, so it gets a shape of
-                    its own rather than another shade of the same colour. */}
+                {/* Beyond the goal: a star in the bead, in `--star-gold` — a
+                    brighter, colder yellow than the app's own `--amber`, so it
+                    reads as a star's own colour rather than as a shade of the
+                    app's warm accent. The one mark in the week that is not
+                    about attendance, so it gets a shape (and now a colour) of
+                    its own rather than another shade of the fill beneath it. */}
                 {link.cap ? (
                   compact
-                    ? <circle cx={x} cy={cy} r={r * 0.34} fill="var(--paper)" opacity={0.92} />
-                    : <path d={starPath(x, cy, r * 0.62, r * 0.26)} fill="var(--paper)" opacity={0.95} />
+                    ? <circle cx={x} cy={cy} r={r * 0.34} fill="var(--star-gold)" opacity={0.95} />
+                    : <path d={starPath(x, cy, r * 0.62, r * 0.26)} fill="var(--star-gold)" opacity={0.98} />
                 ) : null}
               </>
             ) : null}
@@ -207,6 +351,91 @@ export function ChainShape({ days, compact = false }: ShapeProps) {
                   fill={INK} opacity={kind === 'missed' ? 0.2 : 0.12}
                 />
               </>
+            ) : null}
+
+            {/* `pin`: today marked above the bead rather than around it, so
+                the bead itself keeps drawing exactly what it always draws. */}
+            {link.halo && todayMark === 'pin' ? (
+              <path
+                d={pinPath(x, cy - r - (compact ? 1.5 : 3), compact ? 2.4 : 5.5)}
+                fill={link.halo}
+              />
+            ) : null}
+
+            {/* `diamond`: today's outline is a rotated square, not a circle —
+                a different silhouette rather than a different shade. */}
+            {link.halo && todayMark === 'diamond' ? (
+              <path
+                d={diamondPath(x, cy, r + (compact ? 2.2 : 5))}
+                fill="none"
+                stroke={link.halo}
+                strokeWidth={compact ? 1.4 : 2.5}
+                strokeLinejoin="round"
+              />
+            ) : null}
+
+            {/* `orbit`: a small satellite circling the bead forever, drawn in
+                the day's colour. Its own centre sits away from the bead, so
+                the rotation is anchored at the bead itself via `view-box`
+                transform coordinates rather than the dot's own bounding box —
+                see `.chain-today-orbit` in `styles/minigames.css`. */}
+            {link.halo && todayMark === 'orbit' ? (
+              <circle
+                className="chain-today-orbit"
+                cx={x + r + (compact ? 2 : 5)} cy={cy}
+                r={compact ? 1 : 2.4}
+                fill={link.halo}
+                style={{ transformBox: 'view-box', transformOrigin: `${x}px ${cy}px` } as CSSProperties}
+              />
+            ) : null}
+
+            {/* `crosshair`: the same ring `border` draws, plus a gapped "+"
+                on top of it — an optical reticle rather than a plain outline. */}
+            {link.halo && todayMark === 'crosshair' ? (
+              <g stroke={INK} strokeWidth={compact ? 1 : 1.4} strokeLinecap="round">
+                {crosshairArms(
+                  x, cy,
+                  r * (compact ? 0.5 : 0.4),
+                  ringRadius('crosshair', r, compact) + (compact ? 1.5 : 3),
+                ).map((arm, i) => <line key={i} {...arm} />)}
+              </g>
+            ) : null}
+
+            {/* `ticks`: a thin ring plus four short marks radiating from it at
+                the cardinal points — a compass rather than a continuous
+                outline. */}
+            {link.halo && todayMark === 'ticks' ? (
+              <g stroke={INK} strokeLinecap="round">
+                <circle
+                  cx={x} cy={cy} r={r + (compact ? 1 : 3)} fill="none"
+                  strokeWidth={compact ? 1 : 1.4} opacity={0.55}
+                />
+                {tickMarks(x, cy, r + (compact ? 1 : 3), 4, compact ? 2 : 4).map((tick, i) => (
+                  <line key={i} {...tick} strokeWidth={compact ? 1.2 : 1.8} />
+                ))}
+              </g>
+            ) : null}
+
+            {/* `target`: two concentric rings instead of one — a bullseye
+                rather than a single outline. */}
+            {link.halo && todayMark === 'target' ? (
+              <g stroke={INK} fill="none">
+                <circle cx={x} cy={cy} r={r + (compact ? 1 : 2.5)} strokeWidth={compact ? 1 : 1.6} opacity={0.85} />
+                <circle cx={x} cy={cy} r={r + (compact ? 3 : 6.5)} strokeWidth={compact ? 0.8 : 1.2} opacity={0.4} />
+              </g>
+            ) : null}
+
+            {/* `viewfinder`: four autofocus-style corner brackets instead of a
+                ring, as though the bead were the subject a camera is
+                focusing on. */}
+            {link.halo && todayMark === 'viewfinder' ? (
+              <g stroke={INK} strokeWidth={compact ? 1.2 : 2} strokeLinecap="round" fill="none">
+                {viewfinderCorners(
+                  x, cy,
+                  r + (compact ? 1 : 2),
+                  (r + (compact ? 1 : 2)) * 0.4,
+                ).map((d, i) => <path key={i} d={d} />)}
+              </g>
             ) : null}
           </g>
         );

@@ -26,6 +26,7 @@ import type { SessionBlockProgress } from '@/features/learning/session/dayProgre
 import type { StreakChipData } from '@/features/learning/goals/streakWeek';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
+  DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE,
   STAGES,
   getAvailableCategories,
   matchesCategoryFilter,
@@ -199,6 +200,9 @@ function PreviewStudy({
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(false);
   const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(false);
   const [typingCheckButtonEnabled, setTypingCheckButtonEnabled] = useState(false);
+  const [typingAudioReplayHideFromStage, setTypingAudioReplayHideFromStage] = useState<number>(
+    DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE,
+  );
   // Remounts the typing card after each answer so the preview can be exercised
   // repeatedly (the real app advances the stream instead).
   const [fineTuneConfig, setFineTuneConfig] = useState(DEFAULT_FINE_TUNE_CONFIG);
@@ -332,6 +336,8 @@ function PreviewStudy({
     setTypingMobileKeyboardAutoFocus,
     typingCheckButtonEnabled,
     setTypingCheckButtonEnabled,
+    typingAudioReplayHideFromStage,
+    setTypingAudioReplayHideFromStage,
     // Chrome the preview is there to show; the real page reads these from the
     // learner's local preferences.
     photoLabEnabled: true,
@@ -550,6 +556,7 @@ function PreviewStudy({
                   studyNoteMinimizeFromStage={2}
                   typingPrefillPunctuation={typingPrefillPunctuation}
                   typingCheckButtonEnabled={typingCheckButtonEnabled}
+                  typingAudioReplayHideFromStage={typingAudioReplayHideFromStage}
                   fullscreen
                   autoFocusOnMobile={typingMobileKeyboardAutoFocus}
                 />

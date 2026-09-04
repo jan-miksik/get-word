@@ -137,6 +137,7 @@ function stats(overrides: Partial<UsageStats> = {}): UsageStats {
       })),
     },
     uiLanguageRequests: { totalRequests: 0, languages: [] },
+    surveys: { summaries: [], freeTextResponses: [] },
     activityHeatmap: [],
     users: [user()],
     ...overrides,

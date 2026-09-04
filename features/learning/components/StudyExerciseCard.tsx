@@ -75,6 +75,7 @@ export interface StudyExerciseCardProps {
   studyNoteMinimizeFromStage: number;
   typingPrefillPunctuation: boolean;
   typingCheckButtonEnabled: boolean;
+  typingAudioReplayHideFromStage: number;
   fullscreen?: boolean;
   autoFocus?: boolean;
   autoFocusOnMobile?: boolean;
@@ -125,6 +126,7 @@ export function StudyExerciseCard({
   studyNoteMinimizeFromStage,
   typingPrefillPunctuation,
   typingCheckButtonEnabled,
+  typingAudioReplayHideFromStage,
   fullscreen,
   autoFocus,
   autoFocusOnMobile,
@@ -140,6 +142,7 @@ export function StudyExerciseCard({
         audioPromptEnabled={false}
         prefillPunctuation={typingPrefillPunctuation}
         checkButtonEnabled={typingCheckButtonEnabled}
+        audioReplayHideFromStage={typingAudioReplayHideFromStage}
         onScore={onScore}
         onOutcome={onOutcome}
         onAnswered={onAnswered}

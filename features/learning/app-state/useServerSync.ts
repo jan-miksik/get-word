@@ -68,6 +68,9 @@ interface UseServerSyncOptions {
   applyServerProfile: (user: SyncResponse['user']) => void;
   applyServerPreferences: (user: SyncResponse['user']) => void;
   applyServerGameScore: (score: number) => void;
+  applyServerSurveyCount: (count: number) => void;
+  applyServerSurveyResponses: (responses: NonNullable<SyncResponse['survey_responses']>) => void;
+  applyServerSurveyEligibility: (eligibility: NonNullable<SyncResponse['survey_eligibility']>) => void;
   setSyncedWords: React.Dispatch<React.SetStateAction<NormalizedWord[] | null>>;
   setSubscribedLists: React.Dispatch<React.SetStateAction<{
     id: string;
@@ -95,6 +98,9 @@ export function useServerSync({
   applyServerProfile,
   applyServerPreferences,
   applyServerGameScore,
+  applyServerSurveyCount,
+  applyServerSurveyResponses,
+  applyServerSurveyEligibility,
   setSyncedWords,
   setSubscribedLists,
   setActiveListId,
@@ -129,6 +135,11 @@ export function useServerSync({
     if (serverData.user?.game_score !== undefined) {
       applyServerGameScore(serverData.user.game_score);
     }
+    if (serverData.user?.survey_progress_count !== undefined) {
+      applyServerSurveyCount(serverData.user.survey_progress_count);
+    }
+    if (serverData.survey_responses) applyServerSurveyResponses(serverData.survey_responses);
+    if (serverData.survey_eligibility) applyServerSurveyEligibility(serverData.survey_eligibility);
     if (serverData.word_list_items && serverData.categories) {
       const converted = wordListItemsToNormalizedWords(
         serverData.word_list_items,
@@ -160,6 +171,9 @@ export function useServerSync({
   }, [
     applyServerCategories,
     applyServerGameScore,
+    applyServerSurveyCount,
+    applyServerSurveyResponses,
+    applyServerSurveyEligibility,
     applyServerMemoryHooks,
     applyServerPreferences,
     applyServerProfile,
@@ -181,9 +195,19 @@ export function useServerSync({
     if (delta.user?.game_score !== undefined) {
       applyServerGameScore(delta.user.game_score);
     }
+    if (delta.user?.survey_progress_count !== undefined) {
+      applyServerSurveyCount(delta.user.survey_progress_count);
+    }
+    // Always sent in full by the server (not a partial delta), so applying it
+    // here is the same replace as the full-snapshot path.
+    if (delta.survey_responses) applyServerSurveyResponses(delta.survey_responses);
+    if (delta.survey_eligibility) applyServerSurveyEligibility(delta.survey_eligibility);
   }, [
     applyServerCategories,
     applyServerGameScore,
+    applyServerSurveyCount,
+    applyServerSurveyResponses,
+    applyServerSurveyEligibility,
     applyServerPreferences,
     applyServerProfile,
     mergeServerMemoryHooks,

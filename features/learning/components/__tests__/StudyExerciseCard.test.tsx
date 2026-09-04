@@ -56,6 +56,7 @@ function renderCard(exercise: ResolvedExercise, overrides?: { onOutcome?: () => 
       studyNoteMinimizeFromStage={2}
       typingPrefillPunctuation
       typingCheckButtonEnabled={false}
+      typingAudioReplayHideFromStage={5}
     />,
   );
   return { onOutcome, onScore, onAnswered };
@@ -192,6 +193,7 @@ describe('StudyExerciseCard — reveal', () => {
         studyNoteMinimizeFromStage={2}
         typingPrefillPunctuation
         typingCheckButtonEnabled={false}
+        typingAudioReplayHideFromStage={5}
       />,
     );
 
@@ -316,6 +318,7 @@ describe('StudyExerciseCard — choice audio', () => {
         studyNoteMinimizeFromStage={2}
         typingPrefillPunctuation
         typingCheckButtonEnabled={false}
+        typingAudioReplayHideFromStage={5}
       />,
     );
   }

@@ -9,6 +9,7 @@ import {
   getUserById,
   recordActivitySegmentsIfNew,
   recordAppliedSyncClientOpIds,
+  recordSurveyResponseIfAbsent,
   setUserCategoryFilters,
   updateUserPreferences,
   recomputeUserDayStat,
@@ -17,6 +18,7 @@ import {
   upsertMemoryHookByItemId,
 } from '@/lib/db';
 import type { User } from '@/lib/db/schema';
+import { getSurveySpec, isValidSurveyChoice } from '@/packages/domain/surveys/spec';
 import { localDayKeyAt, normalizeIanaTimezone } from '@/lib/local-day';
 import { isUuid } from '@/features/shared/sync/identity';
 import type { SyncOperationResult, SyncProgressItem, SyncRequest } from '@/features/sync/types';
@@ -56,6 +58,7 @@ export async function applySyncMutations(input: {
     memory_hook_disable_from_stage,
     study_notes_enabled,
     study_note_minimize_from_stage,
+    typing_audio_replay_hide_from_stage,
     learning_fine_tune,
     study_goal,
     study_goal_base_revision,
@@ -74,6 +77,8 @@ export async function applySyncMutations(input: {
     settings_language_base_revision,
     language_pair_base_revision,
     game_score,
+    survey_progress_count,
+    survey_responses,
     category_order,
     progress,
     review_events,
@@ -127,6 +132,7 @@ export async function applySyncMutations(input: {
     review_opt_in !== undefined ||
     ai_review_opt_in !== undefined ||
     study_note_minimize_from_stage !== undefined ||
+    typing_audio_replay_hide_from_stage !== undefined ||
     (learning_fine_tune !== undefined && study_goal === undefined) ||
     goal_reminder_enabled !== undefined ||
     goal_reminder_local_minutes !== undefined ||
@@ -137,6 +143,7 @@ export async function applySyncMutations(input: {
     language_to !== undefined ||
     onboarding_completed !== undefined ||
     game_score !== undefined ||
+    survey_progress_count !== undefined ||
     category_order !== undefined
   ) {
     const updated = await updateUserPreferences(user.id, {
@@ -148,6 +155,7 @@ export async function applySyncMutations(input: {
       memory_hook_disable_from_stage,
       study_notes_enabled,
       study_note_minimize_from_stage,
+      typing_audio_replay_hide_from_stage,
       learning_fine_tune: study_goal === undefined ? learning_fine_tune : undefined,
       goal_reminder_enabled,
       goal_reminder_local_minutes,
@@ -164,6 +172,9 @@ export async function applySyncMutations(input: {
       settings_language_base_revision,
       language_pair_base_revision,
       game_score: game_score === undefined ? undefined : Math.max(user.gameScore ?? 0, game_score),
+      survey_progress_count: survey_progress_count === undefined
+        ? undefined
+        : Math.max(user.surveyProgressCount ?? 0, survey_progress_count),
       category_order,
     });
     if (updated) user = updated;
@@ -309,6 +320,20 @@ export async function applySyncMutations(input: {
         if (isEmpty) await deleteMemoryHook(user.id, key);
         else await upsertMemoryHook(user.id, key, trimmed);
       }
+    }
+  }
+
+  if (survey_responses) {
+    for (const [surveyId, response] of Object.entries(survey_responses)) {
+      // Reject anything the config doesn't recognize rather than persist it —
+      // responses are write-once, so a bad row here is permanent.
+      if (!getSurveySpec(surveyId)) continue;
+      if (!response.dismissed && !isValidSurveyChoice(surveyId, response.choice)) continue;
+      await recordSurveyResponseIfAbsent(user.id, surveyId, {
+        choice: response.choice,
+        freeText: response.free_text,
+        dismissed: response.dismissed,
+      });
     }
   }
 

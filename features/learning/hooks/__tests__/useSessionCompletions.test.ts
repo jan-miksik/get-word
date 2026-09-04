@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { ProgressData } from '@/features/sync/contracts';
 import type { NormalizedWord } from '@/lib/words';
@@ -52,5 +52,37 @@ describe('useSessionCompletions', () => {
     act(() => result.current.recordGameFinished({ id: 'g1' }));
     act(() => result.current.recordGameFinished({ id: 'g1' }));
     expect([...result.current.completedGameIds]).toEqual(['g1']);
+  });
+
+  describe('onNewAnswerRecorded (the mini-survey progress signal)', () => {
+    it('fires once for a genuinely new appearance', () => {
+      const onNewAnswerRecorded = vi.fn();
+      const { result } = renderHook(() => useSessionCompletions(onNewAnswerRecorded));
+      act(() => result.current.recordAnswerGiven(WORD, progressWith(2)));
+      expect(onNewAnswerRecorded).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fire again when the same appearance is reported twice (mark, then deck exit)', () => {
+      const onNewAnswerRecorded = vi.fn();
+      const { result } = renderHook(() => useSessionCompletions(onNewAnswerRecorded));
+      act(() => result.current.recordAnswerGiven(WORD, progressWith(2)));
+      act(() => result.current.recordDeckCardCompleted(WORD, progressWith(2)));
+      expect(onNewAnswerRecorded).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires again for a genuine second answer at a higher count', () => {
+      const onNewAnswerRecorded = vi.fn();
+      const { result } = renderHook(() => useSessionCompletions(onNewAnswerRecorded));
+      act(() => result.current.recordAnswerGiven(WORD, progressWith(2)));
+      act(() => result.current.recordAnswerGiven(WORD, progressWith(3)));
+      expect(onNewAnswerRecorded).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not fire for a finished minigame round', () => {
+      const onNewAnswerRecorded = vi.fn();
+      const { result } = renderHook(() => useSessionCompletions(onNewAnswerRecorded));
+      act(() => result.current.recordGameFinished({ id: 'g1' }));
+      expect(onNewAnswerRecorded).not.toHaveBeenCalled();
+    });
   });
 });

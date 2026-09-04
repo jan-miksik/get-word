@@ -101,6 +101,13 @@ describe('SessionDoneCard closing the day', () => {
     expect(screen.getByText('3 new words')).toBeInTheDocument();
   });
 
+  it('stamps a completed day with a star inside the ring', () => {
+    const { container } = renderCard({ dayFlow: closedDay() });
+
+    expect(container.querySelector('.session-seal-star')).toBeInTheDocument();
+    expect(container.querySelector('.session-seal-tick')).not.toBeInTheDocument();
+  });
+
   it('leads with the waiting repeats when the plan left some behind', () => {
     const onStudyExtra = vi.fn();
     renderCard({ dayFlow: closedDay(), dueNowCount: 1, onStudyExtra, onOpenWordChat: vi.fn() });
@@ -190,13 +197,38 @@ describe('SessionDoneCard closing the day', () => {
     // already answered today move it by nothing. Counted here, they show up.
     renderCard({
       dayFlow: closedDay(),
-      dayScore: { introduced: 3, reviewed: 9, target: 12 },
+      dayScore: { introduced: 3, reviewed: 9, target: 12, met: true },
       extra: { reviewed: 10, fresh: 0 },
     });
 
-    expect(screen.getByText('19 words and phrases reviewed')).toBeInTheDocument();
+    expect(screen.getByText('9 words and phrases reviewed')).toBeInTheDocument();
     expect(screen.getByText('+10 over goal')).toBeInTheDocument();
-    expect(screen.getByText("Today's goal: 12 · counted: 22")).toBeInTheDocument();
+    expect(screen.getByText("Today's goal: 12 · counted: 12")).toBeInTheDocument();
+  });
+
+  it('uses the confirmed day split instead of inflating it from a larger local plan', () => {
+    const flow = resolveSessionFlow([
+      {
+        key: 'review-0', kind: 'review', done: 11, total: 11, pending: 0,
+        liveRemaining: 0, unavailable: 0,
+      },
+      {
+        key: 'new-0', kind: 'new', done: 9, total: 9, pending: 0,
+        liveRemaining: 0, unavailable: 0,
+      },
+    ]);
+
+    renderCard({
+      dayFlow: flow,
+      dayScore: { introduced: 5, reviewed: 15, target: 16, met: true },
+      extra: { reviewed: 10, fresh: 0 },
+    });
+
+    expect(screen.getByText('5 new words')).toBeInTheDocument();
+    expect(screen.getByText('15 words and phrases reviewed')).toBeInTheDocument();
+    expect(screen.getByText("Today's goal: 16 · counted: 20")).toBeInTheDocument();
+    expect(screen.getByText('+10 over goal')).toBeInTheDocument();
+    expect(screen.queryByText('+14 over goal')).not.toBeInTheDocument();
   });
 
   it('claims no surplus for a day that was only walked as planned', () => {

@@ -29,6 +29,14 @@ type SyncContent = Pick<
   'word_list_items' | 'categories' | 'lists' | 'content_revision' | 'sync_revision'
 >;
 
+// Piggybacks the generic prefs store under its own key ('survey') rather than
+// a dedicated IndexedDB object store — survey state is bounded (a handful of
+// definitions, ever), so it doesn't need the per-key store memory hooks get.
+type SurveyPrefsValue = {
+  responses: NonNullable<SyncResponse['survey_responses']>;
+  eligibility: NonNullable<SyncResponse['survey_eligibility']>;
+};
+
 type PendingPreferencePayload = {
   field?: string;
   value?: unknown;
@@ -144,6 +152,11 @@ function applyPendingPreference(
       break;
     case 'study_note_minimize_from_stage':
       if (typeof payload.value === 'number') user.study_note_minimize_from_stage = payload.value;
+      break;
+    case 'typing_audio_replay_hide_from_stage':
+      if (typeof payload.value === 'number') {
+        user.typing_audio_replay_hide_from_stage = payload.value;
+      }
       break;
     case 'learning_fine_tune':
       if (payload.value && typeof payload.value === 'object') {
@@ -284,6 +297,13 @@ function cloneSyncResponse(data: SyncResponse): SyncResponse {
     user: { ...data.user },
     progress: data.progress ? { ...data.progress } : ({} as SyncResponse['progress']),
     memory_hooks: data.memory_hooks ? { ...data.memory_hooks } : {},
+    // Left absent rather than defaulted to `{}`: an "unchanged" conditional GET
+    // carries no survey state, and an empty object here is indistinguishable
+    // from "the server says you have answered nothing" — which the apply path
+    // treats as an authoritative full replace and uses to wipe an answer the
+    // learner has already given. Only a payload that really carries the field
+    // may speak for it.
+    survey_responses: data.survey_responses ? { ...data.survey_responses } : undefined,
     category_filters: data.category_filters ? [...data.category_filters] : [],
   };
 }
@@ -369,6 +389,31 @@ function applyOutboxOpsToSyncResponse(
           next.user.game_score = Math.max(next.user.game_score ?? 0, op.payload.score);
         }
         break;
+      case 'survey_counter':
+        if (typeof op.payload.count === 'number') {
+          next.user.survey_progress_count = Math.max(next.user.survey_progress_count ?? 0, op.payload.count);
+        }
+        break;
+      case 'survey_response': {
+        const surveyId = typeof op.payload.surveyId === 'string' ? op.payload.surveyId : null;
+        if (!surveyId) break;
+        next.survey_responses = { ...(next.survey_responses ?? {}) };
+        // Responses are write-once/terminal server-side: never let a pending
+        // local guess override a value the server already reported for this
+        // survey (it may have lost a cross-device race) — only fill the gap
+        // when the server hasn't recorded anything for it yet.
+        if (!next.survey_responses[surveyId]) {
+          const dismissed = op.payload.dismissed === true;
+          const choice = typeof op.payload.choice === 'string' ? op.payload.choice : null;
+          const freeText = typeof op.payload.freeText === 'string' ? op.payload.freeText : null;
+          next.survey_responses[surveyId] = {
+            choice: dismissed ? null : choice,
+            free_text: dismissed ? null : freeText,
+            dismissed,
+          };
+        }
+        break;
+      }
     }
   }
   for (const { event, fallbackCreatedAt } of reviewEventsById.values()) {
@@ -396,11 +441,12 @@ async function loadStoredDomainsFromIdb(
   const meta = await getMeta();
   if (!meta || meta.schemaVersion !== META_SCHEMA_VERSION) return null;
 
-  const [progressRows, memoryRows, categoryRow, prefsRow, contentRow, snapshot] = await Promise.all([
+  const [progressRows, memoryRows, categoryRow, prefsRow, surveyRow, contentRow, snapshot] = await Promise.all([
     getAllProgressRows<ProgressEntry>(),
     getAllMemoryHookRows<string>(),
     getCategoryFilterRow<string[]>('all'),
     getPrefsRow<SyncUser>('user'),
+    getPrefsRow<SurveyPrefsValue>('survey'),
     getContentRow<SyncContent>(),
     getSnapshot().catch(() => null),
   ]);
@@ -436,11 +482,18 @@ async function loadStoredDomainsFromIdb(
     : null;
   const category_filters = filtersFromIdb ?? filtersFromSnapshot ?? [];
 
+  // The legacy snapshot (see LearningSnapshot's Pick<SyncResponse, ...>) predates
+  // this entity and deliberately doesn't carry it — no fallback needed there.
+  const survey_responses = surveyRow?.value.responses ?? {};
+  const survey_eligibility = surveyRow?.value.eligibility ?? {};
+
   const syncResponse: SyncResponse = {
     success: true,
     user,
     progress,
     memory_hooks,
+    survey_responses,
+    survey_eligibility,
     category_filters,
     word_list_items:
       contentRow?.value.word_list_items ?? snapshot?.data.word_list_items as SyncResponse['word_list_items'],
@@ -495,6 +548,13 @@ export async function checkpointAcknowledgedOps(
     memory_hooks: acknowledgement.memory_hooks
       ? { ...(cached?.memory_hooks ?? {}), ...acknowledgement.memory_hooks }
       : (cached?.memory_hooks ?? {}),
+    // Server-authoritative and terminal: an acknowledged survey_responses
+    // entry always replaces the cached one for that key (never merged the
+    // other way), since the server already resolved any write-once race.
+    survey_responses: acknowledgement.survey_responses
+      ? { ...(cached?.survey_responses ?? {}), ...acknowledgement.survey_responses }
+      : (cached?.survey_responses ?? {}),
+    survey_eligibility: acknowledgement.survey_eligibility ?? cached?.survey_eligibility ?? {},
     category_filters: acknowledgement.category_filters ?? cached?.category_filters ?? [],
     word_list_items: acknowledgement.word_list_items ?? cached?.word_list_items,
     categories: acknowledgement.categories ?? cached?.categories,
@@ -504,6 +564,25 @@ export async function checkpointAcknowledgedOps(
   } as SyncResponse;
   const reconciled = applyOutboxOpsToSyncResponse(base, acknowledgedOps);
   return await persistDomainsToIdb(reconciled) ? reconciled : null;
+}
+
+/**
+ * Cache whichever half of the survey state this payload actually carries.
+ *
+ * The two halves travel independently — the server omits `survey_responses`
+ * entirely below the lowest threshold, and an acknowledgement carries no
+ * eligibility — so neither may be defaulted to `{}` on the way in. Writing an
+ * empty object for an absent field would turn "this payload had nothing to say
+ * about it" into a cached "the server says there is nothing", which is what
+ * makes an already-answered survey come back.
+ */
+async function persistSurveyRow(data: SyncResponse): Promise<boolean> {
+  if (!data.survey_responses && !data.survey_eligibility) return true;
+  const existing = await getPrefsRow<SurveyPrefsValue>('survey').catch(() => null);
+  return putPrefsRow('survey', {
+    responses: data.survey_responses ?? existing?.value.responses ?? {},
+    eligibility: data.survey_eligibility ?? existing?.value.eligibility ?? {},
+  }).catch(() => false);
 }
 
 /**
@@ -548,6 +627,7 @@ export async function persistDomainsToIdb(data: SyncResponse): Promise<boolean> 
   if (data.user) {
     writes.push(putPrefsRow('user', data.user).catch(() => false));
   }
+  writes.push(persistSurveyRow(data));
   if (data.word_list_items || data.categories || data.lists) {
     writes.push(putContentRow<SyncContent>({
       word_list_items: data.word_list_items,
@@ -605,6 +685,7 @@ export async function persistDeltaToIdb(data: SyncResponse): Promise<boolean> {
   if (data.user) {
     writes.push(putPrefsRow('user', data.user).catch(() => false));
   }
+  writes.push(persistSurveyRow(data));
 
   const results = await Promise.all(writes);
   if (results.some((result) => result !== true)) return false;

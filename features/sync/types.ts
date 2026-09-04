@@ -97,6 +97,7 @@ export interface SyncResponse {
     memory_hook_disable_from_stage?: number;
     study_notes_enabled?: boolean;
     study_note_minimize_from_stage?: number;
+    typing_audio_replay_hide_from_stage?: number;
     learning_fine_tune?: unknown;
     study_goal?: {
       active: unknown | null;
@@ -120,6 +121,7 @@ export interface SyncResponse {
     email?: string | null;
     auth_provider?: string | null;
     game_score?: number;
+    survey_progress_count?: number;
     category_order?: string[];
     /** Categories whose words lead the study stream. Server-owned. */
     pinned_category_ids?: string[];
@@ -143,6 +145,15 @@ export interface SyncResponse {
     }
   >;
   memory_hooks: Record<string, string>;
+  /**
+   * Read-only per-survey state, always sent in full (bounded — a handful of
+   * survey definitions, ever). `survey_responses` is the server's terminal
+   * (write-once) answer/dismissal per survey id; `survey_eligibility` is a
+   * server-computed "prior usage" gate for surveys that need one — never
+   * echoed back as a mutation.
+   */
+  survey_responses?: Record<string, { choice: string | null; free_text: string | null; dismissed: boolean }>;
+  survey_eligibility?: Record<string, boolean>;
   category_filters: string[];
   word_list_items?: SyncWordListItem[];
   categories?: Record<string, SyncCategory>;

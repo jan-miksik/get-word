@@ -35,9 +35,6 @@ export type StudyOptionSize = 'lg' | 'md' | 'sm';
 /** Which pair a settled matching button belongs to. */
 export type StudyOptionMatchColor = 1 | 2 | 3 | 4 | 5 | 6;
 
-/** Which edge a settled matching button carries its pair spine on. */
-export type StudyOptionMatchEdge = 'left' | 'right';
-
 /**
  * Phones get a smaller step of every size.
  *
@@ -68,9 +65,9 @@ const stateClasses: Record<StudyOptionState, string> = {
     'motion-safe:animate-[pulse_420ms_ease-out_1]',
   // A settled pair carries its own colour; what is left in play stays plain
   // cream, so the board reads as "collected vs still open" at a glance.
-  // Everything colourful (wash, border, spine) is inline, keyed off the pair's
-  // hue — the fixed green border used to fight whatever tint the pair drew.
-  // The class values are the fallback for a settled button with no colour.
+  // Everything colourful (wash, border) is inline, keyed off the pair's hue —
+  // the fixed green border used to fight whatever tint the pair drew. The
+  // class values are the fallback for a settled button with no colour.
   matched: 'border-paper-edge bg-[#F6EEDE] text-ink shadow-[0_2px_0_#DCCFB6]',
   wrong:
     'border-brick bg-wash-brick text-brick-deep shadow-[0_3px_0_#E4AAA6] ' +
@@ -82,7 +79,9 @@ export function StudyOptionButton({
   state,
   size = 'md',
   matchColor,
-  matchEdge = 'left',
+  /** Matching's board wants a tighter, less bubbly corner than choice's; every
+   * other caller keeps the default. */
+  radiusClassName = 'rounded-2xl',
   disabled = false,
   onClick,
   ariaLabel,
@@ -95,8 +94,7 @@ export function StudyOptionButton({
   size?: StudyOptionSize;
   /** Tints a `matched` button so both halves of one pair share a colour. */
   matchColor?: StudyOptionMatchColor;
-  /** Put the spine on the edge facing the other column. */
-  matchEdge?: StudyOptionMatchEdge;
+  radiusClassName?: string;
   disabled?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
@@ -125,7 +123,8 @@ export function StudyOptionButton({
       {...rest}
       {...noTranslateProps(
         [
-          'group relative flex items-center justify-center overflow-hidden rounded-2xl border-2',
+          'group relative flex items-center justify-center overflow-hidden border-2',
+          radiusClassName,
           'font-bold leading-snug',
           'transition-[transform,background-color,border-color,box-shadow,color] duration-200',
           'disabled:cursor-default disabled:opacity-100',
@@ -148,20 +147,6 @@ export function StudyOptionButton({
       disabled={disabled}
       aria-label={ariaLabel}
     >
-      {hue ? (
-        // A spine in the pair's own colour, on the edge facing the other
-        // column, so the two halves point at each other across the gutter.
-        // Two halves of a pair sit far apart on the board and a pale wash
-        // alone is a weak tie — especially for anyone who cannot tell two of
-        // the six hues apart.
-        <span
-          aria-hidden="true"
-          className={`absolute inset-y-2 w-[5px] rounded-full ${
-            matchEdge === 'right' ? 'right-1.5' : 'left-1.5'
-          }`}
-          style={{ background: `rgb(${hue} / 0.85)` }}
-        />
-      ) : null}
       <span>{children}</span>
     </button>
   );

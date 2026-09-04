@@ -40,6 +40,23 @@ interface GameScoreOperation {
   payload: { score: number };
 }
 
+interface SurveyCounterOperation {
+  entity: 'survey_counter';
+  opType: 'max';
+  payload: { count: number };
+}
+
+/**
+ * `choice`/`freeText` are both null for a dismissal, matching the server's
+ * discriminated-union contract (SyncMutationPayloadSchema's survey_responses
+ * entry) — a response is either an answer or a dismissal, never a mix.
+ */
+interface SurveyResponseOperation {
+  entity: 'survey_response';
+  opType: 'set';
+  payload: { surveyId: string; choice: string | null; freeText: string | null; dismissed: boolean };
+}
+
 interface ReviewEventOperation {
   entity: 'review_event';
   opType: 'event';
@@ -65,5 +82,7 @@ export type OutboxOperation =
   | PreferenceOperation
   | CategoryFiltersOperation
   | GameScoreOperation
+  | SurveyCounterOperation
+  | SurveyResponseOperation
   | ReviewEventOperation
   | ActivitySegmentOperation;

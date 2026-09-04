@@ -5,6 +5,7 @@ import { users, type User, type NewUser } from "../schema";
 import {
   normalizeMemoryHookDisableFromStage,
   normalizeStudyNoteMinimizeFromStage,
+  normalizeTypingAudioReplayHideFromStage,
 } from "@/lib/words";
 import {
   SyncRevisionConflictError,
@@ -122,6 +123,7 @@ export async function updateUserPreferences(
     review_opt_in?: boolean;
     ai_review_opt_in?: boolean;
     study_note_minimize_from_stage?: number;
+    typing_audio_replay_hide_from_stage?: number;
     learning_fine_tune?: unknown;
     goal_reminder_enabled?: boolean;
     goal_reminder_local_minutes?: number | null;
@@ -137,6 +139,7 @@ export async function updateUserPreferences(
     settings_language_base_revision?: number;
     language_pair_base_revision?: number;
     game_score?: number;
+    survey_progress_count?: number;
     category_order?: string[];
   }
 ): Promise<User | null> {
@@ -151,6 +154,7 @@ export async function updateUserPreferences(
     reviewOptIn?: boolean;
     aiReviewOptIn?: boolean;
     studyNoteMinimizeFromStage?: number;
+    typingAudioReplayHideFromStage?: number;
     learningFineTune?: FineTuneConfig;
     goalReminderEnabled?: boolean;
     goalReminderLocalMinutes?: number | null;
@@ -164,6 +168,7 @@ export async function updateUserPreferences(
     onboardingCompletedAt?: Date | null;
     languagePairRevision?: number | SQL;
     gameScore?: number;
+    surveyProgressCount?: number;
     categoryOrder?: string[];
     updatedAt: Date;
   } = {
@@ -189,6 +194,11 @@ export async function updateUserPreferences(
   if (prefs.study_note_minimize_from_stage !== undefined) {
     updates.studyNoteMinimizeFromStage = normalizeStudyNoteMinimizeFromStage(
       prefs.study_note_minimize_from_stage
+    );
+  }
+  if (prefs.typing_audio_replay_hide_from_stage !== undefined) {
+    updates.typingAudioReplayHideFromStage = normalizeTypingAudioReplayHideFromStage(
+      prefs.typing_audio_replay_hide_from_stage
     );
   }
   if (prefs.learning_fine_tune !== undefined) {
@@ -262,6 +272,9 @@ export async function updateUserPreferences(
     }
   }
   if (prefs.game_score !== undefined) updates.gameScore = Math.max(0, Math.floor(prefs.game_score));
+  if (prefs.survey_progress_count !== undefined) {
+    updates.surveyProgressCount = Math.max(0, Math.floor(prefs.survey_progress_count));
+  }
   if (prefs.category_order !== undefined) {
     const normalized = Array.isArray(prefs.category_order)
       ? prefs.category_order

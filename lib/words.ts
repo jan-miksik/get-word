@@ -188,6 +188,38 @@ export function shouldMinimizeStudyNoteForStage(
   return normalizedStage >= cutoff;
 }
 
+// Typing card replay button: the big "play the word" button under the
+// answer. Early on it is a legitimate part of learning the word, but once a
+// card has survived a couple of reviews hearing it on demand before typing
+// turns the exercise into dictation-with-a-cheat-sheet — so from this stage
+// on it only appears once the answer is checked. The small mute toggle in
+// the card header is a different control (sound on/off in general) and is
+// never affected by this.
+export const TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE_OPTIONS = [2, 3, 4, 5, 6, 7] as const;
+export type TypingAudioReplayHideFromStage =
+  (typeof TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE_OPTIONS)[number];
+export const DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE: TypingAudioReplayHideFromStage = 5; // 14 days
+
+export function normalizeTypingAudioReplayHideFromStage(
+  value: unknown
+): TypingAudioReplayHideFromStage {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE;
+  const normalized = Math.floor(parsed) as TypingAudioReplayHideFromStage;
+  return TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE_OPTIONS.includes(normalized)
+    ? normalized
+    : DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE;
+}
+
+export function shouldShowTypingAudioReplayBeforeAnswer(
+  stageIndex: number,
+  typingAudioReplayHideFromStage: number
+): boolean {
+  const normalizedStage = Number.isFinite(stageIndex) ? Math.max(0, Math.floor(stageIndex)) : 0;
+  const cutoff = normalizeTypingAudioReplayHideFromStage(typingAudioReplayHideFromStage);
+  return normalizedStage < cutoff;
+}
+
 export function getAvailableCategories(
   words: NormalizedWord[]
 ): Array<{ key: string; name: string; sourceName?: string; count: number; position?: number }> {

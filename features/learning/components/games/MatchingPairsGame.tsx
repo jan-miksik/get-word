@@ -204,8 +204,8 @@ export function MatchingPairsGame({
               <StudyOptionButton
                 state={leftState}
                 size="sm"
+                radiusClassName="rounded-[10px]"
                 matchColor={leftState === 'matched' ? matchColors.get(word.id) : undefined}
-                matchEdge="right"
                 onClick={() => handleLeft(word.id)}
                 disabled={matched.has(word.id) || !!wrongPair}
                 ariaLabel={
@@ -222,8 +222,8 @@ export function MatchingPairsGame({
                 <StudyOptionButton
                   state={rightState}
                   size="sm"
+                  radiusClassName="rounded-[10px]"
                   matchColor={rightState === 'matched' ? matchColors.get(right.id) : undefined}
-                  matchEdge="left"
                   onClick={() => handleRight(right.id)}
                   disabled={matched.has(right.id) || !!wrongPair}
                 >

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { touchUserDevice } from "@/lib/db";
+import { getUserSurveyResponses, touchUserDevice } from "@/lib/db";
 import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
 import {
@@ -144,11 +144,27 @@ export async function POST(request: NextRequest) {
     const result = await applySyncMutations({ user: resolvedUser, request: body });
     timer.mark("apply_mutations");
 
+    // Read the survey_responses back fresh rather than echo the request body:
+    // write-once semantics mean this device's own write may have lost a race
+    // to another device, and this is what lets it self-correct in the same
+    // round-trip instead of waiting for the next GET.
+    const surveyResponses = body.survey_responses
+      ? await getUserSurveyResponses(result.user.id)
+      : undefined;
+
     const response = await withSessionCookie(
       buildSyncAckPayload(result.user, {
         applied_review_event_ids: result.appliedReviewEventIds,
         applied_client_op_ids: result.clientOpIds,
         op_results: result.opResults,
+        ...(surveyResponses && {
+          survey_responses: Object.fromEntries(
+            Object.entries(surveyResponses).map(([surveyId, value]) => [
+              surveyId,
+              { choice: value.choice, free_text: value.freeText, dismissed: value.dismissed },
+            ]),
+          ),
+        }),
       }),
       result.user.id,
       result.user.userRole,

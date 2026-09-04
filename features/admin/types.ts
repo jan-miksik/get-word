@@ -124,6 +124,28 @@ export interface UiLanguageRequestRow {
   lastRequestedAt: string;
 }
 
+/** `optionId` is `'dismissed'` for the row that counts dismissals, never a real option id (survey configs never use that id). */
+interface SurveyOptionBreakdown {
+  optionId: string;
+  responses: number;
+}
+
+export interface SurveyResponseSummary {
+  surveyId: string;
+  totalAnswered: number;
+  totalDismissed: number;
+  options: SurveyOptionBreakdown[];
+}
+
+export interface SurveyFreeTextRow {
+  handle: string;
+  email: string | null;
+  surveyId: string;
+  optionId: string;
+  freeText: string;
+  respondedAt: string;
+}
+
 /** One day in the app-wide GitHub-style activity heatmap. */
 export interface ActivityHeatmapDay {
   date: string; // YYYY-MM-DD (UTC)
@@ -331,6 +353,10 @@ export interface UsageStats {
   uiLanguageRequests: {
     totalRequests: number;
     languages: UiLanguageRequestRow[];
+  };
+  surveys: {
+    summaries: SurveyResponseSummary[];
+    freeTextResponses: SurveyFreeTextRow[];
   };
   activityHeatmap: ActivityHeatmapDay[]; // sparse: only days with activity, last 53 weeks
   users: AdminUserRow[];

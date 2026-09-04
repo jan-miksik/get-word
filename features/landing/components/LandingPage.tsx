@@ -9,6 +9,7 @@ import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
 import {
   CompactStoreCta,
+  HeroStoreBadges,
   PlayStoreLink,
   STORE_CTA_ANCHOR_ID,
   StoreFirstStartLink,
@@ -355,6 +356,7 @@ function Hero({
                 and the haze alone was not enough contrast for it. */}
             <span className="lp-plaque">{t('landing.hero.subtitle')}</span>
           </p>
+          <HeroStoreBadges />
         </div>
 
         {/* On unsupported browsers (Firefox-Android) the demo and the language

@@ -22,8 +22,10 @@ import {
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
+  DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE,
   normalizeMemoryHookDisableFromStage,
   normalizeStudyNoteMinimizeFromStage,
+  normalizeTypingAudioReplayHideFromStage,
 } from '@/lib/words';
 import {
   isLearningRole,
@@ -181,6 +183,9 @@ export function usePreferences(
   const [studyNotesEnabled, setStudyNotesEnabledState] = useState(true);
   const [studyNoteMinimizeFromStage, setStudyNoteMinimizeFromStageState] = useState<number>(
     DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE
+  );
+  const [typingAudioReplayHideFromStage, setTypingAudioReplayHideFromStageState] = useState<number>(
+    DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE
   );
   // Quality-review consents. Defaults mirror the DB: editor review on, sending
   // the pair to a third-party model off until the learner says otherwise.
@@ -359,6 +364,15 @@ export function usePreferences(
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
+    void enqueuePreference(
+      'typing_audio_replay_hide_from_stage',
+      normalizeTypingAudioReplayHideFromStage(typingAudioReplayHideFromStage)
+    );
+  }, [typingAudioReplayHideFromStage, isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     void enqueuePreference('category_order', categoryOrder);
   }, [categoryOrder, isHydrated, isUpdatingFromServerRef]);
 
@@ -430,6 +444,14 @@ export function usePreferences(
     postTabMessage({
       type: 'preferences_changed',
       patch: { studyNoteMinimizeFromStage: normalized },
+    });
+  }, []);
+  const setTypingAudioReplayHideFromStage = useCallback((stage: number) => {
+    const normalized = normalizeTypingAudioReplayHideFromStage(stage);
+    setTypingAudioReplayHideFromStageState(normalized);
+    postTabMessage({
+      type: 'preferences_changed',
+      patch: { typingAudioReplayHideFromStage: normalized },
     });
   }, []);
   const setCategoryOrder = useCallback((order: string[] | ((prev: string[]) => string[])) => {
@@ -556,6 +578,9 @@ export function usePreferences(
     setStudyNotesEnabledState(user.study_notes_enabled ?? true);
     setStudyNoteMinimizeFromStageState(
       normalizeStudyNoteMinimizeFromStage(user.study_note_minimize_from_stage)
+    );
+    setTypingAudioReplayHideFromStageState(
+      normalizeTypingAudioReplayHideFromStage(user.typing_audio_replay_hide_from_stage)
     );
     setReviewOptInState(user.review_opt_in ?? true);
     setAiReviewOptInState(user.ai_review_opt_in ?? false);
@@ -688,6 +713,11 @@ export function usePreferences(
           normalizeStudyNoteMinimizeFromStage(patch.studyNoteMinimizeFromStage)
         );
       }
+      if (typeof patch.typingAudioReplayHideFromStage === 'number') {
+        setTypingAudioReplayHideFromStageState(
+          normalizeTypingAudioReplayHideFromStage(patch.typingAudioReplayHideFromStage)
+        );
+      }
       if (Array.isArray(patch.categoryOrder)) {
         const nextCategoryOrder = normalizeCategoryOrderValue(patch.categoryOrder);
         setCategoryOrderState((prev) =>
@@ -815,6 +845,8 @@ export function usePreferences(
     setStudyNotesEnabled,
     studyNoteMinimizeFromStage,
     setStudyNoteMinimizeFromStage,
+    typingAudioReplayHideFromStage,
+    setTypingAudioReplayHideFromStage,
     reviewOptIn,
     setReviewOptIn,
     aiReviewOptIn,

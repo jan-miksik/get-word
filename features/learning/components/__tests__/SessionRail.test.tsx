@@ -60,18 +60,17 @@ describe('SessionRail', () => {
     expect(segments.map((segment) => segment.style.flexGrow)).toEqual(['14', '6']);
   });
 
-  // The block rail counts ticks. Items the block planned but the stream cannot
-  // serve used to get a tick each, so the rail was still short of the top on the
-  // answer that actually finished the block.
-  it('counts only the items the block can still serve', () => {
+  // The itinerary must not shrink while completed cards leave the live stream.
+  // This is especially visible in a ten-card bonus round containing typing.
+  it('keeps one fixed tick per planned item when some become unavailable', () => {
     const { container } = renderRail([
-      { key: 'review-0', kind: 'review', done: 2, total: 6, pending: 0, liveRemaining: 1, unavailable: 3 },
+      { key: 'review-0', kind: 'review', done: 2, total: 10, pending: 0, liveRemaining: 5, unavailable: 3 },
     ]);
 
     const blockRail = container.querySelector('.left-0');
     const ticks = Array.from(blockRail?.children ?? []) as HTMLElement[];
-    expect(ticks).toHaveLength(3);
-    expect(ticks.filter((tick) => tick.style.background.includes('--rail-new') || tick.style.background.includes('--rail-review'))).toHaveLength(2);
+    expect(ticks).toHaveLength(10);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-new') || tick.style.background.includes('--rail-review'))).toHaveLength(5);
   });
   // Every card in the stretch gets a tick, minigames included: a rail that
   // stood still through a matching round read as a session that had stopped
@@ -118,7 +117,7 @@ describe('SessionRail', () => {
     expect(getByText('Review')).toBeInTheDocument();
   });
 
-  it('drops the tick of a round the learner walked away from', () => {
+  it('keeps the tick of a round the learner walked away from and marks it passed', () => {
     const { container } = renderRail([
       {
         key: 'review-0', kind: 'review', done: 0, total: 4, pending: 0, liveRemaining: 4,
@@ -126,6 +125,8 @@ describe('SessionRail', () => {
       },
     ]);
 
-    expect(Array.from(container.querySelector('.left-0')?.children ?? [])).toHaveLength(4);
+    const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
+    expect(ticks).toHaveLength(6);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(2);
   });
 });

@@ -3,6 +3,7 @@ export * from "./users";
 export * from "./account-deletion-jobs";
 export * from "./progress";
 export * from "./memory-hooks";
+export * from "./survey-responses";
 export * from "./category-filters";
 export * from "./word-list-items";
 export * from "./media-assets";

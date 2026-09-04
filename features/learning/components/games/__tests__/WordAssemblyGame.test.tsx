@@ -228,7 +228,7 @@ describe('WordAssemblyGame', () => {
       placedParts: ['o', 'k'],
       draggedPart: 'k',
     },
-  ])('restores the landing transition before a dropped $label settles', ({
+  ])('re-bases a dropped $label before it is allowed to animate', ({
     variant,
     answerParts,
     placedParts,
@@ -274,15 +274,30 @@ describe('WordAssemblyGame', () => {
       fireEvent.pointerDown(dragged, { pointerId: 1, button: 0, clientX: 85, clientY: 20 });
       fireEvent.pointerMove(window, { pointerId: 1, clientX: 25, clientY: 20 });
       expect(dragged.style.transitionProperty).toBe('none');
+      const carried = dragged.style.transform;
 
       fireEvent.pointerUp(window, { pointerId: 1, clientX: 25, clientY: 20 });
 
-      // The tile remains at the pointer for one frame, but unlike the active
-      // drag that frame must already allow a transform transition. Otherwise
-      // clearing the offset below is an immediate visual jump.
+      // The tile stays under the pointer, but its offset is now measured from
+      // the slot it was just committed into, so the value changes. That change
+      // has to land with transitions still off: animating it would run the
+      // tile a whole slot sideways — leftwards on a right-to-left drag — and
+      // then slide it back.
       expect(dragged.style.transform).toContain('translate(');
-      expect(dragged.style.transitionProperty).toBe('transform');
+      expect(dragged.style.transform).not.toBe(carried);
+      expect(dragged.style.transitionProperty).toBe('none');
+      const rebased = dragged.style.transform;
       expect(frames).toHaveLength(1);
+
+      // Transitions come back on their own frame, with nothing else moving.
+      act(() => { frames[0]?.(0); });
+      expect(dragged.style.transform).toBe(rebased);
+      expect(dragged.style.transitionProperty).toBe('transform');
+
+      // Only now is the offset released, and it glides.
+      act(() => { frames[1]?.(0); });
+      expect(dragged.style.transform).toBe('');
+      expect(dragged.style.transitionProperty).toBe('transform');
     } finally {
       requestFrame.mockRestore();
       cancelFrame.mockRestore();

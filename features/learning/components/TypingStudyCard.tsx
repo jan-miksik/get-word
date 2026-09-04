@@ -2,7 +2,12 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { isAppKeyboardOpen } from '@/hooks/useVisualViewportHeight';
-import { STAGES, type NormalizedWord } from '@/lib/words';
+import {
+  DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE,
+  STAGES,
+  shouldShowTypingAudioReplayBeforeAnswer,
+  type NormalizedWord,
+} from '@/lib/words';
 import type { ProgressData } from '@/features/sync/contracts';
 import {
   getAcceptedAnswerCandidates,
@@ -64,6 +69,11 @@ interface TypingStudyCardProps {
   prefillPunctuation: boolean;
   /** @deprecated Typing answers now always use explicit confirmation. */
   checkButtonEnabled?: boolean;
+  /**
+   * From this stage on, the big replay button under the answer is hidden
+   * until the answer is checked. See `shouldShowTypingAudioReplayBeforeAnswer`.
+   */
+  audioReplayHideFromStage?: number;
   /** Fires as soon as the answer is checked, so the score updates immediately. */
   onScore?: (points: number) => void;
   /** Fires on tap-to-continue; SR stage moves only when the card advances. */
@@ -111,6 +121,7 @@ export function TypingStudyCard({
   variant,
   audioPromptEnabled,
   prefillPunctuation,
+  audioReplayHideFromStage = DEFAULT_TYPING_AUDIO_REPLAY_HIDE_FROM_STAGE,
   onScore,
   onOutcome,
   onAnswered,
@@ -638,7 +649,15 @@ export function TypingStudyCard({
     isTopStage(clampedStageIndex) &&
     Boolean(progress.nextDueAt);
 
-  const showTypingAudio = hasAudioSource && !usesAudioPrompt;
+  // Past a stage where the word has proven itself, the replay button is a
+  // dictation cheat sheet before the check and a legitimate "hear it right"
+  // afterwards — so it only appears before answering while the card is still
+  // early in the ladder.
+  const showTypingAudio =
+    hasAudioSource &&
+    !usesAudioPrompt &&
+    (result !== null ||
+      shouldShowTypingAudioReplayBeforeAnswer(clampedStageIndex, audioReplayHideFromStage));
   // Which slot the caret sits in (fixed slots are skipped by mapping the caret
   // through the editable slot list).
   const activeSlotIndex =

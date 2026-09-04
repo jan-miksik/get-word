@@ -8,6 +8,8 @@ import type {
 } from '@/features/sync/types';
 import type { OutboxOp } from './outbox';
 
+type SurveyResponseEntry = NonNullable<SyncMutationPayload['survey_responses']>[string];
+
 export interface BuiltPayload {
   payload: SyncMutationPayload & { client_op_ids: string[] };
   clientOpIds: string[];
@@ -46,6 +48,8 @@ export function buildPayloadFromOps(
   const invalidClientOpIds: string[] = [];
   const discardedClientOpIds: string[] = [];
   let maxGameScore: number | null = null;
+  let maxSurveyProgressCount: number | null = null;
+  const surveyResponses: Record<string, SurveyResponseEntry> = {};
   let lastCategoryFilters: string[] | null = null;
 
   for (const op of ops) {
@@ -76,6 +80,19 @@ export function buildPayloadFromOps(
         }
         break;
       }
+      case 'survey_counter': {
+        const p = op.payload;
+        if (p && typeof p.count === 'number') {
+          maxSurveyProgressCount = maxSurveyProgressCount === null
+            ? p.count
+            : Math.max(maxSurveyProgressCount, p.count);
+          accepted = true;
+        }
+        break;
+      }
+      case 'survey_response':
+        accepted = applySurveyResponseOp(surveyResponses, op);
+        break;
       case 'review_event':
         accepted = applyReviewEventOp(reviewEventsByClientId, op);
         break;
@@ -107,6 +124,12 @@ export function buildPayloadFromOps(
   }
   if (maxGameScore !== null) {
     payload.game_score = maxGameScore;
+  }
+  if (maxSurveyProgressCount !== null) {
+    payload.survey_progress_count = maxSurveyProgressCount;
+  }
+  if (Object.keys(surveyResponses).length > 0) {
+    payload.survey_responses = surveyResponses;
   }
   if (reviewEventsByClientId.size > 0) {
     payload.review_events = Array.from(reviewEventsByClientId.values());
@@ -158,6 +181,24 @@ function applyMemoryHookOp(
   if (typeof p.id !== 'string' || p.id.length === 0) return false;
   if (typeof p.text !== 'string' && p.text !== null) return false;
   bucket[p.id] = p.text ?? null;
+  return true;
+}
+
+function applySurveyResponseOp(
+  bucket: Record<string, SurveyResponseEntry>,
+  op: Extract<OutboxOp, { entity: 'survey_response' }>
+): boolean {
+  if (!isObject(op.payload)) return false;
+  const p = op.payload;
+  if (typeof p.surveyId !== 'string' || p.surveyId.length === 0) return false;
+  if (typeof p.dismissed !== 'boolean') return false;
+  if (p.dismissed) {
+    bucket[p.surveyId] = { choice: null, free_text: null, dismissed: true };
+    return true;
+  }
+  if (typeof p.choice !== 'string' || p.choice.length === 0) return false;
+  const freeText = typeof p.freeText === 'string' ? p.freeText : null;
+  bucket[p.surveyId] = { choice: p.choice, free_text: freeText, dismissed: false };
   return true;
 }
 
@@ -221,6 +262,7 @@ const PREFERENCE_FIELDS = new Set<keyof SyncMutationPayload>([
   'memory_hook_disable_from_stage',
   'study_notes_enabled',
   'study_note_minimize_from_stage',
+  'typing_audio_replay_hide_from_stage',
   'learning_fine_tune',
   'study_goal',
   'study_goal_base_revision',

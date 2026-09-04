@@ -993,7 +993,7 @@
 
 /* The day's closing seal. The ring is the day rail bent into a circle: it draws
    itself from the top, stops where the day actually got to, and — only on a day
-   that closed — is stamped with a tick and a short burst of colour. The stamp
+   that closed — is stamped with a star and a short burst of colour. The stamp
    waits for the ring to arrive, so the sequence reads as one gesture finishing
    rather than three decorations appearing. */
 .session-seal-arc {
@@ -1006,9 +1006,9 @@
   to { stroke-dashoffset: var(--seal-arc-to, 0); }
 }
 
-.session-seal-tick {
-  stroke-dasharray: 52;
-  stroke-dashoffset: 52;
+.session-seal-star {
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
   animation: session-seal-stamp 380ms 620ms ease-out forwards;
 }
 
@@ -1037,7 +1037,7 @@
     stroke-dashoffset: var(--seal-arc-to, 0);
   }
 
-  .session-seal-tick {
+  .session-seal-star {
     animation: none;
     stroke-dashoffset: 0;
   }
@@ -1095,6 +1095,33 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
 }
 
+/* `pulse` today-mark variant (`features/learning/components/goals/StreakShapes.tsx`):
+   the ring behind today's chain bead breathes rather than sitting still, so
+   motion — not a slightly different shade — is what says "now". */
+@keyframes chain-today-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.14); }
+}
+
+.chain-today-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chain-today-pulse 1.8s ease-in-out infinite;
+}
+
+/* `orbit` today-mark variant: a small satellite dot circling today's bead.
+   `transform-origin` is set inline to the bead's own centre in view-box units
+   (see `ChainShape`), not the dot's own — a plain `rotate()` around that fixed
+   point is what turns a spinning-in-place dot into an orbit. */
+@keyframes chain-today-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.chain-today-orbit {
+  animation: chain-today-orbit 3.4s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .session-close-in,
   .session-close-pop {
@@ -1111,6 +1138,18 @@
   .session-seal-glow {
     animation: none;
     opacity: 0;
+  }
+
+  .chain-today-pulse {
+    animation: none;
+    opacity: 0.75;
+    transform: none;
+  }
+
+  /* The satellite stops circling but stays put — a static dot beside the
+     bead is still a mark, just not a moving one. */
+  .chain-today-orbit {
+    animation: none;
   }
 }
 

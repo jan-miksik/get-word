@@ -188,11 +188,11 @@ function DaySeal({
         ) : null}
         {closed ? (
           <path
-            className="session-seal-tick"
-            d="M42 61 55 74 79 46"
+            className="session-seal-star"
+            d="M60 38 66.7 51.6 81.7 53.8 70.8 64.4 73.4 79.3 60 72.3 46.6 79.3 49.2 64.4 38.3 53.8 53.3 51.6Z"
             fill="none"
             stroke="var(--rail-review)"
-            strokeWidth="7"
+            strokeWidth="5.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -257,12 +257,10 @@ export function SessionDoneCard({
    * Work the learner chose to do past the day's plan — the bonus rounds taken
    * from this very card.
    *
-   * It is counted here rather than read back off a plan, because a bonus round
-   * is torn down the moment it settles: that is what returns the learner to
-   * this card. Without it an extra ten repeats vanished from the recap until
-   * the server rollup happened to land, and then reappeared as a number with
-   * no visible cause. The server's own figure still wins whenever it is
-   * higher — this is a floor, never a second tally on top of it.
+   * It is counted here rather than inferred from the whole-day rollup, because
+   * that rollup counts distinct words. Repeating ten cards can therefore move
+   * the day's distinct-word total by anything from zero to ten, while the
+   * learner still completed exactly ten extra cards.
    */
   extra?: { reviewed: number; fresh: number } | null;
   /**
@@ -404,30 +402,30 @@ export function SessionDoneCard({
     );
   }
 
-  // The day as it was actually lived. The server rollup is the whole day,
-  // bonus round included; the plan is what this device just watched happen.
-  // Whichever is further along is the true one — the rollup can lag a sync
-  // behind, and the plan cannot see past its own cap.
+  // The day as it was actually lived. Once the server has confirmed that the
+  // goal was met, its distinct-word split is authoritative. Taking the maximum
+  // with the frozen plan here used to turn a server-confirmed five new words
+  // into nine merely because an older/larger local plan contained nine.
+  //
+  // Before that confirmation, keep the local plan as the optimistic floor so
+  // the final answer moves the card immediately rather than one sync later.
   const extraReviewed = extra?.reviewed ?? 0;
   const extraFresh = extra?.fresh ?? 0;
-  const reviewed = Math.max(
-    dayScore?.reviewed ?? 0,
-    (planned ? countPlanDone(planned, 'review') : 0) + extraReviewed,
-  );
-  const fresh = Math.max(
-    dayScore?.introduced ?? 0,
-    (planned ? countPlanDone(planned, 'new') : 0) + extraFresh,
-  );
+  const confirmedDay = dayScore?.met === true;
+  const reviewed = confirmedDay
+    ? dayScore.reviewed
+    : Math.max(dayScore?.reviewed ?? 0, planned ? countPlanDone(planned, 'review') : 0);
+  const fresh = confirmedDay
+    ? dayScore.introduced
+    : Math.max(dayScore?.introduced ?? 0, planned ? countPlanDone(planned, 'new') : 0);
   const goalTarget = dayScore?.target ?? 0;
   const counted = reviewed + fresh;
-  // "Over goal" means the learner chose to keep going, so it is measured from
-  // the extra rounds they took — not from the gap between two different pieces
-  // of bookkeeping. The day's targets are frozen at the first answer while
-  // `reviewed` is the server's whole-day count, so a plainly walked plan could
-  // sit well above its own target through no effort of anyone's: a badge
-  // congratulating the learner for that is a badge with nothing behind it.
-  const carriedOn = extraReviewed + extraFresh > 0;
-  const surplus = carriedOn && goalTarget > 0 ? Math.max(0, counted - goalTarget) : 0;
+  // "Over goal" is the work the learner explicitly chose after closing the
+  // day. It cannot be derived as `counted - target`: the former is distinct
+  // words while an extra round is answer events, and some of those words may
+  // already have been counted earlier today. Mixing the units is what made a
+  // ten-card bonus appear as +14.
+  const surplus = goalTarget > 0 ? extraReviewed + extraFresh : 0;
 
   // A day that ran out is measured against the goal it missed, not against the
   // plan it did finish — the plan had already been cut down to the words that
@@ -513,7 +511,10 @@ export function SessionDoneCard({
           wants to be seen. The week beside it is never empty. */}
       {dayClosed && streak ? (
         <div className="session-close-streak session-close-in" style={{ animationDelay: '540ms' }}>
-          <StreakSummary streak={streak} />
+          {/* Bigger than the same summary on the Upcoming panel: this card has
+              room to spare, and the series is the last thing shown before the
+              card's actions — the place that most deserves it. */}
+          <StreakSummary streak={streak} emphasis="large" />
         </div>
       ) : null}
 
