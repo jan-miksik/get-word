@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ProgressData } from '@/features/sync/contracts';
-import { sessionPlanMatchesProgress, wordMatchesSessionBlock } from '../blockClassification';
+import {
+  sessionPlanMatchesProgress,
+  wasIntroducedOnDay,
+  wordMatchesSessionBlock,
+} from '../blockClassification';
 import type { SessionPlan } from '../plan';
 
 const DAY = '2026-08-20';
@@ -31,6 +35,11 @@ function plan(blocks: SessionPlan['blocks']): SessionPlan {
 }
 
 describe('session block classification', () => {
+  it('recognizes an introduction in the learner\'s local day', () => {
+    expect(wasIntroducedOnDay(introduced(today), DAY, 'UTC')).toBe(true);
+    expect(wasIntroducedOnDay(introduced(yesterday), DAY, 'UTC')).toBe(false);
+  });
+
   it('never renders an unseen word as an ordinary review', () => {
     expect(wordMatchesSessionBlock({ kind: 'review' }, undefined)).toBe(false);
     expect(wordMatchesSessionBlock({ kind: 'review' }, introduced())).toBe(true);

@@ -154,14 +154,12 @@ export function SessionRail({
   // An item that became unreachable is already behind the learner for pacing
   // purposes, just as the day rail treats an unreachable segment as passed.
   //
-  // Every card in the stretch gets a slot, minigames included. The day's goal
-  // is untouched by this — that is counted in distinct words on the day rail
-  // and on the ring that closes the day.
-  const blockGames = block?.gameTotal ?? 0;
-  const blockTotal = block ? block.total + blockGames : 0;
+  // The rail and the recap use the same unit: word cards. Mini-games are
+  // interludes, not extra words; giving them ticks is what made a twelve-word
+  // review draw fourteen marks and then honestly recap only twelve words.
+  const blockTotal = block?.total ?? 0;
   const blockPassed = block
-    ? block.done + block.pending + block.unavailable +
-      (block.gameDone ?? 0) + (block.gameUnavailable ?? 0)
+    ? block.done + block.pending + block.unavailable
     : 0;
   const color = block ? blockColor(block.kind) : 'var(--rail-review)';
   const label = block?.reinforcement
