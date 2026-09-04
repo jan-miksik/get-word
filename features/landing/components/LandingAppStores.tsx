@@ -165,6 +165,12 @@ export function DesktopStoreNote() {
 }
 
 /**
+ * Anchor on the hero's store links, so a link further down the page can bring
+ * the visitor back up to them.
+ */
+export const STORE_CTA_ANCHOR_ID = 'lp-store-cta';
+
+/**
  * The two official badges, side by side, right under the hero tagline.
  *
  * Every other store link on this page (`StoreLinkButton`) is deliberately
@@ -174,13 +180,17 @@ export function DesktopStoreNote() {
  * sight, before a single word of copy does. Shown on every device — a desktop
  * reader is still one QR-scan-free way from finding out the app exists on
  * their phone too.
+ *
+ * On a phone these badges are the hero's only store offer, which is why they
+ * carry the scroll anchor: the compact button block that used to sit below the
+ * pitch is gone, and the demo card's closing link scrolls back here.
  */
 export function HeroStoreBadges() {
   const { t } = useI18n();
   if (STORE_LINKS.length === 0) return null;
 
   return (
-    <div className="lp-hero-badges">
+    <div id={STORE_CTA_ANCHOR_ID} className="lp-hero-badges">
       {STORE_LINKS.map((link) => (
         <a
           key={link.target}
@@ -200,12 +210,6 @@ export function HeroStoreBadges() {
     </div>
   );
 }
-
-/**
- * Anchor on the compact store block in the hero, so a link further down the
- * page can bring the visitor back to it.
- */
-export const STORE_CTA_ANCHOR_ID = 'lp-store-cta';
 
 function scrollToStoreCta(event: React.MouseEvent<HTMLAnchorElement>) {
   const target = document.getElementById(STORE_CTA_ANCHOR_ID);
@@ -316,8 +320,10 @@ export function StoreFirstStartLink({
 }
 
 /**
- * What the hero and the closing block show below 960px, where the page stops
- * being a desktop.
+ * What the closing block shows below 960px, where the page stops being a
+ * desktop. The hero used to carry a copy of this too; below the official
+ * badges it was the same two listings offered a second time, so on a phone
+ * this now appears once, at the end of the page.
  *
  * One button — the store this phone actually installs from — and everything
  * else folded away behind "other options": the store it is not on, and the

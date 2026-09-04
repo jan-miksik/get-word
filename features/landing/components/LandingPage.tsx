@@ -7,13 +7,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
 import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
-import {
-  CompactStoreCta,
-  HeroStoreBadges,
-  PlayStoreLink,
-  STORE_CTA_ANCHOR_ID,
-  StoreFirstStartLink,
-} from './LandingAppStores';
+import { HeroStoreBadges, PlayStoreLink, StoreFirstStartLink } from './LandingAppStores';
 import { IconArrow } from './LandingIcons';
 import {
   Choice,
@@ -366,8 +360,10 @@ function Hero({
             and two comboboxes with a dropdown each are the worst possible
             version of that question on a small screen. The pair is asked again
             in onboarding either way, so nothing is lost by not asking here.
-            Split in CSS rather than JS: both blocks are in the HTML, so there
-            is no hydration drift and no flash of the wrong call to action. */}
+            A phone gets nothing in its place: the official badges above are
+            already the hero's call to action there, and repeating the same two
+            listings as site-styled buttons a few lines below them was one offer
+            made twice. The full store block still closes the page. */}
         <div className="lp-hero-controls">
           {showLogin ? (
             <div className="lp-desktop-only">
@@ -380,14 +376,6 @@ function Hero({
               />
             </div>
           ) : null}
-          <div id={STORE_CTA_ANCHOR_ID} className="lp-compact-only lp-hero-compact-cta">
-            <CompactStoreCta
-              showLogin={showLogin}
-              onBeforeLogin={onBeforeLogin}
-              loginLabel={t('landing.hero.getStarted')}
-              loginClassName="lp-btn-primary lp-btn-hero group"
-            />
-          </div>
         </div>
 
         {/* The first screen is a full viewport tall, so something has to say
