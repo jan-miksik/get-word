@@ -285,6 +285,61 @@ describe('useLearningPageState', () => {
       .toEqual(['new-0']);
   });
 
+  // "I know this one already" on the introduction sets a longer interval. The
+  // immediate second pass must take that at its word instead of asking again a
+  // minute later — and the day must still be able to close without it.
+  it('leaves a word out of the second pass when its introduction chose a longer interval', () => {
+    const now = Date.now();
+    const words = [
+      makeWord('checked', 'list-a', 'basics', 0, 0),
+      makeWord('upgraded', 'list-a', 'basics', 0, 1),
+    ];
+    const { result, rerender } = renderHook(({ progress }) =>
+      useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress,
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        studyGoal: { ...cappingGoal, wordsPerDay: 2, newWordsPerDay: 2 },
+        isSessionDataReady: true,
+        dayTargets: { resolvedNewTarget: 2, resolvedReviewTarget: 0, resolvedItemBudget: 4 },
+      }), { initialProps: { progress: {} as Record<string, ProgressData> } }
+    );
+
+    expect(result.current.streamGroups[0]).toMatchObject({ kind: 'new' });
+
+    const introduced: Record<string, ProgressData> = {
+      checked: {
+        stageIndex: 1, knownCount: 1, unknownCount: 0, introducedAt: now,
+        lastKnownAt: now, nextDueAt: now + 5 * 60_000,
+      },
+      // Sent straight to the three-day interval from the custom-stage popover.
+      upgraded: {
+        stageIndex: 3, knownCount: 1, unknownCount: 0, introducedAt: now,
+        lastKnownAt: now, nextDueAt: now + 3 * 86_400_000,
+      },
+    };
+    rerender({ progress: introduced });
+
+    expect(result.current.streamGroups).toHaveLength(1);
+    expect(result.current.streamGroups[0]).toMatchObject({ reinforcement: true });
+    expect(result.current.streamGroups[0].items.map((item) => 'id' in item && item.id))
+      .toEqual(['checked']);
+
+    // Answering the one word it kept closes the day: the skipped word owes the
+    // pass nothing, so nothing is left waiting for a card that never comes.
+    rerender({
+      progress: {
+        ...introduced,
+        checked: { ...introduced.checked!, knownCount: 2, lastKnownAt: now + 1_000 },
+      },
+    });
+    expect(result.current.streamGroups).toEqual([]);
+  });
+
   it('ends a new-only day after reinforcement even when the last answers are due again', () => {
     const now = Date.now();
     const words = Array.from({ length: 7 }, (_, index) =>

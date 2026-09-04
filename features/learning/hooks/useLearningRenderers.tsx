@@ -3,6 +3,7 @@
 import { useCallback, useRef } from 'react';
 import { MiniGameCard } from '@/features/learning/components/MiniGameCard';
 import type { TypingOutcome } from '@/features/learning/components/TypingStudyCard';
+import { ReinforcementBadge } from '@/features/learning/components/ReinforcementBadge';
 import { StudyExerciseCard } from '@/features/learning/components/StudyExerciseCard';
 import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 import { useExerciseResolver } from './useExerciseResolver';
@@ -193,6 +194,7 @@ export function useLearningRenderers({
     };
     return (
       <div key={word.id} className="pt-8">
+        {reinforcement && <ReinforcementBadge />}
         <StudyExerciseCard
           word={word}
           progress={exerciseProgress}
@@ -283,6 +285,7 @@ export function useLearningRenderers({
         exercise.method === 'typing' && typingMobileKeyboardAutoFocus && isMobileLayout();
       return (
         <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
+          {reinforcement && <ReinforcementBadge />}
           <StudyExerciseCard
             word={word}
             progress={exerciseProgress}

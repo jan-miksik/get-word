@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProgressData } from '@/features/sync/contracts';
 import {
   sessionPlanMatchesProgress,
+  skipsReinforcement,
   wasIntroducedOnDay,
   wordMatchesSessionBlock,
 } from '../blockClassification';
@@ -50,6 +51,27 @@ describe('session block classification', () => {
     expect(wordMatchesSessionBlock(block, undefined)).toBe(false);
     expect(wordMatchesSessionBlock(block, undefined, true)).toBe(true);
     expect(wordMatchesSessionBlock(block, introduced(today))).toBe(true);
+  });
+
+  // Choosing a longer interval on the introduction is a decision, not a guess:
+  // checking the word again a minute later would contradict it.
+  it('leaves out a word whose introduction chose a longer interval', () => {
+    const block = { kind: 'review' as const, reinforcement: true as const };
+    const atStage = (stageIndex: number): ProgressData => ({
+      ...introduced(today), stageIndex,
+    });
+
+    expect(skipsReinforcement(atStage(0))).toBe(false);
+    expect(skipsReinforcement(atStage(1))).toBe(false);
+    expect(skipsReinforcement(atStage(3))).toBe(true);
+    // Forgotten on the introduction: back to stage zero and still worth asking.
+    expect(wordMatchesSessionBlock(block, atStage(0))).toBe(true);
+    expect(wordMatchesSessionBlock(block, atStage(1))).toBe(true);
+    expect(wordMatchesSessionBlock(block, atStage(3))).toBe(false);
+    // "I know this one perfectly" retires it at the top stage.
+    expect(wordMatchesSessionBlock(block, atStage(7))).toBe(false);
+    // An ordinary repeat block is untouched by the rule.
+    expect(wordMatchesSessionBlock({ kind: 'review' }, atStage(3))).toBe(true);
   });
 
   it('rejects a cached review block that now points at an unseen word', () => {
