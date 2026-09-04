@@ -1,10 +1,15 @@
-import type { ActivityWindow, StudyWeekBucket, UsageWeekBucket } from '@/lib/stats/types';
+import type {
+  ActivityWindow,
+  StudyWeekBucket,
+  TesterScope,
+  UsageWeekBucket,
+} from '@/lib/stats/types';
 import type {
   DeviceFormFactor,
   DevicePlatform,
 } from '@/packages/contracts/src/device';
 
-export type { ActivityWindow, StudyWeekBucket, UsageWeekBucket };
+export type { ActivityWindow, StudyWeekBucket, TesterScope, UsageWeekBucket };
 export type {
   DeviceFormFactor,
   DevicePlatform,
@@ -12,6 +17,8 @@ export type {
 
 export interface UsageStatsOptions {
   activityWindow?: ActivityWindow;
+  /** Store/QA accounts: hidden by default, or reported on alone. */
+  testerScope?: TesterScope;
   excludedUserIds?: string[];
   excludedUserEmails?: string[];
 }
@@ -214,6 +221,15 @@ export interface AdminUserRow {
 
 export interface UsageStats {
   generatedAt: string;
+  /**
+   * Which population these numbers describe. Only the count of known tester
+   * accounts crosses to the client — the list itself is personal data and
+   * stays on the server.
+   */
+  testers: {
+    scope: TesterScope;
+    knownAccounts: number;
+  };
   registrations: {
     total: number;
     email: number;

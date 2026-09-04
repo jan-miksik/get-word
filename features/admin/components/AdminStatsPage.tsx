@@ -11,6 +11,7 @@ import {
   StatCard,
   TrendBars,
 } from '@/components/stats/StatsPrimitives';
+import { AdminStatsHeader } from '@/features/admin/components/AdminStatsHeader';
 import { AdminSurveysSection } from '@/features/admin/components/AdminSurveysSection';
 import { useAdminStats } from '@/features/admin/client/useAdminStats';
 import type {
@@ -174,7 +175,8 @@ export function AdminStatsPage() {
 
 function AdminStatsContent() {
   const { t, language } = useI18n();
-  const { state, activityWindow, reload, changeActivityWindow } = useAdminStats();
+  const { state, activityWindow, testerScope, reload, changeActivityWindow, changeTesterScope } =
+    useAdminStats();
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [userSearch, setUserSearch] = useState('');
@@ -686,32 +688,13 @@ function AdminStatsContent() {
   return (
     <div className="min-h-screen bg-background text-text">
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-10">
-        <header className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-2xl font-semibold">{t('adminStats.title')}</h1>
-          <div className="flex items-baseline gap-3 text-sm text-text-soft">
-            <Link href="/admin/moderation" className="text-accent underline">
-              {t('moderation.adminNavLink')}
-            </Link>
-            <Link href="/admin/schools" className="text-accent underline">
-              {t('adminStats.schoolsLink')}
-            </Link>
-            <Link href="/admin/quality" className="text-accent underline">
-              {t('adminQuality.navLink')}
-            </Link>
-            <span>
-              {t('adminStats.generatedAt', {
-                time: new Date(stats.generatedAt).toLocaleString(),
-              })}
-            </span>
-            <button
-              type="button"
-              className="text-accent underline"
-              onClick={reload}
-            >
-              {t('adminStats.refresh')}
-            </button>
-          </div>
-        </header>
+        <AdminStatsHeader
+          testers={stats.testers}
+          generatedAt={stats.generatedAt}
+          testerScope={testerScope}
+          onTesterScopeChange={changeTesterScope}
+          onReload={reload}
+        />
 
         <Section title={t('adminStats.sectionRegistrations')}>
           <CardGrid>

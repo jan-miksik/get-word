@@ -65,7 +65,10 @@ describe('GET /api/admin/stats', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.json()).toEqual(stats);
-    expect(mockGetUsageStats).toHaveBeenCalledWith({ activityWindow: 'rolling' });
+    expect(mockGetUsageStats).toHaveBeenCalledWith({
+      activityWindow: 'rolling',
+      testerScope: 'hide',
+    });
   });
 
   it('passes the calendar activity window through to the stats query', async () => {
@@ -76,7 +79,35 @@ describe('GET /api/admin/stats', () => {
     const response = await GET(request('http://localhost/api/admin/stats?activityWindow=calendar'));
 
     expect(response.status).toBe(200);
-    expect(mockGetUsageStats).toHaveBeenCalledWith({ activityWindow: 'calendar' });
+    expect(mockGetUsageStats).toHaveBeenCalledWith({
+      activityWindow: 'calendar',
+      testerScope: 'hide',
+    });
+  });
+
+  it('passes the requested tester scope through, defaulting to hidden', async () => {
+    mockResolveAuthenticatedUser.mockResolvedValue({ id: 'e1', userRole: 'editor' });
+    mockIsEditor.mockReturnValue(true);
+    mockGetUsageStats.mockResolvedValue({ generatedAt: '2026-07-15T12:00:00.000Z' });
+
+    await GET(request('http://localhost/api/admin/stats?testers=only'));
+    expect(mockGetUsageStats).toHaveBeenLastCalledWith({
+      activityWindow: 'rolling',
+      testerScope: 'only',
+    });
+
+    await GET(request('http://localhost/api/admin/stats?testers=all'));
+    expect(mockGetUsageStats).toHaveBeenLastCalledWith({
+      activityWindow: 'rolling',
+      testerScope: 'all',
+    });
+
+    // A hand-edited URL must not silently widen the population.
+    await GET(request('http://localhost/api/admin/stats?testers=everything'));
+    expect(mockGetUsageStats).toHaveBeenLastCalledWith({
+      activityWindow: 'rolling',
+      testerScope: 'hide',
+    });
   });
 
   it('returns a generic 500 when the stats query fails', async () => {

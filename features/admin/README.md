@@ -13,6 +13,16 @@ Owns editor-only operational statistics.
   Moderators keep internal notes separate from the public decision reason and
   optional explanation shown to reporters and affected list owners.
 - `lib/db/queries/usage-stats.ts` contains the database aggregation.
+- `lib/db/queries/tester-accounts.ts` holds the store-review/QA accounts.
+
+The dashboard reports on one population at a time, chosen by the toggle under
+the title and carried as `?testers=hide|only|all`. Store closed-testing waves
+register dozens of accounts that open the app once, so `hide` is the default and
+the only reading that answers "how is the app doing"; `only` is how you check
+that a wave arrived at all. The list is server-side on purpose — those are real
+email addresses, and the client is told how many there are, never who. It is
+separate from `ADMIN_STATS_EXCLUDED_USER_EMAILS`/`_IDS`, which name the team's
+own accounts and apply in every scope.
 
 The Languages section is keyed on the *studied* language: a review event joined
 through its item to that item's list, which is where the direction lives. The

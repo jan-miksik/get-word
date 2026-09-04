@@ -25,6 +25,8 @@ import { PHOTO_ANALYSIS_TRACKING_STARTED_AT } from '@/features/photo-lab/server/
 import { userHandle } from '@/features/admin/server/userHandle';
 import { WORD_CHAT_MONTHLY_SPEND_LIMIT_USD } from '@/features/word-chat/server/config';
 import { getActivityTotals, getUserActivityTotals } from './activity-stats';
+import { resolveStatsUserFilter } from './stats-user-filter';
+import { TESTER_ACCOUNT_EMAILS } from './tester-accounts';
 import { getGoogleApiFreeMonthlyUnits } from './google-api-usage';
 import { readSurveyStats } from './usage-stats-surveys';
 import { db } from '../client';
@@ -36,6 +38,7 @@ import {
   getUtcMonday,
   includedUserCondition,
   normalizeActivityWindow,
+  normalizeTesterScope,
   numberFromRow,
   sqlTextArray,
   toDateString,
@@ -123,26 +126,6 @@ function normalizedLanguage(expression: SQL): SQL {
   return sql`(CASE WHEN lower(${expression}) IN ('cz', 'cs') THEN 'cs' ELSE lower(${expression}) END)`;
 }
 
-function parseEnvList(value: string | undefined, normalize: (item: string) => string = (item) => item): string[] {
-  if (!value) return [];
-  return Array.from(
-    new Set(
-      value
-        .split(/[\s,;]+/)
-        .map((item) => normalize(item.trim()))
-        .filter(Boolean)
-    )
-  );
-}
-
-function getEnvExcludedUserIds(): string[] {
-  return parseEnvList(process.env.ADMIN_STATS_EXCLUDED_USER_IDS);
-}
-
-function getEnvExcludedUserEmails(): string[] {
-  return parseEnvList(process.env.ADMIN_STATS_EXCLUDED_USER_EMAILS, (email) => email.toLowerCase());
-}
-
 function normalizeDevicePlatform(value: unknown): DevicePlatform {
   const normalized = String(value ?? 'unknown').toLowerCase();
   return DEVICE_PLATFORMS.includes(normalized as DevicePlatform)
@@ -190,14 +173,21 @@ async function executeOrEmpty(query: SQL, context: string): Promise<Record<strin
  * Test accounts can be excluded without a DB migration:
  * - ADMIN_STATS_EXCLUDED_USER_EMAILS: comma/space/semicolon-separated emails.
  * - ADMIN_STATS_EXCLUDED_USER_IDS: comma/space/semicolon-separated app user UUIDs.
+ *
+ * Store-review and QA accounts are a separate, checked-in list
+ * (`tester-accounts.ts`) that `testerScope` switches on: hidden by default,
+ * shown alone with 'only', or mixed back in with 'all'. The env exclusions
+ * above are the team's own accounts and apply in every scope.
  */
 export async function getUsageStats(options: UsageStatsOptions = {}): Promise<UsageStats> {
   const generatedAt = new Date();
   const activityWindow = normalizeActivityWindow(options.activityWindow);
-  const exclusionOptions = {
-    excludedUserIds: options.excludedUserIds ?? getEnvExcludedUserIds(),
-    excludedUserEmails: (options.excludedUserEmails ?? getEnvExcludedUserEmails()).map((email) => email.toLowerCase()),
-  };
+  const testerScope = normalizeTesterScope(options.testerScope);
+  const exclusionOptions = resolveStatsUserFilter({
+    testerScope,
+    excludedUserIds: options.excludedUserIds,
+    excludedUserEmails: options.excludedUserEmails,
+  });
 
   const dayAgo = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const weekAgo = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -1291,6 +1281,7 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
 
   return {
     generatedAt: generatedAt.toISOString(),
+    testers: { scope: testerScope, knownAccounts: TESTER_ACCOUNT_EMAILS.length },
     registrations: {
       total: numberFromRow(registration, 'registered_total'),
       email: numberFromRow(registration, 'registered_email'),
