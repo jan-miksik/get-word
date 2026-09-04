@@ -711,7 +711,6 @@ export function LandingPageStyles() {
   justify-content:center; padding:1rem 1.25rem; font-size:1.02rem;
 }
 .lp-compact-cta{ width:100%; max-width:26rem; margin-inline:auto; }
-.lp-hero-compact-cta{ margin-top:.5rem; }
 .lp-finish-compact{ width:100%; }
 /* The browser is still there, just not the headline any more. */
 .lp-browser-link{
