@@ -67,6 +67,7 @@ function prefersReducedMotion(): boolean {
 function useTileFlip(
   freezeFlipRef: { current: boolean },
   skipNextFlipRef: { current: boolean },
+  settlingRef: { current: { id: string; animation: Animation } | null },
 ) {
   const nodes = useRef(new Map<string, HTMLElement>());
   const boxes = useRef(new Map<string, DOMRect>());
@@ -82,6 +83,13 @@ function useTileFlip(
     skipNextFlipRef.current = false;
     for (const [id, node] of nodes.current) {
       if (!node.isConnected) continue;
+      // A tile flying home from a drop is the one box in the tray that does not
+      // report where it belongs. Its recorded box is already the slot it is
+      // heading for, so leaving it alone is both correct and necessary: reading
+      // it mid-flight would store that transient position and then animate the
+      // tile away from it — the drop shooting off sideways, and the tile
+      // flinching later when a neighbour is picked up.
+      if (settlingRef.current?.id === id) continue;
       const next = node.getBoundingClientRect();
       const previous = boxes.current.get(id);
       boxes.current.set(id, next);
@@ -213,6 +221,8 @@ export function WordAssemblyGame({
   const isFull = placed.length === answerParts.length;
 
   const draggingId = useRef<string | null>(null);
+  /** The tile currently flying home from a drop, if any. */
+  const settlingRef = useRef<{ id: string; animation: Animation } | null>(null);
   const freezeFlipRef = useRef(false);
   const skipNextFlipRef = useRef(false);
   const pointerStart = useRef({ x: 0, y: 0 });
@@ -225,7 +235,7 @@ export function WordAssemblyGame({
    */
   const suppressClick = useRef(false);
   const [pressed, setPressed] = useState<string | null>(null);
-  const { registerTile, nodes } = useTileFlip(freezeFlipRef, skipNextFlipRef);
+  const { registerTile, nodes } = useTileFlip(freezeFlipRef, skipNextFlipRef, settlingRef);
 
   // The gesture runs off window listeners, which outlive the render that armed
   // them, so what they read has to come from refs rather than from a closure.
@@ -468,13 +478,22 @@ export function WordAssemblyGame({
     if (!node || typeof node.animate !== 'function') return;
     // Held above its neighbours for the trip, the way it was while dragged;
     // the same value in both frames, so it simply holds for the duration.
-    node.animate(
+    const animation = node.animate(
       [
         { transform: `translate(${pending.x}px, ${pending.y}px) scale(1.06)`, zIndex: 30 },
         { transform: 'none', zIndex: 30 },
       ],
       { duration: FLIP_DURATION_MS, easing: FLIP_EASING },
     );
+    if (!animation) return;
+    settlingRef.current = { id: pending.id, animation };
+    // Also reached by the `finish()` a new drag calls on everything it is about
+    // to measure, so a tile grabbed mid-flight releases its claim on the way.
+    const done = () => {
+      if (settlingRef.current?.animation === animation) settlingRef.current = null;
+    };
+    animation.addEventListener('finish', done);
+    animation.addEventListener('cancel', done);
   });
 
   // One frame of silence is all the commit needs; transitions come back for

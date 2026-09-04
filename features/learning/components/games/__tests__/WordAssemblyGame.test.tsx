@@ -234,13 +234,16 @@ describe('WordAssemblyGame', () => {
     placedParts,
     draggedPart,
   }) => {
+    // An element mid-animation reports the position it is passing through, not
+    // its slot. `inFlight` reproduces that for the tile flying home.
+    const inFlight = new Map<HTMLElement, number>();
     const layout = vi
       .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
       .mockImplementation(function box(this: HTMLElement) {
         const index = this.parentElement
           ? [...this.parentElement.children].indexOf(this)
           : 0;
-        const left = index * 60;
+        const left = index * 60 + (inFlight.get(this) ?? 0);
         return {
           x: left, y: 0, left, top: 0, right: left + 50, bottom: 40,
           width: 50, height: 40, toJSON: () => ({}),
@@ -254,9 +257,9 @@ describe('WordAssemblyGame', () => {
         return frames.length;
       });
     const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
-    const animate = vi.fn();
     // jsdom has no Web Animations; the settle is driven by one, so it is stood
     // up here rather than spied on.
+    const animate = vi.fn(() => ({ addEventListener: vi.fn() }));
     Object.defineProperty(HTMLElement.prototype, 'animate', {
       value: animate, configurable: true, writable: true,
     });
@@ -297,13 +300,19 @@ describe('WordAssemblyGame', () => {
       // started before this frame is painted, so the tile is never seen at rest
       // where the pointer left it.
       expect(animate).toHaveBeenCalledTimes(1);
-      const [keyframes] = animate.mock.calls[0] as [Array<Record<string, unknown>>];
+      const [keyframes] = animate.mock.calls[0] as unknown as [Array<Record<string, unknown>>];
       expect(keyframes[0].transform).toBe('translate(-20px, 0px) scale(1.06)');
       expect(keyframes[keyframes.length - 1].transform).toBe('none');
 
-      // Ordinary transitions are back one frame later.
+      // Ordinary transitions are back one frame later. That re-render must not
+      // let the flip hook read the tile while it is still travelling: doing so
+      // recorded the position it was passing through and animated it away from
+      // there, which both flung the drop sideways and left the tile flinching
+      // the next time a neighbour was picked up.
+      inFlight.set(dragged, -18);
       act(() => { frames[0]?.(0); });
       expect(dragged.style.transitionProperty).toBe('');
+      expect(animate).toHaveBeenCalledTimes(1);
     } finally {
       requestFrame.mockRestore();
       cancelFrame.mockRestore();
