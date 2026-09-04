@@ -92,6 +92,43 @@ describe('PWARegister', () => {
     expect(screen.queryByText('Stale service worker detected in dev')).not.toBeInTheDocument();
   });
 
+  it('registers a push-only worker in development when reminders are being tested', async () => {
+    // Without a worker there is nothing a push subscription can attach to, so
+    // browser reminders could not be tried on localhost at all. The push-only
+    // build adds no fetch handler, which is what made a dev worker harmful.
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('NEXT_PUBLIC_DEV_SERVICE_WORKER', '1');
+
+    const register = vi.fn().mockResolvedValue({
+      installing: null,
+      waiting: null,
+      update: vi.fn().mockResolvedValue(undefined),
+      addEventListener: vi.fn(),
+    });
+    const getRegistrations = vi.fn().mockResolvedValue([]);
+
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistrations,
+        register,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        controller: null,
+      },
+    });
+
+    render(<PWARegister />);
+
+    await waitFor(() => {
+      expect(register).toHaveBeenCalledWith(
+        '/sw.js?build=dev-push-only&mode=push-only',
+        { scope: '/', updateViaCache: 'none' },
+      );
+    });
+    expect(getRegistrations).not.toHaveBeenCalled();
+  });
+
   it('stays invisible in development when no service worker controls the page', async () => {
     vi.stubEnv('NODE_ENV', 'development');
 

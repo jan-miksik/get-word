@@ -67,3 +67,29 @@ export function resolveAppInstallPlan(env: AppInstallEnvironment): AppInstallPla
   // Neither platform — a mobile browser we have no store build for.
   return { store: null, offerHomeScreen: true };
 }
+
+/**
+ * Whether this device is running the *old* iOS home-screen web app, and should
+ * be moved to the App Store build.
+ *
+ * `resolveAppInstallPlan` treats `isInstalled` as "nothing left to offer", and
+ * on every other platform that is true. iOS is the exception: add-to-home-screen
+ * was how the app was installed there until the App Store build landed, so an
+ * installed iOS web app is not a finished state — it is the previous era's
+ * install, still running, and the only surface that can tell its owner so.
+ *
+ * Two concrete costs, not just tidiness. Reminders arrive there as server-sent
+ * Web Push while the App Store build schedules its own locally, so keeping both
+ * means two notifications a day, and neither side can see the other to
+ * de-duplicate. And a home-screen web app updates on Safari's terms, so a
+ * learner can sit on an old build indefinitely.
+ *
+ * Returns null in the App Store build itself (`runtime: 'native'`), where the
+ * standalone reading is true for a different reason entirely.
+ */
+export function resolveIosPwaMigration(env: AppInstallEnvironment): { url: string } | null {
+  if (env.runtime !== 'web') return null;
+  if (!env.isIOS || !env.isInstalled) return null;
+  const url = getStoreDownloadUrl('appStore');
+  return url ? { url } : null;
+}

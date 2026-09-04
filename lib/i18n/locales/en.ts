@@ -643,8 +643,17 @@ export const enMessages = {
   "goal.reminderInsecureBody": "Browsers only allow notifications on an https page. Open the app over https and reminders can be enabled there.",
   "goal.reminderLocalOnlyTitle": "Background push is not enabled in this browser",
   "goal.reminderLocalOnlyBody": "Notification permission is allowed, but the browser did not provide a background push connection. In Brave, open Settings → Privacy and security and enable “Use Google services for push messaging”, then try again. Reminders stay off until push is available.",
+  "goal.reminderNoWorkerTitle": "Reminders could not start on this page",
+  "goal.reminderNoWorkerBody": "Notification permission is allowed, but the background worker that receives reminders did not start. Reload the page and try again. On a development build the worker is switched off on purpose, so browser push only works on the installed or deployed app.",
+  "goal.reminderSaveFailedTitle": "Reminders could not be saved",
+  "goal.reminderSaveFailedBody": "The browser accepted push, but this device could not be registered with Get Word — the request failed. Check that you are signed in and online, then try again.",
   "goal.reminderUnconfiguredTitle": "Push is not configured in this app build",
   "goal.reminderUnconfiguredBody": "Brave is configured correctly, but this deployed Get Word build has no public VAPID key and cannot connect to push. Set NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY and deploy the app again.",
+  // Sent from the server as a Web Push payload, so the browser never picks
+  // these strings — `supabase/functions/send-study-reminders/messages.ts`
+  // carries a copy and `reminder-push-copy.test.ts` keeps the two identical.
+  "goal.reminderPushTitle": "Time for today's words",
+  "goal.reminderPushBody": "A short study session is ready.",
   "goal.quickChoice": "Quick choice",
   "goal.editTitle": "Adjust your study rhythm",
   "goal.editBody": "Your updated goal will take effect tomorrow.",
@@ -839,6 +848,19 @@ export const enMessages = {
   "pwa.install": "Install",
   "pwa.browserMenuInstall": "Use your browser menu -> Install app or Add to Home screen.",
   "pwa.installMenuLabel": "Get the app",
+  // Shown only inside the old iOS home-screen web app; see
+  // `resolveIosPwaMigration` for why an installed iOS app is not a finished
+  // state. Step 3 matters most: two copies mean two reminders a day.
+  "pwa.iosMigrateRowTitle": "Switch to the App Store version",
+  "pwa.iosMigrateRowDescription": "This icon is the older web version of Get Word.",
+  "pwa.iosMigrateCardTitle": "Get Word is on the App Store",
+  "pwa.iosMigrateCardBody": "You are using the web version saved to your home screen. The App Store version is the one we keep updated, and it handles reminders better.",
+  "pwa.iosMigrateStep1": "Install Get Word from the App Store.",
+  "pwa.iosMigrateStep2": "Sign in with the same account — your words and progress are already there.",
+  "pwa.iosMigrateStep3": "Remove this old icon from your home screen, or reminders will arrive twice.",
+  "pwa.iosMigrateNote": "Anything kept only on this device, such as Photo Lab photos, stays behind.",
+  "pwa.iosMigrateCta": "Open the App Store",
+  "pwa.iosMigrateDismiss": "Keep using this version",
   "pwa.updateReady": "A new version of Get Word is ready.",
   "pwa.refresh": "Refresh",
   "lists.backToApp": "Back to app",

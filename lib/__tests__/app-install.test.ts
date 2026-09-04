@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAppInstallPlan, type AppInstallEnvironment } from '@/lib/app-install';
+import {
+  resolveAppInstallPlan,
+  resolveIosPwaMigration,
+  type AppInstallEnvironment,
+} from '@/lib/app-install';
 
 const MOBILE_WEB: AppInstallEnvironment = {
   runtime: 'web',
@@ -57,5 +61,33 @@ describe('resolveAppInstallPlan', () => {
 
   it('falls back to the home screen on a mobile browser with no store build', () => {
     expect(resolveAppInstallPlan(MOBILE_WEB)).toEqual({ store: null, offerHomeScreen: true });
+  });
+});
+
+describe('resolveIosPwaMigration', () => {
+  const INSTALLED_IOS: AppInstallEnvironment = { ...MOBILE_WEB, isInstalled: true, isIOS: true };
+
+  it('sends the old iOS home-screen web app to the App Store', () => {
+    expect(resolveIosPwaMigration(INSTALLED_IOS)?.url).toContain('apps.apple.com');
+  });
+
+  // iPadOS Safari runs in desktop mode, so the same install reports a desktop
+  // width. It is still the wrong copy of the app.
+  it('ignores the viewport width', () => {
+    expect(resolveIosPwaMigration({ ...INSTALLED_IOS, isMobile: false })).not.toBeNull();
+  });
+
+  it('says nothing inside the App Store build, which also reads as installed', () => {
+    expect(resolveIosPwaMigration({ ...INSTALLED_IOS, runtime: 'native' })).toBeNull();
+  });
+
+  it('says nothing in an iOS browser tab, which has an install to be offered instead', () => {
+    expect(resolveIosPwaMigration({ ...MOBILE_WEB, isIOS: true })).toBeNull();
+  });
+
+  it('says nothing on an installed Android app, where the store build is what is installed', () => {
+    expect(
+      resolveIosPwaMigration({ ...MOBILE_WEB, isInstalled: true, isAndroid: true }),
+    ).toBeNull();
   });
 });

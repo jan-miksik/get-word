@@ -47,6 +47,7 @@ import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooks
 import { useSurveyPromptCard } from '@/features/learning/surveys/useSurveyPromptCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import { AddPersonalWordsPrompt } from '@/features/learning/components/AddPersonalWordsPrompt';
+import { useIosAppStoreMigrationCard } from '@/features/learning/hooks/useIosAppStoreMigrationCard';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
 import { FeatureTour } from '@/features/learning/onboarding/FeatureTour';
 import { useFeatureTour } from '@/features/learning/onboarding/useFeatureTour';
@@ -666,6 +667,9 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     />
   ) : null;
 
+  // Only the old iOS home-screen web app ever sees this, and only once.
+  const iosAppStoreMigrationCard = useIosAppStoreMigrationCard();
+
   // A finished day with an empty schedule still leaves people who want to carry
   // on. The block behind this is the one way to: existing exercises over words
   // they already have, with nothing written back. It is built from the study
@@ -900,7 +904,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   ) : null;
 
   const interstitialCard =
-    timeTransitionCard ?? timePhaseEmptyCard ?? sessionBreatherCard ?? preflightCard ?? surveyPromptCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
+    timeTransitionCard ?? timePhaseEmptyCard ?? sessionBreatherCard ?? preflightCard ?? surveyPromptCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? iosAppStoreMigrationCard ?? addWordsPrompt;
   const hasNoSelectedWordList = Boolean(
     onboardingCompletedAt &&
       learningLanguageFrom &&

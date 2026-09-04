@@ -15,12 +15,20 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   const parsed = WebPushSubscriptionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Invalid push subscription' }, { status: 400 });
-  await upsertWebPushSubscription(user.id, {
-    endpoint: parsed.data.endpoint,
-    p256dh: parsed.data.keys.p256dh,
-    auth: parsed.data.keys.auth,
-    userAgent: request.headers.get('user-agent'),
-  });
+  try {
+    await upsertWebPushSubscription(user.id, {
+      endpoint: parsed.data.endpoint,
+      p256dh: parsed.data.keys.p256dh,
+      auth: parsed.data.keys.auth,
+      userAgent: request.headers.get('user-agent'),
+      language: parsed.data.language ?? null,
+    });
+  } catch (error) {
+    // An unhandled throw here reaches the browser as a bare 500, and the client
+    // can only report "saving failed". The reason lives on this side.
+    console.error('[push-subscription] storing the subscription failed', error);
+    return NextResponse.json({ error: 'Storing the subscription failed' }, { status: 500 });
+  }
   return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
 }
 

@@ -1,4 +1,9 @@
-const VERSION = new URL(self.location.href).searchParams.get('build') || 'v1';
+const WORKER_URL = new URL(self.location.href);
+const VERSION = WORKER_URL.searchParams.get('build') || 'v1';
+// Development registers this worker only so Web Push has somewhere to live.
+// Caching is what makes a dev worker harmful — cache-first `/_next/static/`
+// serves stale chunks and breaks hot reload — so push-only skips it entirely.
+const PUSH_ONLY = WORKER_URL.searchParams.get('mode') === 'push-only';
 const STATIC_CACHE = `get-word-static-${VERSION}`;
 const PAGES_CACHE = `get-word-pages-${VERSION}`;
 const RUNTIME_CACHE = `get-word-runtime-${VERSION}`;
@@ -21,6 +26,7 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener('install', (event) => {
+  if (PUSH_ONLY) return;
   event.waitUntil(
     (async () => {
       const cache = await caches.open(STATIC_CACHE);
@@ -35,6 +41,23 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  if (PUSH_ONLY) {
+    // Claim clients so a page loaded before this worker activated is still
+    // controlled, and drop whatever a previous full worker cached here.
+    event.waitUntil(
+      (async () => {
+        const keys = await caches.keys();
+        await Promise.all(
+          keys
+            .filter((k) => k.startsWith('get-word-') || k.startsWith('wordlink-'))
+            .filter((k) => k !== ACTIVE_LIST_AUDIO_CACHE)
+            .map((k) => caches.delete(k))
+        );
+        await self.clients.claim();
+      })()
+    );
+    return;
+  }
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
@@ -89,12 +112,18 @@ self.addEventListener('push', (event) => {
     : '/?source=study-reminder';
   event.waitUntil((async () => {
     // A nudge to study is noise while the learner is already looking at the
-    // app. This tests visibility rather than the mere existence of a client:
-    // a tab left open in the background is not someone studying, and the
-    // browser only waives the `userVisibleOnly` promise for a push it can see
-    // arriving at a genuinely visible window.
+    // app, and the browser only waives the `userVisibleOnly` promise for a push
+    // arriving at a window it can genuinely see. Both halves are required:
+    // `visibilityState` alone counts a tab that is merely frontmost in its own
+    // window, so a Get Word tab sitting behind another application suppressed
+    // the very reminder it was there to deliver — and the server marks a
+    // delivery sent when the push service accepts it, so that day's reminder
+    // was silently spent.
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    if (windows.some((client) => client.visibilityState === 'visible')) return;
+    const beingLookedAt = windows.some(
+      (client) => client.visibilityState === 'visible' && client.focused
+    );
+    if (beingLookedAt) return;
     await self.registration.showNotification(title, {
       body,
       icon: '/icons/icon-192.png',
@@ -163,109 +192,111 @@ function isStaticAsset(pathname) {
   );
 }
 
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  if (request.method !== 'GET') return;
+if (!PUSH_ONLY) {
+  self.addEventListener('fetch', (event) => {
+    const { request } = event;
+    if (request.method !== 'GET') return;
 
-  const url = new URL(request.url);
-  if (!isSameOrigin(url)) {
-    // Whole-list warming stores successful Arweave responses directly under
-    // their gateway URLs. Media elements issue a new cross-origin request on
-    // playback; without this branch that request bypasses Cache API and hits
-    // the gateway again. Serve only real audio subresource requests here so
-    // unrelated cross-origin traffic keeps the browser's default behavior.
-    if (request.destination !== 'audio' || !audioCacheEnabled) return;
-    event.respondWith(
-      (async () => {
-        try {
-          const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
-          const cached = await cache.match(request, { ignoreVary: true });
-          if (cached) return cached;
-        } catch {
-          // Cache API can fail in private mode; keep normal media loading.
-        }
-        return fetch(request).catch(() => Response.error());
-      })()
-    );
-    return;
-  }
-  if (isAudioApiPath(url.pathname)) {
-    event.respondWith(
-      (async () => {
-        if (!audioCacheEnabled) {
+    const url = new URL(request.url);
+    if (!isSameOrigin(url)) {
+      // Whole-list warming stores successful Arweave responses directly under
+      // their gateway URLs. Media elements issue a new cross-origin request on
+      // playback; without this branch that request bypasses Cache API and hits
+      // the gateway again. Serve only real audio subresource requests here so
+      // unrelated cross-origin traffic keeps the browser's default behavior.
+      if (request.destination !== 'audio' || !audioCacheEnabled) return;
+      event.respondWith(
+        (async () => {
+          try {
+            const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
+            const cached = await cache.match(request, { ignoreVary: true });
+            if (cached) return cached;
+          } catch {
+            // Cache API can fail in private mode; keep normal media loading.
+          }
           return fetch(request).catch(() => Response.error());
-        }
-        const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
-        const cached = await cache.match(request);
-        if (cached) return cached;
-        try {
-          const response = await fetch(request);
-          if (isCacheable(response)) {
-            await cache.put(request, response.clone());
+        })()
+      );
+      return;
+    }
+    if (isAudioApiPath(url.pathname)) {
+      event.respondWith(
+        (async () => {
+          if (!audioCacheEnabled) {
+            return fetch(request).catch(() => Response.error());
           }
-          return response;
-        } catch {
-          return Response.error();
-        }
-      })()
-    );
-    return;
-  }
-  if (isApiPath(url.pathname)) return;
-
-  // Navigations: network-first, then cached page, then offline.
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      (async () => {
-        try {
-          const response = await fetch(request);
-          if (isCacheable(response)) {
-            const cache = await caches.open(PAGES_CACHE);
-            cache.put(request, response.clone());
-          }
-          return response;
-        } catch {
-          const cache = await caches.open(PAGES_CACHE);
+          const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
           const cached = await cache.match(request);
-          return cached || (await caches.match('/offline.html'));
-        }
-      })()
-    );
-    return;
-  }
+          if (cached) return cached;
+          try {
+            const response = await fetch(request);
+            if (isCacheable(response)) {
+              await cache.put(request, response.clone());
+            }
+            return response;
+          } catch {
+            return Response.error();
+          }
+        })()
+      );
+      return;
+    }
+    if (isApiPath(url.pathname)) return;
 
-  // Static assets: cache-first.
-  if (isStaticAsset(url.pathname)) {
-    event.respondWith(
-      (async () => {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        const response = await fetch(request);
-        if (isCacheable(response)) {
-          const cache = await caches.open(STATIC_CACHE);
-          cache.put(request, response.clone());
-        }
-        return response;
-      })()
-    );
-    return;
-  }
+    // Navigations: network-first, then cached page, then offline.
+    if (request.mode === 'navigate') {
+      event.respondWith(
+        (async () => {
+          try {
+            const response = await fetch(request);
+            if (isCacheable(response)) {
+              const cache = await caches.open(PAGES_CACHE);
+              cache.put(request, response.clone());
+            }
+            return response;
+          } catch {
+            const cache = await caches.open(PAGES_CACHE);
+            const cached = await cache.match(request);
+            return cached || (await caches.match('/offline.html'));
+          }
+        })()
+      );
+      return;
+    }
 
-  // Everything else (same-origin GET): stale-while-revalidate.
-  event.respondWith(
-    (async () => {
-      const cache = await caches.open(RUNTIME_CACHE);
-      const cached = await cache.match(request);
-      const fetchPromise = fetch(request)
-        .then((response) => {
+    // Static assets: cache-first.
+    if (isStaticAsset(url.pathname)) {
+      event.respondWith(
+        (async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          const response = await fetch(request);
           if (isCacheable(response)) {
+            const cache = await caches.open(STATIC_CACHE);
             cache.put(request, response.clone());
           }
           return response;
-        })
-        .catch(() => null);
+        })()
+      );
+      return;
+    }
 
-      return cached || (await fetchPromise) || (await caches.match('/offline.html'));
-    })()
-  );
-});
+    // Everything else (same-origin GET): stale-while-revalidate.
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(RUNTIME_CACHE);
+        const cached = await cache.match(request);
+        const fetchPromise = fetch(request)
+          .then((response) => {
+            if (isCacheable(response)) {
+              cache.put(request, response.clone());
+            }
+            return response;
+          })
+          .catch(() => null);
+
+        return cached || (await fetchPromise) || (await caches.match('/offline.html'));
+      })()
+    );
+  });
+}

@@ -33,6 +33,14 @@ const NOTICE_COPY: Record<ReminderNotice, { title: I18nKey; body: I18nKey }> = {
     title: 'goal.reminderLocalOnlyTitle',
     body: 'goal.reminderLocalOnlyBody',
   },
+  'granted-no-worker': {
+    title: 'goal.reminderNoWorkerTitle',
+    body: 'goal.reminderNoWorkerBody',
+  },
+  'granted-save-failed': {
+    title: 'goal.reminderSaveFailedTitle',
+    body: 'goal.reminderSaveFailedBody',
+  },
   denied: {
     title: 'goal.reminderPermissionDeniedTitle',
     body: 'goal.reminderPermissionDeniedBody',

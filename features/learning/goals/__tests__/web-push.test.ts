@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { PUBLIC_LANGUAGE_STORAGE_KEY } from '@/lib/i18n/public-language';
 import {
   detectReminderCapability,
   requestStudyReminderPermission,
@@ -10,6 +11,15 @@ const requestReminderPermission = vi.hoisted(() => vi.fn(async () => false));
 
 vi.mock('@/features/shared/http/api-runtime', () => ({ apiFetch }));
 vi.mock('@/lib/notifications/runtime', () => ({ requestReminderPermission }));
+
+/** Mirrors the production base64url decoding so a key can be compared by bytes. */
+function applicationServerKeyBytes(value: string): ArrayBuffer {
+  const padded = `${value}${'='.repeat((4 - (value.length % 4)) % 4)}`
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const decoded = window.atob(padded);
+  return Uint8Array.from(decoded, (character) => character.charCodeAt(0)).buffer;
+}
 
 type NotificationStub = {
   permission: NotificationPermission;
@@ -30,6 +40,7 @@ function stubBrowser({
   pushManager = true,
   subscribeFails = false,
   subscribeFailsOnce = false,
+  existingKey = null as string | null,
   vapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
 }: {
   notifications?: boolean;
@@ -40,6 +51,8 @@ function stubBrowser({
   pushManager?: boolean;
   subscribeFails?: boolean;
   subscribeFailsOnce?: boolean;
+  /** Key a previously stored subscription was created with, if there is one. */
+  existingKey?: string | null;
   /** Empty stands for a deployment that never configured web push. */
   vapidKey?: string;
 } = {}) {
@@ -47,11 +60,20 @@ function stubBrowser({
     endpoint: 'https://push.example/abc',
     toJSON: () => ({ endpoint: 'https://push.example/abc', keys: { p256dh: 'p', auth: 'a' } }),
   };
+  const existingSubscription = existingKey
+    ? {
+        endpoint: 'https://push.example/stale',
+        options: { applicationServerKey: applicationServerKeyBytes(existingKey) },
+        unsubscribe: vi.fn(async () => true),
+        toJSON: () => ({ endpoint: 'https://push.example/stale', keys: { p256dh: 'p', auth: 'a' } }),
+      }
+    : null;
   let subscribeAttempt = 0;
   const registration = {
     update: vi.fn(async () => undefined),
+    existingSubscription,
     pushManager: {
-      getSubscription: vi.fn(async () => null),
+      getSubscription: vi.fn(async () => existingSubscription),
       subscribe: vi.fn(async () => {
         subscribeAttempt += 1;
         if (subscribeFails || (subscribeFailsOnce && subscribeAttempt === 1)) {
@@ -163,5 +185,53 @@ describe('requestStudyReminderPermission', () => {
     stubBrowser({ permission: 'granted' });
     await expect(requestStudyReminderPermission()).resolves.toBe('granted');
     expect(apiFetch).toHaveBeenCalledWith('/api/goals/push-subscription', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('sends the interface language with the device', async () => {
+    // The reminder text is written on the server, which cannot see the locale
+    // this interface renders in; without this the learner reads English.
+    stubBrowser({ permission: 'granted' });
+    window.localStorage.setItem(PUBLIC_LANGUAGE_STORAGE_KEY, 'cs');
+    try {
+      await expect(requestStudyReminderPermission()).resolves.toBe('granted');
+    } finally {
+      window.localStorage.removeItem(PUBLIC_LANGUAGE_STORAGE_KEY);
+    }
+    const post = apiFetch.mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(JSON.parse(String((post?.[1] as RequestInit).body))).toMatchObject({
+      endpoint: 'https://push.example/abc',
+      language: 'cs',
+    });
+  });
+
+  it('replaces a subscription left over from a different VAPID key', async () => {
+    // Reusing it would make every subscribe throw InvalidStateError, which
+    // reads exactly like a browser that refuses push and sent the learner into
+    // browser settings that were already correct.
+    const registration = stubBrowser({ permission: 'granted', existingKey: 'BJ1PLIiCr87dBHFPDtLmRnCJdaoCXlRvMV0-vLJYNBIkYPjrfPHIWQZnRnRnbEqcVvXVQnJ9dyKZFrfPmZmSSSc' });
+    await expect(requestStudyReminderPermission()).resolves.toBe('granted');
+    expect(registration.existingSubscription?.unsubscribe).toHaveBeenCalledOnce();
+    expect(registration.pushManager.subscribe).toHaveBeenCalledOnce();
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/api/goals/push-subscription',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('keeps a subscription that already uses the current key', async () => {
+    const registration = stubBrowser({
+      permission: 'granted',
+      existingKey: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+    });
+    await expect(requestStudyReminderPermission()).resolves.toBe('granted');
+    expect(registration.pushManager.subscribe).not.toHaveBeenCalled();
+  });
+
+  it('names a failed save as a save, not as a browser without push', async () => {
+    stubBrowser({ permission: 'granted' });
+    apiFetch.mockResolvedValue({ ok: false, status: 401 });
+    await expect(requestStudyReminderPermission()).resolves.toBe('granted-save-failed');
   });
 });
