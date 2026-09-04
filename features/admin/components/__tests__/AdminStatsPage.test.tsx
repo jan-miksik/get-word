@@ -55,6 +55,7 @@ function user(overrides: Partial<AdminUserRow> = {}): AdminUserRow {
 function stats(overrides: Partial<UsageStats> = {}): UsageStats {
   return {
     generatedAt: '2026-07-15T12:00:00.000Z',
+    testers: { scope: 'hide', knownAccounts: 136 },
     registrations: { total: 10, email: 4, google: 3, apple: 2, other: 1, anonymous: 5, weekly: [] },
     activity: {
       window: 'rolling',
@@ -221,6 +222,20 @@ describe('AdminStatsPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Show all' }));
     await waitFor(() => expect(screen.getByRole('columnheader', { name: /Photos/ })).toBeTruthy());
+  });
+
+  it('loads without the store testers and can ask for them alone', async () => {
+    mockStats(stats());
+    render(<AdminStatsPage />);
+
+    await screen.findByText('136 store-test accounts left out of every panel.');
+    expect(apiFetch.mock.calls[0][0]).toContain('testers=hide');
+
+    mockStats(stats({ testers: { scope: 'only', knownAccounts: 136 } }));
+    await userEvent.click(screen.getByRole('button', { name: 'Testers only' }));
+
+    await screen.findByText('Only the 136 store-test accounts, everyone else left out.');
+    expect(apiFetch.mock.calls[apiFetch.mock.calls.length - 1][0]).toContain('testers=only');
   });
 
   it('filters the user table by the language actually studied', async () => {

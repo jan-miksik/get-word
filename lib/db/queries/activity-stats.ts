@@ -9,7 +9,7 @@ import {
   includedUserCondition,
   numberFromRow,
   sqlTextArray,
-  type UserExclusions,
+  type StatsUserFilter,
 } from './stats-shared';
 
 /**
@@ -175,16 +175,16 @@ export async function getUserActivityTotals(
 /**
  * App-wide totals plus the surface breakdown.
  *
- * Takes the same exclusions as every other panel on the dashboard. Without them
- * this one would count the team's own test accounts while the per-user table
+ * Takes the same account filter as every other panel on the dashboard. Without
+ * it this one would count the team's own test accounts while the per-user table
  * directly beneath it does not, and the two would visibly disagree.
  */
 export async function getActivityTotals(
   since: Date,
-  exclusions: UserExclusions,
+  userFilter: StatsUserFilter,
 ): Promise<ActivityTotals> {
   const sinceIso = since.toISOString();
-  const included = includedUserCondition('u', exclusions);
+  const included = includedUserCondition('u', userFilter);
 
   // Issued together: they are independent, and dispatching both before either
   // resolves keeps the pair's ordering deterministic as well as faster.

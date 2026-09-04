@@ -61,24 +61,18 @@ export function StatCard({
   );
 }
 
-export function ActivityWindowToggle({
+/** One row of mutually exclusive readings of the same panel. */
+export function SegmentedToggle<T extends string>({
   value,
+  options,
   onChange,
-  rollingLabel,
-  calendarLabel,
   ariaLabel,
 }: {
-  value: ActivityWindow;
-  onChange: (value: ActivityWindow) => void;
-  rollingLabel: string;
-  calendarLabel: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
   ariaLabel: string;
 }) {
-  const options: { value: ActivityWindow; label: string }[] = [
-    { value: 'rolling', label: rollingLabel },
-    { value: 'calendar', label: calendarLabel },
-  ];
-
   return (
     <div
       className="inline-flex rounded-lg border border-border-subtle bg-background-elevated p-1 text-xs"
@@ -104,6 +98,32 @@ export function ActivityWindowToggle({
         );
       })}
     </div>
+  );
+}
+
+export function ActivityWindowToggle({
+  value,
+  onChange,
+  rollingLabel,
+  calendarLabel,
+  ariaLabel,
+}: {
+  value: ActivityWindow;
+  onChange: (value: ActivityWindow) => void;
+  rollingLabel: string;
+  calendarLabel: string;
+  ariaLabel: string;
+}) {
+  return (
+    <SegmentedToggle
+      value={value}
+      onChange={onChange}
+      ariaLabel={ariaLabel}
+      options={[
+        { value: 'rolling', label: rollingLabel },
+        { value: 'calendar', label: calendarLabel },
+      ]}
+    />
   );
 }
 

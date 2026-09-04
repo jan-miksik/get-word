@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 
-import type { ActivityWindow } from '@/lib/stats/types';
+import type { ActivityWindow, TesterScope } from '@/lib/stats/types';
 
 /** Binds a string list as a text[] so it can be used with `= ANY(...)`. */
 export function sqlTextArray(values: string[]): SQL {
@@ -8,18 +8,23 @@ export function sqlTextArray(values: string[]): SQL {
 }
 
 /**
- * Test accounts named out of the statistics, by app user id or by email.
+ * Which accounts the statistics are about, by app user id or by email.
  * Structurally compatible with the resolved `UsageStatsOptions` fields, kept
  * here so panels that live outside `usage-stats.ts` apply the same filter
  * instead of quietly reporting a different population.
+ *
+ * `onlyUserEmails`, when non-empty, narrows the dashboard *to* that list —
+ * that is how "show only the store testers" is served by the same queries that
+ * normally hide them.
  */
-export interface UserExclusions {
+export interface StatsUserFilter {
   excludedUserIds: string[];
   excludedUserEmails: string[];
+  onlyUserEmails?: string[];
 }
 
 /** True for a row that must be left out. `alias` is a `users` table alias. */
-function excludedUserCondition(alias: string, options: UserExclusions): SQL {
+function excludedUserCondition(alias: string, options: StatsUserFilter): SQL {
   const checks: SQL[] = [];
   const quotedAlias = sql.raw(alias);
   if (options.excludedUserIds.length > 0) {
@@ -32,8 +37,12 @@ function excludedUserCondition(alias: string, options: UserExclusions): SQL {
   return sql`coalesce((${sql.join(checks, sql` OR `)}), false)`;
 }
 
-export function includedUserCondition(alias: string, options: UserExclusions): SQL {
-  return sql`NOT (${excludedUserCondition(alias, options)})`;
+export function includedUserCondition(alias: string, options: StatsUserFilter): SQL {
+  const excluded = sql`NOT (${excludedUserCondition(alias, options)})`;
+  const only = options.onlyUserEmails ?? [];
+  if (only.length === 0) return excluded;
+  const quotedAlias = sql.raw(alias);
+  return sql`(${excluded} AND lower(coalesce(${quotedAlias}.email, '')) = ANY(${sqlTextArray(only)}))`;
 }
 
 /** Time/bucket helpers shared by the app-wide and per-school usage statistics. */
@@ -90,6 +99,11 @@ export function zeroFillWeeks<T extends { weekStart: string }>(
 
 export function normalizeActivityWindow(value: ActivityWindow | undefined): ActivityWindow {
   return value === 'calendar' ? 'calendar' : 'rolling';
+}
+
+/** Anything unrecognised means the default reading: testers left out. */
+export function normalizeTesterScope(value: string | null | undefined): TesterScope {
+  return value === 'only' || value === 'all' ? value : 'hide';
 }
 
 /**

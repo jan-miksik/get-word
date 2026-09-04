@@ -9,6 +9,7 @@ vi.mock('../../client', () => ({
 }));
 
 import { getUsageStats } from '../usage-stats';
+import { TESTER_ACCOUNT_EMAILS } from '../tester-accounts';
 
 // Wednesday 2026-07-15 → current UTC week starts Monday 2026-07-13.
 const NOW = new Date('2026-07-15T12:00:00.000Z');
@@ -965,6 +966,61 @@ describe('goal adherence query', () => {
     expect(goalQuery?.text).not.toContain(
       "count(*) FILTER (WHERE d.snapshot_created_at IS NOT NULL AND d.goal_status = 'active'",
     );
+  });
+});
+
+describe('tester scope', () => {
+  beforeEach(() => {
+    mockExecute.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function registrationQuery() {
+    return describeQuery(mockExecute.mock.calls[0][0]);
+  }
+
+  it('hides the store testers by default and says so in the payload', async () => {
+    mockAllQueries();
+
+    const stats = await getUsageStats();
+
+    expect(stats.testers.scope).toBe('hide');
+    expect(stats.testers.knownAccounts).toBe(TESTER_ACCOUNT_EMAILS.length);
+    const query = registrationQuery();
+    expect(query.values).toContain(TESTER_ACCOUNT_EMAILS[0]);
+    // Excluded, not narrowed to: the dashboard is about everybody else.
+    expect(query.text).toContain('NOT (');
+  });
+
+  it('reports on the store testers alone', async () => {
+    mockAllQueries();
+
+    const stats = await getUsageStats({ testerScope: 'only' });
+
+    expect(stats.testers.scope).toBe('only');
+    const query = registrationQuery();
+    expect(query.values).toContain(TESTER_ACCOUNT_EMAILS[0]);
+    expect(query.text).toContain('AND lower(coalesce(');
+  });
+
+  it('mixes everyone together on request, minus the team accounts', async () => {
+    mockAllQueries();
+
+    const stats = await getUsageStats({
+      testerScope: 'all',
+      excludedUserIds: [],
+      excludedUserEmails: ['team@example.com'],
+    });
+
+    expect(stats.testers.scope).toBe('all');
+    const query = registrationQuery();
+    expect(query.values).toContain('team@example.com');
+    expect(query.values).not.toContain(TESTER_ACCOUNT_EMAILS[0]);
   });
 });
 

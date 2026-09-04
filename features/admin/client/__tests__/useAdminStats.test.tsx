@@ -9,8 +9,13 @@ describe('useAdminStats', () => {
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         const window = url.includes('activityWindow=calendar') ? 'calendar' : 'rolling';
+        const scope = url.includes('testers=only') ? 'only' : 'hide';
         return new Response(
-          JSON.stringify({ generatedAt: '2026-07-18T00:00:00.000Z', activity: { window } }),
+          JSON.stringify({
+            generatedAt: '2026-07-18T00:00:00.000Z',
+            activity: { window },
+            testers: { scope, knownAccounts: 136 },
+          }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         );
       }),
@@ -24,7 +29,7 @@ describe('useAdminStats', () => {
 
     await waitFor(() => expect(result.current.state.status).toBe('ready'));
     expect(fetch).toHaveBeenCalledWith(
-      '/api/admin/stats?activityWindow=rolling',
+      '/api/admin/stats?activityWindow=rolling&testers=hide',
       expect.objectContaining({ credentials: 'same-origin' }),
     );
 
@@ -36,6 +41,24 @@ describe('useAdminStats', () => {
       expect(result.current.state).toMatchObject({
         status: 'ready',
         stats: { activity: { window: 'calendar' } },
+      });
+    });
+  });
+
+  it('starts without the store testers and can switch to them alone', async () => {
+    const { result } = renderHook(() => useAdminStats());
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    expect(result.current.testerScope).toBe('hide');
+
+    act(() => result.current.changeTesterScope('only'));
+    expect(result.current.state.status).toBe('loading');
+
+    await waitFor(() => {
+      expect(result.current.testerScope).toBe('only');
+      expect(result.current.state).toMatchObject({
+        status: 'ready',
+        stats: { testers: { scope: 'only' } },
       });
     });
   });

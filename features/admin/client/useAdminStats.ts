@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ActivityWindow, UsageStats } from '@/features/admin/types';
+import type { ActivityWindow, TesterScope, UsageStats } from '@/features/admin/types';
 import { apiFetch } from '@/features/shared/http/api-runtime';
 
 export type AdminStatsLoadState =
@@ -11,9 +11,12 @@ export type AdminStatsLoadState =
   | { status: 'error' }
   | { status: 'ready'; stats: UsageStats };
 
-async function requestAdminStats(activityWindow: ActivityWindow): Promise<AdminStatsLoadState> {
+async function requestAdminStats(
+  activityWindow: ActivityWindow,
+  testerScope: TesterScope,
+): Promise<AdminStatsLoadState> {
   try {
-    const params = new URLSearchParams({ activityWindow });
+    const params = new URLSearchParams({ activityWindow, testers: testerScope });
     const response = await apiFetch(`/api/admin/stats?${params}`, { credentials: 'same-origin' });
     if (response.status === 401) return { status: 'unauthorized' };
     if (response.status === 403) return { status: 'forbidden' };
@@ -27,10 +30,11 @@ async function requestAdminStats(activityWindow: ActivityWindow): Promise<AdminS
 export function useAdminStats() {
   const [state, setState] = useState<AdminStatsLoadState>({ status: 'loading' });
   const [activityWindow, setActivityWindow] = useState<ActivityWindow>('rolling');
+  const [testerScope, setTesterScope] = useState<TesterScope>('hide');
 
   const load = useCallback(async () => {
-    setState(await requestAdminStats(activityWindow));
-  }, [activityWindow]);
+    setState(await requestAdminStats(activityWindow, testerScope));
+  }, [activityWindow, testerScope]);
 
   const reload = useCallback(() => {
     setState({ status: 'loading' });
@@ -42,6 +46,11 @@ export function useAdminStats() {
     setActivityWindow(next);
   }, []);
 
+  const changeTesterScope = useCallback((next: TesterScope) => {
+    setState({ status: 'loading' });
+    setTesterScope(next);
+  }, []);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void load();
@@ -49,5 +58,5 @@ export function useAdminStats() {
     return () => window.clearTimeout(timeoutId);
   }, [load]);
 
-  return { state, activityWindow, reload, changeActivityWindow };
+  return { state, activityWindow, testerScope, reload, changeActivityWindow, changeTesterScope };
 }
