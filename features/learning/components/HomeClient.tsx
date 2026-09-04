@@ -803,11 +803,20 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // One derivation for both surfaces, so the chip in the bar and the card that
   // closes the day can never disagree about the same week.
   const dayClosedLocally = Boolean(goalDay?.met) || (sessionFlow.complete && effectiveSessionShortfall === 0);
+  // The bonus ledger counts answer events immediately, while the server's day
+  // rollup can still be one sync behind (and deliberately counts distinct
+  // words). Once the learner has completed explicit work past the closed plan,
+  // today's bead should earn its star on this render rather than on a later
+  // visit.
+  const dayExceededLocally = (extra?.reviewed ?? 0) + (extra?.fresh ?? 0) > 0;
   const streak = useMemo(
     () => goalSummary
-      ? resolveStreakData(goalSummary, { optimisticTodayComplete: dayClosedLocally })
+      ? resolveStreakData(goalSummary, {
+          optimisticTodayComplete: dayClosedLocally,
+          optimisticTodayExceeded: dayExceededLocally,
+        })
       : null,
-    [dayClosedLocally, goalSummary],
+    [dayClosedLocally, dayExceededLocally, goalSummary],
   );
   // What the day amounted to, counted by the server rather than by the plan:
   // the plan can only ever report its own cap back, and the learner may well

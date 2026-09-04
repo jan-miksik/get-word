@@ -429,7 +429,13 @@ export function ChainShape({ days, compact = false, scale = 1, todayMark: todayM
                 ring, as though the bead were the subject a camera is
                 focusing on. */}
             {link.halo && todayMark === 'viewfinder' ? (
-              <g stroke={INK} strokeWidth={compact ? 1.2 : 2} strokeLinecap="round" fill="none">
+              <g
+                className="chain-today-viewfinder"
+                stroke={INK}
+                strokeWidth={compact ? 1.2 : 2}
+                strokeLinecap="round"
+                fill="none"
+              >
                 {viewfinderCorners(
                   x, cy,
                   r + (compact ? 1 : 2),

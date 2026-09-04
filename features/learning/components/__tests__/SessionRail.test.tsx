@@ -75,14 +75,16 @@ describe('SessionRail', () => {
   it('keeps the rail in word units when a review contains minigame interludes', () => {
     const { container } = renderRail([
       {
-        key: 'review-0', kind: 'review', done: 10, total: 12, pending: 0, liveRemaining: 2,
+        // Exact reported case: "repeat 10 more" with two inserted games must
+        // still draw ten word marks, not twelve cards of mixed units.
+        key: 'bonus-review-0', kind: 'review', done: 8, total: 10, pending: 0, liveRemaining: 2,
         unavailable: 0, gameTotal: 2, gameDone: 1, gameUnavailable: 0,
       },
     ]);
 
     const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
-    expect(ticks).toHaveLength(12);
-    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(10);
+    expect(ticks).toHaveLength(10);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(8);
   });
 
   // The flow steps to the next block on the answer that finishes the current

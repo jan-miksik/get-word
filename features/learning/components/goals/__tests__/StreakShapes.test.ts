@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { render } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { chainLink } from '../StreakShapes';
+import { ChainShape, chainLink } from '../StreakShapes';
 import type { StreakDay } from '@/features/learning/goals/streakWeek';
 
 function day(overrides: Partial<StreakDay> = {}): StreakDay {
@@ -16,6 +18,8 @@ function day(overrides: Partial<StreakDay> = {}): StreakDay {
 }
 
 describe('chainLink', () => {
+  beforeEach(() => localStorage.clear());
+
   it('never leaves a day blank, whatever happened on it', () => {
     // The chain reads as one run, so a transparent link would look like the
     // week itself was broken rather than merely uneventful.
@@ -61,5 +65,14 @@ describe('chainLink', () => {
   it('haloes today and caps a day that went further', () => {
     expect(chainLink(day({ status: 'met', isToday: true })).halo).toBeDefined();
     expect(chainLink(day({ status: 'exceeded' })).cap).toBe(true);
+  });
+
+  it('draws the production viewfinder around today by default', () => {
+    const { container } = render(createElement(ChainShape, {
+      days: [day({ status: 'met', isToday: true })],
+    }));
+
+    expect(container.querySelector('.chain-today-viewfinder')).toBeInTheDocument();
+    expect(container.querySelectorAll('.chain-today-viewfinder path')).toHaveLength(4);
   });
 });
