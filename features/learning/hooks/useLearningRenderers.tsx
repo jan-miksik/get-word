@@ -28,6 +28,38 @@ export function progressForReinforcementExercise(
   return { ...progress, stageIndex: 1 };
 }
 
+interface ExerciseOutcomeActions {
+  markKnown: (wordId: string) => void;
+  markStay: (wordId: string) => void;
+  markUnknown: (wordId: string) => void;
+  setCustomStage: (
+    wordId: string,
+    stageIndex: number,
+    opts?: { countAsKnown?: boolean; countAsUnknown?: boolean },
+  ) => void;
+}
+
+/** Commit exactly one durable attempt for every completed exercise outcome. */
+export function commitExerciseOutcome(
+  wordId: string,
+  stageIndex: number,
+  outcome: TypingOutcome,
+  reinforcement: boolean,
+  actions: ExerciseOutcomeActions,
+): void {
+  if (reinforcement) {
+    actions.setCustomStage(
+      wordId,
+      stageIndex,
+      outcome === 'unknown' ? { countAsUnknown: true } : { countAsKnown: true },
+    );
+    return;
+  }
+  if (outcome === 'known') actions.markKnown(wordId);
+  else if (outcome === 'unknown') actions.markUnknown(wordId);
+  else actions.markStay(wordId);
+}
+
 interface UseLearningRenderersOptions {
   progress: Record<string, ProgressData>;
   role: LearningRole;
@@ -36,6 +68,7 @@ interface UseLearningRenderersOptions {
   getSuggestedMemoryHook: (word: NormalizedWord) => string;
   markKnown: (wordId: string) => void;
   markReallyKnown: (wordId: string) => void;
+  markStay: (wordId: string) => void;
   markUnknown: (wordId: string) => void;
   setCustomStage: (
     wordId: string,
@@ -86,6 +119,7 @@ export function useLearningRenderers({
   getSuggestedMemoryHook,
   markKnown,
   markReallyKnown,
+  markStay,
   markUnknown,
   setCustomStage,
   setMemoryHook,
@@ -135,19 +169,14 @@ export function useLearningRenderers({
       outcome: TypingOutcome,
       reinforcement = false,
     ) => {
-      if (reinforcement) {
-        setCustomStage(
-          wordId,
-          stageIndex,
-          outcome === 'unknown' ? { countAsUnknown: true } : { countAsKnown: true },
-        );
-        return;
-      }
-      if (outcome === 'known') markKnown(wordId);
-      else if (outcome === 'unknown') markUnknown(wordId);
-      else setCustomStage(wordId, stageIndex);
+      commitExerciseOutcome(wordId, stageIndex, outcome, reinforcement, {
+        markKnown,
+        markStay,
+        markUnknown,
+        setCustomStage,
+      });
     },
-    [markKnown, markUnknown, setCustomStage]
+    [markKnown, markStay, markUnknown, setCustomStage]
   );
 
   const renderCard = useCallback((

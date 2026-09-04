@@ -530,6 +530,44 @@ describe('applyPendingOutboxToSyncResponse', () => {
     expect(result.progress['w-1'].lastKnownAt).toBe('2026-05-24T12:16:40.000Z');
   });
 
+  it('replays a same-stage review without losing the completed attempt', async () => {
+    const clientCreatedAt = 1_779_625_000_000;
+    const serverData: SyncResponse = {
+      success: true,
+      user: { id: 'u-1', role: 'languageToLearn' } as SyncResponse['user'],
+      progress: {
+        'w-1': {
+          id: 'row-1',
+          userId: 'u-1',
+          wordId: 'w-1',
+          wordListItemId: null,
+          stageIndex: 3,
+          knownCount: 2,
+          unknownCount: 1,
+          lastKnownAt: null,
+          lastUnknownAt: null,
+          nextDueAt: null,
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-01T00:00:00.000Z',
+        },
+      },
+      memory_hooks: {},
+      category_filters: [],
+    };
+
+    const result = await applyPendingOutboxToSyncResponse(serverData, [{
+      client_event_id: 'review-stay',
+      word_id: 'w-1',
+      action: 'stay',
+      client_created_at: clientCreatedAt,
+    }]);
+
+    expect(result.progress['w-1'].stageIndex).toBe(3);
+    expect(result.progress['w-1'].knownCount).toBe(3);
+    expect(result.progress['w-1'].lastKnownAt).toBe('2026-05-24T12:16:40.000Z');
+    expect(result.progress['w-1'].nextDueAt).toBe('2026-05-27T12:16:40.000Z');
+  });
+
   it('does not double-replay a review event already reflected by the server snapshot', async () => {
     const clientCreatedAt = 1_779_625_000_000;
     const serverData: SyncResponse = {

@@ -161,6 +161,37 @@ describe('useProgress outbox-aware merge', () => {
     expect(result.current.progress.w001.nextDueAt).toBeGreaterThan(0);
   });
 
+  it('counts a same-stage review and enqueues it as a durable review event', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-25T12:00:00.000Z'));
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => useProgress(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.applyServerProgress(serverProgress([{
+        id: 'w001',
+        stage: 3,
+        knownCount: 2,
+        unknownCount: 1,
+        nextDueAt: '2026-08-25T11:00:00.000Z',
+      }]));
+      result.current.markStay('w001');
+    });
+
+    expect(result.current.progress.w001).toMatchObject({
+      stageIndex: 3,
+      knownCount: 3,
+      unknownCount: 1,
+      lastKnownAt: Date.parse('2026-08-25T12:00:00.000Z'),
+      nextDueAt: Date.parse('2026-08-28T12:00:00.000Z'),
+    });
+    const queued = JSON.parse(localStorage.getItem(REVIEW_EVENT_OUTBOX_KEY) ?? '[]');
+    expect(queued).toEqual([
+      expect.objectContaining({ word_id: 'w001', action: 'stay' }),
+    ]);
+    vi.useRealTimers();
+  });
+
   it('does not replay an older pending review event over a newer custom progress row', () => {
     seedOutbox([event('w001', 'known', 1_900_000_000_000)]);
 

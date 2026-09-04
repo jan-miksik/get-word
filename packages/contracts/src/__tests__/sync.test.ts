@@ -132,4 +132,17 @@ describe('SyncRequestSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('accepts a same-stage review event', () => {
+    const result = SyncRequestSchema.safeParse({
+      review_events: [{
+        client_event_id: 'event-stay',
+        word_list_item_id: 'item-1',
+        action: 'stay',
+        client_created_at: 1,
+      }],
+    });
+
+    expect(result.success).toBe(true);
+  });
 });

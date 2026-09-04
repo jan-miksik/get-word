@@ -10,7 +10,9 @@ vi.mock("@/lib/db/client", () => ({
 import {
   batchUpsertProgress,
   batchUpsertProgressByContentKey,
+  foldReviewProgress,
 } from "@/lib/db/queries/progress";
+import { STAGES } from "@/lib/words";
 
 type ConflictConfig = { set: Record<string, unknown>; setWhere?: unknown };
 
@@ -96,5 +98,28 @@ describe("progress upserts", () => {
     // ...yet an applied fold still bumps updatedAt to the server clock so the
     // delta cursor surfaces it to other devices.
     expect(config?.set.updatedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("review progress fold", () => {
+  it("counts a same-stage answer and schedules it from that same stage", () => {
+    const occurredAt = new Date("2026-08-25T12:00:00.000Z");
+    const result = foldReviewProgress({
+      stageIndex: 3,
+      knownCount: 2,
+      unknownCount: 1,
+      lastKnownAt: null,
+      lastUnknownAt: null,
+      nextDueAt: new Date("2026-08-25T11:00:00.000Z"),
+    }, "stay", occurredAt);
+
+    expect(result).toEqual({
+      stageIndex: 3,
+      knownCount: 3,
+      unknownCount: 1,
+      lastKnownAt: occurredAt,
+      lastUnknownAt: null,
+      nextDueAt: new Date(occurredAt.getTime() + STAGES[3].intervalMs),
+    });
   });
 });

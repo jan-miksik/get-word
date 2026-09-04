@@ -223,6 +223,7 @@ function applyPendingReviewEvent(
   if (
     event.action !== 'known' &&
     event.action !== 'really_known' &&
+    event.action !== 'stay' &&
     event.action !== 'unknown'
   ) {
     return;
@@ -253,7 +254,9 @@ function applyPendingReviewEvent(
       ? Math.min(currentStageIndex + 1, STAGES.length - 1)
       : event.action === 'really_known'
         ? Math.min(currentStageIndex + 2, STAGES.length - 1)
-        : Math.max(currentStageIndex - 1, 0);
+        : event.action === 'stay'
+          ? currentStageIndex
+          : Math.max(currentStageIndex - 1, 0);
   const occurredAt = new Date(event.client_created_at).toISOString();
   const stage = STAGES[nextStageIndex];
   // Same rule as the other two folds: a word retired as "fully known" (top

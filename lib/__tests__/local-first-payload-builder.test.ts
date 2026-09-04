@@ -199,6 +199,25 @@ describe('payload builder', () => {
     ]);
   });
 
+  it('keeps same-stage review events in the sync payload', () => {
+    const built = buildPayloadFromOps([
+      makeOp({
+        entity: 'review_event',
+        opType: 'event',
+        payload: {
+          client_event_id: 'stay-1',
+          word_id: 'w1',
+          action: 'stay',
+          client_created_at: 100,
+        },
+      }),
+    ]);
+
+    expect(built?.payload.review_events).toEqual([
+      { client_event_id: 'stay-1', word_id: 'w1', action: 'stay', client_created_at: 100 },
+    ]);
+  });
+
   it('drops malformed review_event payloads', () => {
     const built = buildPayloadFromOps([
       makeOp({
