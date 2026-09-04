@@ -76,6 +76,22 @@ export function detectReminderCapability(hasNativePort = false): ReminderCapabil
   return pushSubscriptionLooksAvailable() ? 'web-push' : 'local-only';
 }
 
+/**
+ * Brave, asked of the browser itself — its user agent string says Chrome. Used
+ * only to add a hint to a notice the learner is already looking at; never to
+ * decide what the browser can do, which is what the capability probe is for.
+ */
+export async function isBraveBrowser(): Promise<boolean> {
+  if (typeof navigator === 'undefined') return false;
+  const brave = (navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } }).brave;
+  if (typeof brave?.isBrave !== 'function') return false;
+  try {
+    return await brave.isBrave();
+  } catch {
+    return false;
+  }
+}
+
 export type WebPushSubscriptionResult =
   | 'subscribed'
   /** The push service itself refused a subscription (Brave with it disabled). */

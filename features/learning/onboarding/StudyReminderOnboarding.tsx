@@ -10,6 +10,7 @@ import {
   OnboardingTitle,
 } from './OnboardingScreen';
 import {
+  isBraveBrowser,
   reminderPermissionEnablesReminders,
   requestStudyReminderPermission,
   type StudyReminderPermissionResult,
@@ -96,6 +97,11 @@ export function StudyReminderOnboarding({
   const [localMinutes, setLocalMinutes] = useState(initialMinutes);
   const [permissionPending, setPermissionPending] = useState(false);
   const [permissionResult, setPermissionResult] = useState<ReminderNotice | null>(null);
+  // Brave is the one browser that withholds push while everything else looks
+  // fine, and it can be switched back on — so it earns an extra line, but only
+  // for the learner who is actually in it. Every other browser used to be told
+  // to go and change a Brave setting it does not have.
+  const [braveHint, setBraveHint] = useState(false);
   // Permission is not enough: only a result with a real delivery transport may
   // persist reminders as enabled.
   const remindersAllowed =
@@ -112,6 +118,7 @@ export function StudyReminderOnboarding({
         return;
       }
       setPermissionResult(result);
+      if (result === 'granted-local') setBraveHint(await isBraveBrowser());
     } catch {
       // A throw this late is a failing request, not a missing capability: if the
       // browser has already said yes, say so instead of calling it unsupported.
@@ -153,6 +160,9 @@ export function StudyReminderOnboarding({
             {t(NOTICE_COPY[permissionResult].title)}
           </p>
           <p className="mb-0 mt-1">{t(NOTICE_COPY[permissionResult].body)}</p>
+          {braveHint && permissionResult === 'granted-local' ? (
+            <p className="mb-0 mt-2">{t('goal.reminderLocalOnlyBrave')}</p>
+          ) : null}
         </div>
       ) : null}
 

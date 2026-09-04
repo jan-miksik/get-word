@@ -82,17 +82,25 @@ describe('StudyReminderOnboarding', () => {
     const { onComplete } = renderCard('granted-local');
     fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Background push is not enabled');
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent('did not provide background push');
+    // The Brave hint is for Brave. Every other browser was being sent to a
+    // setting it does not have.
+    expect(notice).not.toHaveTextContent('Brave');
     fireEvent.click(screen.getByRole('button', { name: /continue without reminders/i }));
     expect(onComplete).toHaveBeenCalledWith({ enabled: false, localMinutes: 19 * 60 });
   });
 
-  it('blames the app build rather than Brave when its VAPID key is missing', async () => {
+  it('blames this app version rather than the browser when the VAPID key is missing', async () => {
     renderCard('unconfigured');
     fireEvent.click(screen.getByRole('button', { name: /enable reminders/i }));
 
     const notice = await screen.findByRole('status');
-    expect(notice).toHaveTextContent('not configured in this app build');
-    expect(notice).toHaveTextContent('NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY');
+    expect(notice).toHaveTextContent('not available in this version');
+    expect(notice).toHaveTextContent('nothing is wrong with your settings');
+    // The missing environment variable is a deployment detail; it goes to the
+    // console, not to the learner, and naming Brave here was simply wrong.
+    expect(notice).not.toHaveTextContent('NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY');
+    expect(notice).not.toHaveTextContent('Brave');
   });
 });
