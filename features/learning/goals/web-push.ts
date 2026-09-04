@@ -1,7 +1,12 @@
 'use client';
 
 import { apiFetch } from '@/features/shared/http/api-runtime';
+import { readPreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { requestReminderPermission } from '@/lib/notifications/runtime';
+import {
+  serviceWorkerEnabled,
+  serviceWorkerScriptUrl,
+} from '@/lib/pwa-service-worker';
 
 function vapidPublicKey(): string | null {
   const key = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY?.trim();
@@ -73,16 +78,24 @@ export function detectReminderCapability(hasNativePort = false): ReminderCapabil
 
 export type WebPushSubscriptionResult =
   | 'subscribed'
-  /** Notifications are allowed, but no push subscription could be created. */
-  | 'push-unavailable'
+  /** The push service itself refused a subscription (Brave with it disabled). */
+  | 'push-blocked'
+  /** No service worker ever became active, so there is nothing to subscribe. */
+  | 'no-service-worker'
+  /** The browser subscribed; storing that subscription on the server failed. */
+  | 'save-failed'
   | 'unsupported'
   | 'denied';
 
 export type StudyReminderPermissionResult =
   /** Allowed, and this device can be reached while the app is closed. */
   | 'granted'
-  /** Permission exists, but this app has no delivery transport on this device. */
+  /** Permission exists, but the push service refused a subscription. */
   | 'granted-local'
+  /** Permission exists; this page never got an active service worker. */
+  | 'granted-no-worker'
+  /** The browser subscribed, but the app could not store the subscription. */
+  | 'granted-save-failed'
   /** The deployed app is missing its browser-push public key. */
   | 'unconfigured'
   /** The learner said no, or the site is blocked in browser settings. */
@@ -129,11 +142,16 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> 
   const ready = await readyServiceWorker(2000);
   if (ready) return ready;
   if (!('serviceWorker' in navigator)) return null;
+  // A dev page that has not opted into the push-only worker unregisters every
+  // worker on load. Registering one here would be undone by the next reload —
+  // along with the subscription — so say why instead of handing back a
+  // subscription that quietly stops existing.
+  if (!serviceWorkerEnabled()) return null;
 
   try {
     const version = process.env.NEXT_PUBLIC_APP_VERSION ?? 'push-recovery';
     await navigator.serviceWorker.register(
-      `/sw.js?build=${encodeURIComponent(version)}`,
+      serviceWorkerScriptUrl(version),
       { scope: '/', updateViaCache: 'none' },
     );
     return readyServiceWorker(5000);
@@ -141,6 +159,24 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> 
     console.warn('[reminders] service worker recovery failed:', error);
     return null;
   }
+}
+
+/**
+ * A subscription created for a different VAPID key can never be revived: every
+ * later `subscribe` on the same registration fails with `InvalidStateError`,
+ * which looks exactly like a browser that refuses push. Compare the key the
+ * existing subscription was made with so a stale one can be replaced instead of
+ * blamed on the browser.
+ */
+function subscriptionMatchesKey(
+  subscription: PushSubscription,
+  applicationServerKey: ArrayBuffer,
+): boolean {
+  const existing = subscription.options?.applicationServerKey;
+  if (!existing) return false;
+  const a = new Uint8Array(existing);
+  const b = new Uint8Array(applicationServerKey);
+  return a.length === b.length && a.every((byte, index) => byte === b[index]);
 }
 
 /** Must be called from a direct settings interaction because browsers reject
@@ -157,18 +193,46 @@ async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResult> {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return 'denied';
   }
-  if (capability === 'local-only') return 'push-unavailable';
+  if (capability === 'local-only') return 'push-blocked';
   const registration = await ensureServiceWorker();
-  if (!registration) return 'push-unavailable';
-  const existing = await registration.pushManager.getSubscription();
-  // Brave (and any browser whose push service is switched off) rejects here
-  // rather than missing the API, so the failure is only discoverable by trying.
-  let subscription = existing;
+  if (!registration) {
+    console.warn(
+      '[reminders] no service worker became active, so this page cannot hold a push subscription.'
+        + (process.env.NODE_ENV !== 'production'
+          ? ' Development unregisters the worker unless NEXT_PUBLIC_DEV_SERVICE_WORKER=1 is set in .env.local, which registers a push-only worker that leaves hot reload alone.'
+          : ''),
+    );
+    return 'no-service-worker';
+  }
+  const applicationServerKey = base64UrlToApplicationServerKey(vapidPublicKey()!);
+  let subscription = await registration.pushManager.getSubscription();
+  if (subscription && !subscriptionMatchesKey(subscription, applicationServerKey)) {
+    // Left over from an earlier VAPID key. Keeping it would make every retry
+    // fail, and the server row behind it can no longer be delivered to.
+    console.warn('[reminders] replacing a push subscription made with a different VAPID key.');
+    const staleEndpoint = subscription.endpoint;
+    try {
+      await subscription.unsubscribe();
+    } catch (error) {
+      console.warn('[reminders] could not drop the stale subscription:', error);
+    }
+    // Awaited, not fired and forgotten: the push service may hand back the
+    // same endpoint for the replacement, and a delete still in flight would
+    // then remove the row the save below has just written — reminders that are
+    // switched on and can never be delivered. A failure here is survivable, so
+    // it is swallowed rather than surfaced.
+    await apiFetch('/api/goals/push-subscription', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: staleEndpoint }),
+    }).catch(() => undefined);
+    subscription = null;
+  }
   if (!subscription) {
     try {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: base64UrlToApplicationServerKey(vapidPublicKey()!),
+        applicationServerKey,
       });
     } catch (error) {
       // Brave can keep a registration created while its Google push service was
@@ -179,20 +243,37 @@ async function subscribeToStudyWebPush(): Promise<WebPushSubscriptionResult> {
         await registration.update();
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: base64UrlToApplicationServerKey(vapidPublicKey()!),
+          applicationServerKey,
         });
       } catch (retryError) {
         console.warn('[reminders] this browser refused a push subscription:', retryError);
-        return 'push-unavailable';
+        return 'push-blocked';
       }
     }
   }
-  const response = await apiFetch('/api/goals/push-subscription', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(subscription.toJSON()),
-  });
-  if (!response.ok) throw new Error(`Saving push subscription failed: ${response.status}`);
+  // A failed save is the app's problem, not the browser's. Report it as itself
+  // so the learner is not sent into browser settings that are already correct.
+  try {
+    const response = await apiFetch('/api/goals/push-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // The language travels with the device, not the account: the reminder is
+      // written on the server, which cannot see the locale this interface is
+      // actually rendering in. `users.settings_language` only holds a language
+      // the learner explicitly picked, and most never open that picker.
+      body: JSON.stringify({
+        ...subscription.toJSON(),
+        language: readPreferredPublicLanguage(),
+      }),
+    });
+    if (!response.ok) {
+      console.warn(`[reminders] saving the push subscription failed: ${response.status}`);
+      return 'save-failed';
+    }
+  } catch (error) {
+    console.warn('[reminders] saving the push subscription failed:', error);
+    return 'save-failed';
+  }
   return 'subscribed';
 }
 
@@ -228,6 +309,8 @@ export async function requestStudyReminderPermission(): Promise<StudyReminderPer
   const webResult = await subscribeToStudyWebPush();
   if (webResult === 'subscribed') return 'granted';
   if (webResult === 'denied') return 'denied';
+  if (webResult === 'no-service-worker') return 'granted-no-worker';
+  if (webResult === 'save-failed') return 'granted-save-failed';
   // Permission alone cannot deliver anything. The UI explains the missing
   // transport and persists reminders as disabled instead of promising a local
   // notification scheduler the web runtime does not have.

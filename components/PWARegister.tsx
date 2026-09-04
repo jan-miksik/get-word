@@ -5,6 +5,10 @@ import { installGlobalPWACapture } from '@/lib/pwa-install';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { bundledMessages, enMessages, type I18nKey } from '@/lib/i18n/messages';
 import { useRefreshBannerPreview } from '@/hooks/usePWAInstallState';
+import {
+  devServiceWorkerEnabled,
+  serviceWorkerScriptUrl,
+} from '@/lib/pwa-service-worker';
 
 const CACHE_PREFIX = 'get-word-';
 const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
@@ -208,7 +212,7 @@ export function PWARegister() {
 
     const registerWorkerForBuild = async (version: string) => {
       const registration = await serviceWorker.register(
-        `/sw.js?build=${encodeURIComponent(version)}`,
+        serviceWorkerScriptUrl(version),
         { scope: '/', updateViaCache: 'none' }
       );
       activeRegistration = registration;
@@ -277,6 +281,15 @@ export function PWARegister() {
     const register = async () => {
       try {
         if (process.env.NODE_ENV !== 'production') {
+          if (devServiceWorkerEnabled()) {
+            // Push-only: no fetch handler, so hot reload behaves exactly as it
+            // does without a worker, and a push subscription has somewhere to
+            // live across reloads. Deliberately skips the update machinery —
+            // there are no builds to swap between in dev.
+            await registerWorkerForBuild('dev-push-only');
+            return;
+          }
+
           const wasControlled = Boolean(serviceWorker.controller);
           const cacheKeys = 'caches' in window
             ? (await caches.keys()).filter((key) => key.startsWith(CACHE_PREFIX))

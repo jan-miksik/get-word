@@ -862,6 +862,10 @@ export const webPushSubscriptions = pgTable(
     p256dh: text("p256dh").notNull(),
     auth: text("auth").notNull(),
     userAgent: text("user_agent"),
+    // The interface language this device was subscribed from. The reminder
+    // payload is built on the server, so this is what decides which language
+    // the learner reads — see 0078.
+    language: text("language"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),

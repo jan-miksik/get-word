@@ -8,6 +8,7 @@ export interface WebPushSubscriptionInput {
   p256dh: string;
   auth: string;
   userAgent: string | null;
+  language: string | null;
 }
 
 /** Endpoint ownership is deliberately updated on conflict: browser push
@@ -23,6 +24,7 @@ export async function upsertWebPushSubscription(
     p256dh: subscription.p256dh,
     auth: subscription.auth,
     userAgent: subscription.userAgent,
+    language: subscription.language,
     updatedAt: new Date(),
   }).onConflictDoUpdate({
     target: webPushSubscriptions.endpoint,
@@ -31,6 +33,7 @@ export async function upsertWebPushSubscription(
       p256dh: subscription.p256dh,
       auth: subscription.auth,
       userAgent: subscription.userAgent,
+      language: subscription.language,
       updatedAt: new Date(),
       failureCount: 0,
       lastFailureAt: null,

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   resolveAppInstallPlan,
+  resolveIosPwaMigration,
   type AppInstallPlan,
 } from '@/lib/app-install';
 import {
@@ -134,6 +135,30 @@ export function useAppInstallPlan(): AppInstallPlan | null {
   return useMemo(
     () =>
       resolveAppInstallPlan({
+        runtime,
+        isInstalled,
+        isMobile,
+        isIOS: platform === 'ios',
+        isAndroid: platform === 'android',
+      }),
+    [isInstalled, isMobile, platform, runtime],
+  );
+}
+
+/**
+ * The App Store link for a device still running the old iOS home-screen web
+ * app, or null. Reads the same environment as `useAppInstallPlan`; the policy
+ * itself is `resolveIosPwaMigration` in `lib/app-install`.
+ */
+export function useIosPwaMigration(): { url: string } | null {
+  const { runtime } = usePlatformCapabilities();
+  const isMobile = useMobileViewport();
+  const isInstalled = useStandaloneStatus();
+  const platform = useSyncExternalStore(noopSubscribe, readInstallPlatform, serverPlatform);
+
+  return useMemo(
+    () =>
+      resolveIosPwaMigration({
         runtime,
         isInstalled,
         isMobile,

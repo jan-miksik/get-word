@@ -17,6 +17,7 @@ Usage:
   pnpm run db:prod -- repair-object-to-arweave [--apply] [--limit N] [--batch-size N]
   pnpm run db:prod -- demo-generate-audio [--apply] [--repair-quiet] [--force] [--langs=cs,vi]
   pnpm run db:prod -- demo-bundle-audio [--apply] [--force] [--langs=cs,vi]
+  pnpm run db:prod -- push-setup [--apply --yes] [--smoke]
   pnpm run db:prod -- school-access <school-access-command> [args...]
   pnpm run db:prod -- user-limits <user-limits-command> [args...]
 
@@ -39,6 +40,14 @@ Actions:
   demo-generate-audio --apply      Generate missing/forced landing-demo audio in production.
   demo-bundle-audio               Preview production-backed public/audio/demo bundle changes.
   demo-bundle-audio --apply        Download production-backed audio into public/audio/demo.
+  push-setup       Check the production study-reminder plumbing: extensions,
+                   schema, Vault secrets, cron job, subscriptions. Read-only.
+  push-setup --apply --yes
+                   Also create/repair the Vault secrets and the cron job.
+  push-setup --smoke
+                   Also call the deployed Edge Function once. This CLAIMS real
+                   deliveries: anyone inside their 15-minute window is reminded.
+                   --apply and --smoke ask for the cron secret with hidden input.
   school-access                    Run scripts/school-access.ts against production with hidden DATABASE_URL.
   user-limits                      Run scripts/user-limits.ts against production with hidden DATABASE_URL.
 
@@ -55,6 +64,7 @@ die() {
 
 cleanup() {
   unset DATABASE_URL || true
+  unset STUDY_REMINDER_CRON_SECRET || true
 }
 
 trap cleanup EXIT
@@ -80,6 +90,8 @@ demo_apply=false
 demo_args=()
 school_access_args=()
 user_limits_args=()
+push_setup_args=()
+push_setup_needs_secret=false
 
 parse_audio_flags() {
   local command_name="$1"
@@ -277,6 +289,28 @@ case "$action" in
       confirmation_phrase="PREVIEW_PRODUCTION_DEMO_BUNDLE"
     fi
     ;;
+  push-setup)
+    push_setup_args=("${@:2}")
+    for argument in ${push_setup_args[@]+"${push_setup_args[@]}"}; do
+      case "$argument" in
+        --apply|--yes|--smoke)
+          [[ "$argument" == "--yes" ]] || push_setup_needs_secret=true
+          ;;
+        *)
+          die "push-setup accepts only --apply, --yes and --smoke."
+          ;;
+      esac
+    done
+    if [[ " ${push_setup_args[*]} " == *" --apply "* ]]; then
+      [[ " ${push_setup_args[*]} " == *" --yes "* ]] \
+        || die "push-setup --apply also needs --yes, so the target is confirmed twice."
+      description="create the production study-reminder Vault secrets and cron job"
+      confirmation_phrase="SETUP_PRODUCTION_PUSH"
+    else
+      description="check the production study-reminder setup"
+      confirmation_phrase="PREVIEW_PRODUCTION_PUSH_SETUP"
+    fi
+    ;;
   school-access)
     [[ "$#" -ge 2 ]] || die "school-access requires a subcommand, e.g. create-school."
     school_access_args=("${@:2}")
@@ -352,6 +386,20 @@ if [[ "$confirmation" != "$confirmation_phrase" ]]; then
 fi
 
 export DATABASE_URL
+
+# The cron secret is asked for the same way as the URL: never in argv, never in
+# shell history. It is only needed to write the Vault copy or to call the
+# deployed function, so the read-only check never asks.
+if [[ "$push_setup_needs_secret" == true ]]; then
+  printf '\n%s' "Paste STUDY_REMINDER_CRON_SECRET (input hidden, blank to skip): "
+  IFS= read -r -s STUDY_REMINDER_CRON_SECRET
+  printf '\n'
+  if [[ -n "$STUDY_REMINDER_CRON_SECRET" ]]; then
+    export STUDY_REMINDER_CRON_SECRET
+  else
+    unset STUDY_REMINDER_CRON_SECRET || true
+  fi
+fi
 
 printf '\nRunning action...\n'
 
@@ -429,6 +477,9 @@ case "$action" in
     else
       pnpm exec tsx scripts/generate-bundled-demo-audio.ts --dry-run ${demo_args[@]+"${demo_args[@]}"}
     fi
+    ;;
+  push-setup)
+    pnpm exec tsx scripts/setup-push-notifications.ts ${push_setup_args[@]+"${push_setup_args[@]}"}
     ;;
   school-access)
     pnpm exec tsx scripts/school-access.ts "${school_access_args[@]}"

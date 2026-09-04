@@ -8,6 +8,7 @@ import { useI18n } from '@/components/I18nProvider';
 import {
   useAppInstallPlan,
   useCapturedInstallPrompt,
+  useIosPwaMigration,
   useStandaloneStatus,
 } from '@/hooks/usePWAInstallState';
 
@@ -44,6 +45,30 @@ export function PWAInstallSection() {
   const deferredPrompt = useCapturedInstallPrompt();
   const installed = useStandaloneStatus();
   const plan = useAppInstallPlan();
+  const iosMigration = useIosPwaMigration();
+
+  // The old iOS home-screen web app reports itself installed, but it is the
+  // previous era's install rather than a finished one, so this row offers the
+  // way across instead of a tick. The one-time card that says the same thing is
+  // dismissible; this stays, so it can be found again later.
+  if (iosMigration) {
+    return (
+      <Row
+        title={t('pwa.iosMigrateRowTitle')}
+        description={t('pwa.iosMigrateRowDescription')}
+        action={
+          <a
+            href={iosMigration.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={actionClass}
+          >
+            {t('pwa.install')}
+          </a>
+        }
+      />
+    );
+  }
 
   if (installed) {
     return (

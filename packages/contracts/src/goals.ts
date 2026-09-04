@@ -79,6 +79,10 @@ export const WebPushSubscriptionSchema = z.object({
     p256dh: z.string().min(16).max(1024),
     auth: z.string().min(8).max(512),
   }),
+  /** Interface language of the device being subscribed, e.g. `cs`, `pt-BR`.
+   * Optional so an older client keeps working; the server then falls back to
+   * the account's stored preferences. */
+  language: z.string().min(2).max(16).nullish(),
 });
 
 export const WebPushUnsubscribeSchema = z.object({ endpoint: HttpsEndpointSchema });

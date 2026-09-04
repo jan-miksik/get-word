@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
+import { reminderCopyFor } from './messages.ts';
+
 type ClaimedReminder = {
   delivery_id: string;
   subscription_id: string;
@@ -10,6 +12,10 @@ type ClaimedReminder = {
   user_id: string;
   day_key: string;
   scheduled_for: string;
+  /** Already resolved by `claim_due_web_push_reminders`: the device's own
+   * language, else the account's picked one, else the language it studies
+   * from. Null only when none of the three is known. */
+  reminder_language: string | null;
 };
 
 const required = (name: string): string => {
@@ -69,8 +75,9 @@ Deno.serve(async (request) => {
           endpoint: reminder.endpoint,
           keys: { p256dh: reminder.p256dh, auth: reminder.auth },
         }, JSON.stringify({
-          title: 'Get Word',
-          body: 'A short study session is ready.',
+          // The payload is the whole notification: a service worker cannot look
+          // up the learner's interface language, so the copy is chosen here.
+          ...reminderCopyFor(reminder.reminder_language),
           url: '/?source=study-reminder',
         }), { TTL: 60 * 60 });
         acceptedByPushService = true;

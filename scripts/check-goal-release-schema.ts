@@ -1,6 +1,7 @@
 /**
- * Verifies that migrations 0066–0072 are really in a database, by looking for
- * the objects they create rather than trusting the migration ledger.
+ * Verifies that the study-goal and reminder migrations (0066–0072, plus 0078)
+ * are really in a database, by looking for the objects they create rather than
+ * trusting the migration ledger.
  *
  * This exists because the ledger has lied before: `drizzle.__drizzle_migrations`
  * and `meta/_journal.json` both claimed 0058 was applied on a database that did
@@ -166,6 +167,11 @@ const checks: Check[] = [
   routine("0071", "claim_due_web_push_reminders", "integer", "goal_days_per_week"),
 
   table("0072", "content_quality_events"),
+
+  // 0078 drops and recreates the same function with the learner's language in
+  // the result set. Without it every reminder is sent in English.
+  column("0078", "web_push_subscriptions", "language"),
+  routine("0078", "claim_due_web_push_reminders", "integer", "reminder_language"),
 ];
 
 /** What the ledger claims, so a disagreement with reality is named explicitly. */
@@ -204,7 +210,7 @@ async function main() {
 
     console.log();
     if (missing.length === 0) {
-      console.log(`[result] all ${checks.length} objects from 0066–0072 are present`);
+      console.log(`[result] all ${checks.length} objects from 0066–0072 and 0078 are present`);
       return;
     }
     const migrations = [...new Set(missing.map((check) => check.migration))].sort();

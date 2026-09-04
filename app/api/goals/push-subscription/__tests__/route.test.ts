@@ -33,7 +33,7 @@ describe('push subscription route', () => {
     const response = await POST(new NextRequest('http://localhost/api/goals/push-subscription', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'user-agent': 'Chrome Android' },
-      body: JSON.stringify(subscription),
+      body: JSON.stringify({ ...subscription, language: 'cs' }),
     }));
 
     expect(response.status).toBe(200);
@@ -42,7 +42,24 @@ describe('push subscription route', () => {
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
       userAgent: 'Chrome Android',
+      language: 'cs',
     });
+  });
+
+  it('accepts a client that sends no language', async () => {
+    // The column is the reminder's first language source, but an older client
+    // predates it; the account's own preferences are the fallback.
+    const response = await POST(new NextRequest('http://localhost/api/goals/push-subscription', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'Chrome Android' },
+      body: JSON.stringify(subscription),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(upsertWebPushSubscription).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ language: null }),
+    );
   });
 
   it('rejects non-HTTPS endpoint data before it reaches the database', async () => {

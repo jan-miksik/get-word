@@ -8,6 +8,7 @@ const CATEGORY_FILTERS_STORAGE_KEY = 'get-word-category-filters-by-list';
 const PWA_INSTALL_PROMPT_ANSWERED_KEY = 'get-word-pwa-install-prompt-answered';
 const FEATURE_TOUR_ANSWERED_KEY = 'get-word-feature-tour-answered';
 const APP_INSTALL_ONBOARDING_KEY = 'get-word-app-install-onboarding-answered';
+const IOS_APP_STORE_MIGRATION_KEY = 'get-word-ios-app-store-migration-answered';
 
 export function readStoredActiveListId(): string | null {
   if (typeof window === 'undefined') return null;
@@ -73,6 +74,25 @@ export function persistPWAInstallPromptAnswered(answered: boolean): void {
     localStorage.setItem(PWA_INSTALL_PROMPT_ANSWERED_KEY, '1');
   } else {
     localStorage.removeItem(PWA_INSTALL_PROMPT_ANSWERED_KEY);
+  }
+}
+
+/**
+ * True once the "move to the App Store build" card has been acted on or waved
+ * away. Local to the device on purpose: the thing it describes — a home-screen
+ * web app — is a property of this device, not of the account.
+ */
+export function readIosAppStoreMigrationAnswered(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(IOS_APP_STORE_MIGRATION_KEY) === '1';
+}
+
+export function persistIosAppStoreMigrationAnswered(answered: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (answered) {
+    localStorage.setItem(IOS_APP_STORE_MIGRATION_KEY, '1');
+  } else {
+    localStorage.removeItem(IOS_APP_STORE_MIGRATION_KEY);
   }
 }
 
