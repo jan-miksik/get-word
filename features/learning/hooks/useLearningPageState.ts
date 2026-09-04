@@ -13,7 +13,10 @@ import type { ViewMode } from '../app-state/types';
 import { hasIntroducedWord, type StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { useSessionPlan } from '@/features/learning/session/useSessionPlan';
 import { computeBlockProgress } from '@/features/learning/session/dayProgress';
-import { wordMatchesSessionBlock } from '@/features/learning/session/blockClassification';
+import {
+  wasIntroducedOnDay,
+  wordMatchesSessionBlock,
+} from '@/features/learning/session/blockClassification';
 import {
   recordBlockGames,
   summarizeBlockGames,
@@ -58,9 +61,8 @@ interface UseLearningPageStateOptions {
    */
   pendingAnswers?: Record<string, number>;
   /**
-   * Minigame rounds the learner has worked through. A round is a card like any
-   * other, so it fills a slot on the block rail; it never reaches the day's
-   * goal, which is counted in words. See `blockGames`.
+   * Minigame rounds the learner has worked through. They remain separate from
+   * both the word rail and the word-counted daily goal. See `blockGames`.
    */
   completedGameIds?: ReadonlySet<string>;
   /**
@@ -492,18 +494,40 @@ export function useLearningPageState({
       // runs before the day's plan resolves, so it is the very first thing the
       // learner sees; `planSession` and the minutes stream both split the same
       // bucket the same way.
+      const reviews = [...priorityWords.slice(0, priorityDueCount), ...dueWords];
+      const fresh = [...priorityWords.slice(priorityDueCount), ...newWords];
+      // Without a frozen plan, a just-introduced stage-zero word becomes due
+      // immediately. Putting the rebuilt review bucket first made it interrupt
+      // the new-word run on the very next render. Today's introductions wait
+      // behind the still-unseen material; older reviews retain their priority.
+      const sameDayReviews = fresh.length > 0
+        ? reviews.filter((word) => wasIntroducedOnDay(
+            progress[word.id],
+            sessionDayKey,
+            sessionTimezone,
+          ))
+        : [];
+      const openingReviews = sameDayReviews.length > 0
+        ? reviews.filter((word) => !sameDayReviews.includes(word))
+        : reviews;
       return [
         {
           key: 'review-0',
           kind: 'review' as const,
           blockIndex: 0,
-          words: [...priorityWords.slice(0, priorityDueCount), ...dueWords],
+          words: openingReviews,
         },
         {
           key: 'new-0',
           kind: 'new' as const,
           blockIndex: 1,
-          words: [...priorityWords.slice(priorityDueCount), ...newWords],
+          words: fresh,
+        },
+        {
+          key: 'review-same-day',
+          kind: 'review' as const,
+          blockIndex: 2,
+          words: sameDayReviews,
         },
       ].filter((block) => block.words.length > 0);
     }
@@ -530,7 +554,7 @@ export function useLearningPageState({
           )),
       }))
       .filter((block) => block.words.length > 0);
-  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, pendingAnswers, priorityDueCount, priorityWords, progress, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
+  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, pendingAnswers, priorityDueCount, priorityWords, progress, session.dailyPlan, session.streamMode, sessionDayKey, sessionTimezone, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
   const plannedDueWords = session.dailyPlan
     ? dueWords.filter((word) => session.dailyPlan!.dueIds.includes(word.id))
     : dueWords;

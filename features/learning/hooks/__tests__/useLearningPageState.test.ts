@@ -87,6 +87,51 @@ describe('useLearningPageState', () => {
       .toEqual(['mine-0', 'mine-1']);
   });
 
+  it('does not let a just-introduced due word interrupt remaining new words', () => {
+    const now = Date.now();
+    const words = [
+      makeWord('first-new', 'list-a', 'basics', 0, 0),
+      makeWord('second-new', 'list-a', 'basics', 0, 1),
+    ];
+    const { result, rerender } = renderHook(
+      ({ progress }) => useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress,
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: [],
+        studyGoal: null,
+        isSessionDataReady: true,
+      }),
+      { initialProps: { progress: {} as Record<string, ProgressData> } },
+    );
+
+    expect(result.current.streamGroups).toHaveLength(1);
+    expect(result.current.streamGroups[0].items.map((item) => 'id' in item && item.id))
+      .toEqual(['first-new', 'second-new']);
+
+    rerender({
+      progress: {
+        'first-new': {
+          stageIndex: 0,
+          knownCount: 0,
+          unknownCount: 1,
+          introducedAt: now,
+          lastUnknownAt: now,
+          nextDueAt: now - 1,
+        },
+      },
+    });
+
+    expect(result.current.streamGroups.map((group) => group.kind)).toEqual(['new', 'review']);
+    expect(result.current.streamGroups[0].items.map((item) => 'id' in item && item.id))
+      .toEqual(['second-new']);
+    expect(result.current.streamGroups[1].items.map((item) => 'id' in item && item.id))
+      .toEqual(['first-new']);
+  });
+
   it('opens a minigame-free reinforcement block only after its new words were introduced', () => {
     const now = Date.now();
     const words = Array.from({ length: 5 }, (_, index) =>

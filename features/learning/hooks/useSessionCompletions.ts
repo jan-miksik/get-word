@@ -26,9 +26,8 @@ export interface SessionCompletions {
    */
   pendingAnswers: Record<string, number>;
   /**
-   * Minigame rounds the learner has worked through. A round is a card on the
-   * way, so the block rail gives it a slot and fills it from here; nothing
-   * about the day's goal moves, which stays counted in words.
+   * Minigame rounds the learner has worked through. They are tracked apart
+   * from word answers and never change either the word rail or the day's goal.
    */
   completedGameIds: ReadonlySet<string>;
   /**

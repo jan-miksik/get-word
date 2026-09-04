@@ -4,7 +4,7 @@ import { hasIntroducedWord } from '@/packages/domain/goals/goal';
 import type { SessionBlock } from './blocks';
 import type { SessionPlan } from './plan';
 
-function introducedOnDay(
+export function wasIntroducedOnDay(
   entry: ProgressData | undefined,
   dayKey: string,
   timezone: string,
@@ -50,7 +50,7 @@ export function sessionPlanMatchesProgress(
     return block.ids.every((id) => {
       const entry = progress[id];
       if (block.kind === 'review') return hasIntroducedWord(entry);
-      return !hasIntroducedWord(entry) || introducedOnDay(entry, dayKey, timezone);
+      return !hasIntroducedWord(entry) || wasIntroducedOnDay(entry, dayKey, timezone);
     });
   });
 }

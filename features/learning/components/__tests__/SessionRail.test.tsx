@@ -72,20 +72,17 @@ describe('SessionRail', () => {
     expect(ticks).toHaveLength(10);
     expect(ticks.filter((tick) => tick.style.background.includes('--rail-new') || tick.style.background.includes('--rail-review'))).toHaveLength(5);
   });
-  // Every card in the stretch gets a tick, minigames included: a rail that
-  // stood still through a matching round read as a session that had stopped
-  // counting. The day's goal is untouched — that is counted in words.
-  it('gives each minigame round its own tick and fills it when the round is played', () => {
+  it('keeps the rail in word units when a review contains minigame interludes', () => {
     const { container } = renderRail([
       {
-        key: 'review-0', kind: 'review', done: 2, total: 4, pending: 0, liveRemaining: 2,
+        key: 'review-0', kind: 'review', done: 10, total: 12, pending: 0, liveRemaining: 2,
         unavailable: 0, gameTotal: 2, gameDone: 1, gameUnavailable: 0,
       },
     ]);
 
     const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
-    expect(ticks).toHaveLength(6);
-    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(3);
+    expect(ticks).toHaveLength(12);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(10);
   });
 
   // The flow steps to the next block on the answer that finishes the current
@@ -131,7 +128,7 @@ describe('SessionRail', () => {
     expect(queryByText('Review')).not.toBeInTheDocument();
   });
 
-  it('keeps the tick of a round the learner walked away from and marks it passed', () => {
+  it('does not manufacture word progress from skipped minigames', () => {
     const { container } = renderRail([
       {
         key: 'review-0', kind: 'review', done: 0, total: 4, pending: 0, liveRemaining: 4,
@@ -140,7 +137,7 @@ describe('SessionRail', () => {
     ]);
 
     const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
-    expect(ticks).toHaveLength(6);
-    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(2);
+    expect(ticks).toHaveLength(4);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(0);
   });
 });

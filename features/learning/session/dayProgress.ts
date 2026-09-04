@@ -16,10 +16,9 @@ export interface SessionBlockProgress {
   liveRemaining: number;
   unavailable: number;
   /**
-   * Minigame rounds planned inside this block, and how many of them the learner
-   * has finished. Games are cards the learner has to walk past, so the block
-   * rail counts them — but they are deliberately kept out of `total`/`done`,
-   * which stay the *words* the day's goal is written in.
+   * Minigame rounds planned inside this block, and how many were finished.
+   * Kept as separate telemetry: `total`/`done`, the rail, and the daily goal
+   * all stay in the same unit — words.
    */
   gameTotal?: number;
   gameDone?: number;
