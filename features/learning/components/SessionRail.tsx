@@ -147,19 +147,27 @@ export function SessionRail({
   // and it competes with the card that is actually saying how the day ended.
   if (flow.complete) return null;
 
-  // The block rail is a fixed itinerary: a ten-card bonus round keeps ten marks
-  // from its first card to its last. Deriving the denominator from the live
+  // The block rail is a fixed itinerary: a ten-word bonus round keeps its ten
+  // word marks from the first card to the last, with a stable extra mark for
+  // every minigame it has offered. Deriving the denominator from the live
   // stream made it shrink while answers were settling — most visibly after a
   // typing card — so a round planned for ten could suddenly show only seven.
   // An item that became unreachable is already behind the learner for pacing
   // purposes, just as the day rail treats an unreachable segment as passed.
   //
-  // The rail and the recap use the same unit: word cards. Mini-games are
-  // interludes, not extra words; giving them ticks is what made a twelve-word
-  // review draw fourteen marks and then honestly recap only twelve words.
-  const blockTotal = block?.total ?? 0;
+  // The left rail paces every card the learner actually meets. Word totals in
+  // the recap remain word-only, but each minigame gets its own visible mark and
+  // fills that mark only when the round is completed.
+  //
+  // A round that was walked away from gives its mark back rather than keeping a
+  // tick that can never fill: an unplayed exercise must not colour itself, and a
+  // dead tick would leave the block one short of full for the rest of its life —
+  // the same "the stretch was never seen complete" fault `heldBlock` exists to
+  // cure. Words behave differently on purpose: their ticks are the day's plan.
+  const blockGames = block ? (block.gameTotal ?? 0) - (block.gameUnavailable ?? 0) : 0;
+  const blockTotal = block ? block.total + Math.max(blockGames, 0) : 0;
   const blockPassed = block
-    ? block.done + block.pending + block.unavailable
+    ? block.done + block.pending + block.unavailable + (block.gameDone ?? 0)
     : 0;
   const color = block ? blockColor(block.kind) : 'var(--rail-review)';
   const label = block?.reinforcement

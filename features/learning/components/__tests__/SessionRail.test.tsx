@@ -72,19 +72,19 @@ describe('SessionRail', () => {
     expect(ticks).toHaveLength(10);
     expect(ticks.filter((tick) => tick.style.background.includes('--rail-new') || tick.style.background.includes('--rail-review'))).toHaveLength(5);
   });
-  it('keeps the rail in word units when a review contains minigame interludes', () => {
+  it('gives completed minigame interludes their own progress marks', () => {
     const { container } = renderRail([
       {
-        // Exact reported case: "repeat 10 more" with two inserted games must
-        // still draw ten word marks, not twelve cards of mixed units.
+        // "Repeat 10 more" still means ten words; the left rail paces every
+        // card encountered, so its two minigames add two visible marks.
         key: 'bonus-review-0', kind: 'review', done: 8, total: 10, pending: 0, liveRemaining: 2,
         unavailable: 0, gameTotal: 2, gameDone: 1, gameUnavailable: 0,
       },
     ]);
 
     const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
-    expect(ticks).toHaveLength(10);
-    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(8);
+    expect(ticks).toHaveLength(12);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(9);
   });
 
   // The flow steps to the next block on the answer that finishes the current
@@ -130,7 +130,7 @@ describe('SessionRail', () => {
     expect(queryByText('Review')).not.toBeInTheDocument();
   });
 
-  it('does not manufacture word progress from skipped minigames', () => {
+  it('does not manufacture progress from skipped minigames', () => {
     const { container } = renderRail([
       {
         key: 'review-0', kind: 'review', done: 0, total: 4, pending: 0, liveRemaining: 4,
@@ -138,8 +138,22 @@ describe('SessionRail', () => {
       },
     ]);
 
+    // A walked-away round hands its mark back instead of leaving a tick that
+    // could never fill; nothing it touched is coloured.
     const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
     expect(ticks).toHaveLength(4);
     expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(0);
+  });
+
+  it('lets a block whose minigame was skipped still fill to the top', () => {
+    const finished: SessionBlockProgress = {
+      key: 'review-0', kind: 'review', done: 4, total: 4, pending: 0, liveRemaining: 0,
+      unavailable: 0, gameTotal: 2, gameDone: 1, gameUnavailable: 1,
+    };
+    const { container } = renderRail([finished, block('new-0', 0, 3, 'new')], finished);
+
+    const ticks = Array.from(container.querySelector('.left-0')?.children ?? []) as HTMLElement[];
+    expect(ticks).toHaveLength(5);
+    expect(ticks.filter((tick) => tick.style.background.includes('--rail-review'))).toHaveLength(5);
   });
 });
