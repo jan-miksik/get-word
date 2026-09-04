@@ -209,7 +209,12 @@ function applyReviewEventOp(
   if (!isObject(op.payload)) return false;
   const p = op.payload as Partial<SyncReviewEventItem>;
   if (typeof p.client_event_id !== 'string' || p.client_event_id.length === 0) return false;
-  if (p.action !== 'known' && p.action !== 'really_known' && p.action !== 'unknown') return false;
+  if (
+    p.action !== 'known' &&
+    p.action !== 'really_known' &&
+    p.action !== 'stay' &&
+    p.action !== 'unknown'
+  ) return false;
   if (typeof p.client_created_at !== 'number') return false;
   if (typeof p.word_id !== 'string' && typeof p.word_list_item_id !== 'string') return false;
   bucket.set(p.client_event_id, {

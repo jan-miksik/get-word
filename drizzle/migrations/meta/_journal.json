@@ -540,6 +540,13 @@
       "when": 1788566400000,
       "tag": "0076_survey_prior_user",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1788652800000,
+      "tag": "0077_review_event_stay",
+      "breakpoints": true
     }
   ]
 }

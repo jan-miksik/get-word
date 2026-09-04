@@ -72,6 +72,26 @@ describe('applyNewReviewEvents', () => {
     );
   });
 
+  it('persists same-stage attempts as review events', async () => {
+    mockInsertReturning([{ id: 'row-stay' }]);
+
+    const applied = await applyNewReviewEvents({
+      userId: 'user-1',
+      events: [{
+        client_event_id: 'event-stay',
+        word_id: 'w001',
+        action: 'stay',
+        client_created_at: 1776944510000,
+      }],
+    });
+
+    expect(applied).toEqual(['event-stay']);
+    expect(mockApplyReviewEventToProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'stay' }),
+      expect.any(Object),
+    );
+  });
+
   it('does not apply duplicate events when insert is ignored', async () => {
     mockInsertReturning([]);
 

@@ -73,6 +73,10 @@ export function useAppState(words: NormalizedWord[]) {
     (wordId: string) => progressState.markReallyKnown(resolveProgressId(wordId)),
     [progressState, resolveProgressId]
   );
+  const markStay = useCallback(
+    (wordId: string) => progressState.markStay(resolveProgressId(wordId)),
+    [progressState, resolveProgressId]
+  );
   const markUnknown = useCallback(
     (wordId: string) => progressState.markUnknown(resolveProgressId(wordId)),
     [progressState, resolveProgressId]
@@ -254,6 +258,7 @@ export function useAppState(words: NormalizedWord[]) {
     progress,
     markKnown,
     markReallyKnown,
+    markStay,
     markUnknown,
     setCustomStage,
     lastMovedId,

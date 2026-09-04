@@ -312,7 +312,67 @@ export async function batchUpsertProgressByContentKey(
   }
 }
 
-export type ReviewProgressAction = "known" | "really_known" | "unknown";
+export type ReviewProgressAction = "known" | "really_known" | "stay" | "unknown";
+
+export interface ReviewProgressFold {
+  stageIndex: number;
+  knownCount: number;
+  unknownCount: number;
+  lastKnownAt: Date | null;
+  lastUnknownAt: Date | null;
+  nextDueAt: Date | null;
+}
+
+/** Pure server-side fold, exported so every review action has regression coverage. */
+export function foldReviewProgress(
+  current: ReviewProgressFold,
+  action: ReviewProgressAction,
+  occurredAt: Date,
+): ReviewProgressFold {
+  let stageIndex = current.stageIndex;
+  let knownCount = current.knownCount;
+  let unknownCount = current.unknownCount;
+  let lastKnownAt = current.lastKnownAt;
+  let lastUnknownAt = current.lastUnknownAt;
+
+  if (action === "known") {
+    stageIndex = Math.min(current.stageIndex + 1, STAGES.length - 1);
+    knownCount += 1;
+    lastKnownAt = occurredAt;
+  } else if (action === "really_known") {
+    stageIndex = Math.min(current.stageIndex + 2, STAGES.length - 1);
+    knownCount += 1;
+    lastKnownAt = occurredAt;
+  } else if (action === "stay") {
+    // A hinted or nearly-correct answer is still a completed review. Keep the
+    // SRS stage, but persist the attempt so daily totals and later appearances
+    // cannot silently lose it.
+    knownCount += 1;
+    lastKnownAt = occurredAt;
+  } else {
+    stageIndex = Math.max(current.stageIndex - 1, 0);
+    unknownCount += 1;
+    lastUnknownAt = occurredAt;
+  }
+
+  const intervalMs = STAGES[stageIndex]?.intervalMs ?? 0;
+  const staysRetired =
+    action !== "unknown" &&
+    current.stageIndex === STAGES.length - 1 &&
+    !current.nextDueAt;
+  const nextDueAt = staysRetired || intervalMs <= 0
+    ? null
+    : new Date(occurredAt.getTime() + intervalMs);
+
+  return {
+    stageIndex,
+    knownCount,
+    unknownCount,
+    lastKnownAt,
+    lastUnknownAt,
+    nextDueAt,
+  };
+}
 
 export interface ReviewProgressTransition {
   eventKind: 'introduction' | 'review';
@@ -355,49 +415,26 @@ export async function applyReviewEventToProgress(
     ? (current?.lastKnownAt ?? current?.lastUnknownAt ?? current?.createdAt ?? occurredAt)
     : occurredAt);
 
-  let stageIndex = currentStageIndex;
-  let nextKnownCount = knownCount;
-  let nextUnknownCount = unknownCount;
-  let lastKnownAt = current?.lastKnownAt ?? null;
-  let lastUnknownAt = current?.lastUnknownAt ?? null;
-
-  if (action === "known") {
-    stageIndex = Math.min(currentStageIndex + 1, STAGES.length - 1);
-    nextKnownCount += 1;
-    lastKnownAt = occurredAt;
-  } else if (action === "really_known") {
-    stageIndex = Math.min(currentStageIndex + 2, STAGES.length - 1);
-    nextKnownCount += 1;
-    lastKnownAt = occurredAt;
-  } else {
-    stageIndex = Math.max(currentStageIndex - 1, 0);
-    nextUnknownCount += 1;
-    lastUnknownAt = occurredAt;
-  }
-
-  const intervalMs = STAGES[stageIndex]?.intervalMs ?? 0;
-  // Mirror of the client fold: a word retired as "fully known" (top stage, no
-  // due date) stays retired when answered right again. Only an "unknown" puts
-  // it back into the rotation.
-  const staysRetired =
-    action !== "unknown" &&
-    currentStageIndex === STAGES.length - 1 &&
-    !current?.nextDueAt;
-  const nextDueAt = staysRetired || intervalMs <= 0
-    ? null
-    : new Date(occurredAt.getTime() + intervalMs);
+  const folded = foldReviewProgress({
+    stageIndex: currentStageIndex,
+    knownCount,
+    unknownCount,
+    lastKnownAt: current?.lastKnownAt ?? null,
+    lastUnknownAt: current?.lastUnknownAt ?? null,
+    nextDueAt: current?.nextDueAt ?? null,
+  }, action, occurredAt);
 
   const values = {
     userId,
     wordId: contentKey ? null : wordId!,
     wordListItemId: wordListItemId ?? null,
     contentKey,
-    stageIndex,
-    knownCount: nextKnownCount,
-    unknownCount: nextUnknownCount,
-    lastKnownAt,
-    lastUnknownAt,
-    nextDueAt,
+    stageIndex: folded.stageIndex,
+    knownCount: folded.knownCount,
+    unknownCount: folded.unknownCount,
+    lastKnownAt: folded.lastKnownAt,
+    lastUnknownAt: folded.lastUnknownAt,
+    nextDueAt: folded.nextDueAt,
     introducedAt,
   };
 

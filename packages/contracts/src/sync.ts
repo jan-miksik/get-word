@@ -5,6 +5,7 @@ import { DeviceProfileSchema } from './device';
 const SyncReviewEventActionSchema = z.enum([
   'known',
   'really_known',
+  'stay',
   'unknown',
 ]);
 

@@ -692,6 +692,7 @@ export const userDevices = pgTable(
 export const reviewActionEnum = pgEnum("review_action", [
   "known",
   "really_known",
+  "stay",
   "unknown",
 ]);
 

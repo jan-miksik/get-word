@@ -32,7 +32,9 @@ function applyEventToEntry(
       ? Math.min(base.stageIndex + 1, STAGES.length - 1)
       : event.action === 'really_known'
         ? Math.min(base.stageIndex + 2, STAGES.length - 1)
-        : Math.max(base.stageIndex - 1, 0);
+        : event.action === 'stay'
+          ? base.stageIndex
+          : Math.max(base.stageIndex - 1, 0);
   const stage = STAGES[nextStageIndex];
   // A word retired as "fully known" sits at the top stage with no due date.
   // Answering it right again (it can still turn up as practise-ahead material)
@@ -342,6 +344,11 @@ export function useProgress(
     [recordReviewEvent]
   );
 
+  const markStay = useCallback(
+    (wordId: string) => recordReviewEvent(wordId, 'stay'),
+    [recordReviewEvent]
+  );
+
   const setCustomStage = useCallback(
     (
       wordId: string,
@@ -451,6 +458,7 @@ export function useProgress(
     updateProgress,
     markKnown,
     markReallyKnown,
+    markStay,
     markUnknown,
     setCustomStage,
     getWordDisplayMode,
