@@ -114,6 +114,45 @@ describe('useSessionPlan persistence', () => {
     await waitFor(() => expect(result.current.dailyPlan?.blocks[0]?.kind).toBe('new'));
     expect(readSessionPlan(scope)?.blocks[0]?.kind).toBe('new');
   });
+
+  // Replanning mid-session would silently drop the immediate second pass: a
+  // word introduced minutes ago is no longer new material, so a rebuilt plan
+  // has nothing to reinforce and the day would end one stretch early.
+  it('keeps the immediate second pass after a reload mid-introduction', async () => {
+    const introducedToday = Date.parse(`${scope.dayKey}T09:30:00Z`);
+    const midSession: Record<string, ProgressData> = {
+      ...reviewProgress,
+      new: {
+        stageIndex: 1, knownCount: 1, unknownCount: 0,
+        introducedAt: introducedToday, lastKnownAt: introducedToday,
+        nextDueAt: introducedToday + 5 * 60_000,
+      },
+    };
+    const first = renderHook(() => useSessionPlan({
+      stream, progress: reviewProgress, goal, isSessionDataReady: true,
+      dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
+    }));
+    await waitFor(() => expect(readSessionPlan(scope)?.blocks).toHaveLength(3));
+    first.unmount();
+
+    // The reload sees the introduced word settling rather than new, which is
+    // exactly the shape a freshly planned day could not produce.
+    const settled: WordStream = {
+      priorityWords: [], priorityDueCount: 0, dueWords: [], newWords: [],
+      settlingWords: [word('new')],
+    };
+    const second = renderHook(() => useSessionPlan({
+      stream: settled, progress: midSession, goal, isSessionDataReady: true,
+      dayKey: scope.dayKey, timezone: 'UTC', scopeKey: scope.scopeKey,
+    }));
+
+    await waitFor(() => expect(second.result.current.dailyPlan?.blocks).toHaveLength(3));
+    expect(second.result.current.dailyPlan?.blocks[2]).toMatchObject({
+      kind: 'review',
+      reinforcement: true,
+      ids: ['new'],
+    });
+  });
 });
 
 describe('extendTimeSessionPlan', () => {
