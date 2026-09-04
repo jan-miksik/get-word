@@ -176,6 +176,7 @@ export function CardDeckView({
   // carries its own block index, so the locked card keeps its rail too.
   const [lockedEntry, setLockedEntry] = useState<DeckEntry | null>(null);
   const pendingAfterExitRef = useRef<(() => void) | null>(null);
+  const pendingCompletedWordRef = useRef<NormalizedWord | null>(null);
   // True while an exit animation is in flight. Guards against re-entrant advance
   // calls (double taps) and lets the fallback timer know there's something to
   // recover.
@@ -270,6 +271,9 @@ export function CardDeckView({
     const afterExit = pendingAfterExitRef.current;
     pendingAfterExitRef.current = null;
     afterExit?.();
+    const completedWord = pendingCompletedWordRef.current;
+    pendingCompletedWordRef.current = null;
+    if (completedWord) onWordCardCompleted?.(completedWord);
     const currentEntries = entriesRef.current;
     const nextIndex = currentEntries.findIndex(
       (candidate) => !completedItemKeysRef.current.has(candidate.key),
@@ -277,7 +281,7 @@ export function CardDeckView({
     setCurrentIndex(nextIndex >= 0 ? nextIndex : currentEntries.length);
     updateLastEntry(nextIndex >= 0 ? currentEntries[nextIndex] : null);
     setEnterAnim(randomEnterAnim());
-  }, [updateLastEntry]);
+  }, [onWordCardCompleted, updateLastEntry]);
 
   // Starts an exit animation and arms the fallback timer that recovers the deck
   // if `animationend` never arrives.
@@ -319,15 +323,17 @@ export function CardDeckView({
     const isMinigame = currentEntry ? '_isMinigame' in currentEntry.item : false;
 
     if (currentEntry) completedItemKeysRef.current.add(currentEntry.key);
-
-    if (currentEntry && !isMinigame) {
-      onWordCardCompleted?.(currentEntry.item as NormalizedWord);
-    }
+    pendingCompletedWordRef.current = currentEntry && !isMinigame
+      ? currentEntry.item as NormalizedWord
+      : null;
 
     if (process.env.NODE_ENV === 'test' || skip) {
       const afterExit = pendingAfterExitRef.current;
       pendingAfterExitRef.current = null;
       afterExit?.();
+      const completedWord = pendingCompletedWordRef.current;
+      pendingCompletedWordRef.current = null;
+      if (completedWord) onWordCardCompleted?.(completedWord);
       const nextIndex = currentEntries.findIndex(
         (candidate) => !completedItemKeysRef.current.has(candidate.key),
       );

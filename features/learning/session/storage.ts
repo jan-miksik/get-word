@@ -68,6 +68,13 @@ export function storeSessionPlan(scope: SessionPlanStorageScope, plan: SessionPl
   } catch { /* optional cache */ }
 }
 
+/** Drop one semantically stale plan without touching any other day or scope. */
+export function discardSessionPlan(scope: SessionPlanStorageScope): void {
+  try {
+    window.localStorage.removeItem(sessionPlanStorageKey(scope));
+  } catch { /* optional cache */ }
+}
+
 function ordinal(dayKey: string): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return null;
   const value = Date.parse(`${dayKey}T00:00:00Z`);

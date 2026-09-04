@@ -13,6 +13,7 @@ import type { ViewMode } from '../app-state/types';
 import { hasIntroducedWord, type StudyGoalVersion } from '@/packages/domain/goals/goal';
 import { useSessionPlan } from '@/features/learning/session/useSessionPlan';
 import { computeBlockProgress } from '@/features/learning/session/dayProgress';
+import { wordMatchesSessionBlock } from '@/features/learning/session/blockClassification';
 import {
   recordBlockGames,
   summarizeBlockGames,
@@ -51,10 +52,9 @@ interface UseLearningPageStateOptions {
   /** The learner asked for one finite bonus round past the day's plan. */
   continueAnyway?: boolean;
   /**
-   * Cards answered in the deck whose SRS write is still queued behind the exit
-   * animation, keyed by the answer count the word carried at the tap. They count
-   * towards the rails immediately, so marking an answer moves the progress on
-   * the tap rather than when the card has flown away.
+   * Cards committed in this tab whose optimistic SRS state is still catching
+   * up, keyed by the answer count immediately before that commit. A merely
+   * checked typing/choice answer must never advance a block.
    */
   pendingAnswers?: Record<string, number>;
   /**
@@ -471,7 +471,12 @@ export function useLearningPageState({
             .map((id) =>
               liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined)
             )
-            .filter((word): word is NormalizedWord => Boolean(word)),
+            .filter((word): word is NormalizedWord => Boolean(word))
+            .filter((word) => wordMatchesSessionBlock(
+              block,
+              progress[word.id],
+              pendingAnswers?.[word.id] !== undefined,
+            )),
         }))
         .filter((block) => block.words.length > 0);
     }
@@ -514,23 +519,18 @@ export function useLearningPageState({
         blockIndex,
         ...(block.reinforcement ? { reinforcement: true as const } : {}),
         words: block.ids
-          .map((id) => {
-            const word = liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined);
-            // A clock boundary may arrive before the learner reaches every
-            // stocked new word. The reinforcement phase must only quiz words
-            // actually introduced, never smuggle untouched inventory in as a
-            // supposed repeat.
-            if (
-              block.phase !== undefined &&
-              block.reinforcement &&
-              !hasIntroducedWord(progress[id])
-            ) return undefined;
-            return word;
-          })
-          .filter((word): word is NormalizedWord => Boolean(word)),
+          .map((id) =>
+            liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined)
+          )
+          .filter((word): word is NormalizedWord => Boolean(word))
+          .filter((word) => wordMatchesSessionBlock(
+            block,
+            progress[word.id],
+            pendingAnswers?.[word.id] !== undefined,
+          )),
       }))
       .filter((block) => block.words.length > 0);
-  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, priorityDueCount, priorityWords, progress, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
+  }, [bonusSnapshot, continueAnyway, dueWords, liveById, newWords, pendingAnswers, priorityDueCount, priorityWords, progress, session.dailyPlan, session.streamMode, settledBonusBlockKeys, settledPlanBlockKeys, settlingById, timeGoal, timePhase, timedStream.block]);
   const plannedDueWords = session.dailyPlan
     ? dueWords.filter((word) => session.dailyPlan!.dueIds.includes(word.id))
     : dueWords;

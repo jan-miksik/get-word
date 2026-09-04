@@ -127,7 +127,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const incrementSurveyProgressRef = useRef<() => void>(() => {});
   // Stable by construction — the ref above is what absorbs the change, so this
   // must never be an inline arrow: `recordAnswerGiven` depends on it, and
-  // through `handleCardAnswered` so does every memoised card renderer.
+  // through `handleCardCompleted` so does every memoised stream renderer.
   const notifyAnswerRecorded = useCallback(() => incrementSurveyProgressRef.current(), []);
   // Work this session has finished but the server has not caught up with yet.
   const {
@@ -518,7 +518,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   });
   // Stable so the deck's card renderers are not rebuilt on every render of this
   // page; it reads the same `progress` those renderers already depend on.
-  const handleCardAnswered = useCallback((word: NormalizedWord) => recordAnswerGiven(word, progress), [progress, recordAnswerGiven]);
+  const handleCardCompleted = useCallback((word: NormalizedWord) => recordAnswerGiven(word, progress), [progress, recordAnswerGiven]);
   const {
     renderCard,
     renderMiniGame,
@@ -555,7 +555,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     setDismissedGames,
     setGameScore,
     onGameFinished: recordGameFinished,
-    onCardAnswered: handleCardAnswered,
+    onCardCompleted: handleCardCompleted,
     onAddSimilarWords: () => navigateSurface('chat'),
     similarWordsContext,
   });

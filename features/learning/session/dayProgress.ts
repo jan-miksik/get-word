@@ -9,10 +9,8 @@ export interface SessionBlockProgress {
   total: number;
   done: number;
   /**
-   * Answered in this tab but not yet written to `progress` — the deck defers
-   * the SRS write until its exit animation ends. The rails and block flow move
-   * on the answer; `SessionFlowState.settled` separately says when every write
-   * behind that visible progress has landed.
+   * Committed in this tab while the optimistic `progress` snapshot is still
+   * catching up. Checked-but-unconfirmed cards never enter this count.
    */
   pending: number;
   liveRemaining: number;
@@ -42,10 +40,9 @@ export interface BlockProgressInput {
   dayKey: string;
   timezone?: string;
   /**
-   * Answers taken in this tab but not yet written to `progress` — the deck
-   * defers the SRS write until its exit animation ends. Keyed by the answer
-   * count the word carried at the tap, so an entry stops counting by itself the
-   * moment `progress` catches up: no cleanup pass, and nothing can go stale.
+   * Answers committed in this tab while `progress` catches up. Keyed by the
+   * answer count the word carried before the commit, so an entry stops counting
+   * by itself when `progress` catches up: no cleanup pass can go stale.
    */
   pendingAnswers?: Record<string, number>;
   /**

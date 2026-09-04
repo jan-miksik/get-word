@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest';
+
+import type { ProgressData } from '@/features/sync/contracts';
+import { sessionPlanMatchesProgress, wordMatchesSessionBlock } from '../blockClassification';
+import type { SessionPlan } from '../plan';
+
+const DAY = '2026-08-20';
+const today = Date.parse(`${DAY}T12:00:00Z`);
+const yesterday = Date.parse('2026-08-19T12:00:00Z');
+const introduced = (at = yesterday): ProgressData => ({
+  stageIndex: 1,
+  knownCount: 1,
+  unknownCount: 0,
+  introducedAt: at,
+  lastKnownAt: at,
+});
+
+function plan(blocks: SessionPlan['blocks']): SessionPlan {
+  return {
+    enabled: true,
+    sessionItemCap: 2,
+    priorityIds: [],
+    dueIds: [],
+    newIds: [],
+    deferredDueCount: 0,
+    shortfall: 0,
+    newShortfall: 0,
+    reason: 'normal',
+    blocks,
+  };
+}
+
+describe('session block classification', () => {
+  it('never renders an unseen word as an ordinary review', () => {
+    expect(wordMatchesSessionBlock({ kind: 'review' }, undefined)).toBe(false);
+    expect(wordMatchesSessionBlock({ kind: 'review' }, introduced())).toBe(true);
+  });
+
+  it('only opens reinforcement after the new word was committed', () => {
+    const block = { kind: 'review' as const, reinforcement: true as const };
+    expect(wordMatchesSessionBlock(block, undefined)).toBe(false);
+    expect(wordMatchesSessionBlock(block, undefined, true)).toBe(true);
+    expect(wordMatchesSessionBlock(block, introduced(today))).toBe(true);
+  });
+
+  it('rejects a cached review block that now points at an unseen word', () => {
+    const cached = plan([{ key: 'review-0', kind: 'review', ids: ['fresh'] }]);
+    expect(sessionPlanMatchesProgress(cached, {}, DAY, 'UTC')).toBe(false);
+  });
+
+  it('keeps a completed new block introduced today but rejects old introductions', () => {
+    const cached = plan([{ key: 'new-0', kind: 'new', ids: ['fresh'] }]);
+    expect(sessionPlanMatchesProgress(cached, { fresh: introduced(today) }, DAY, 'UTC')).toBe(true);
+    expect(sessionPlanMatchesProgress(cached, { fresh: introduced(yesterday) }, DAY, 'UTC')).toBe(false);
+  });
+
+  it('allows a future reinforcement block to reference its still-unseen new words', () => {
+    const cached = plan([
+      { key: 'new-0', kind: 'new', ids: ['fresh'] },
+      { key: 'review-0', kind: 'review', ids: ['fresh'], pass: 2, reinforcement: true },
+    ]);
+    expect(sessionPlanMatchesProgress(cached, {}, DAY, 'UTC')).toBe(true);
+  });
+});
