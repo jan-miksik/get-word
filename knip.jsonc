@@ -5,7 +5,6 @@
     // Operator-facing commands are entrypoints; modules under scripts/lib are
     // regular project files and must remain reachable from one of these commands.
     "scripts/*.{ts,js}",
-    "ralph/index.js",
     "mobile/src/main.tsx",
     // Vite resolves these through regex aliases rather than static imports, so
     // Knip needs to treat them as build entrypoints to follow their real graph.

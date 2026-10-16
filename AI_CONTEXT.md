@@ -184,7 +184,6 @@ subsystem decisions and data-model notes.
 - `wordbook/`: source word-list scratch/import material; read only for data import tasks.
 - `drizzle/migrations/meta/*.json`: generated snapshots; read only for migration debugging.
 - `styles/*.css`: legacy styling. New styling should use Tailwind. Read these only when modifying existing legacy classes.
-- `ralph/`: autonomous CLI orchestrator (`planner.js`/`executor.js`/`progress.js`). Unrelated to the runtime app.
 - `schema_only.sql`: historical schema snapshot. Source of truth is `lib/db/schema.ts`.
 - `lib/i18n/locales/*.ts`: bundled UI translation catalogs; search for a key and read only the relevant range.
 - `lib/landing-demo-word-data.ts`, `components/scratch-field/motifs.ts`: generated/static data; do not hand-edit.
