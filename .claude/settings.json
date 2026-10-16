@@ -1,5 +1,40 @@
 {
   "permissions": {
-    "dangerouslySkipPermissions": true
+    "deny": [
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.*.local)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Bash(cat .env*)",
+      "Bash(head .env*)",
+      "Bash(tail .env*)",
+      "Bash(less .env*)",
+      "Bash(grep * .env*)",
+      "Bash(bash scripts/production-db.sh*)",
+      "Bash(scripts/production-db.sh*)",
+      "Bash(./scripts/production-db.sh*)",
+      "Bash(pnpm run db:prod*)",
+      "Bash(pnpm db:prod*)",
+      "Bash(pnpm run audio:prod*)",
+      "Bash(pnpm audio:prod*)",
+      "Bash(pnpm run db:dump-restore*)",
+      "Bash(pnpm db:dump-restore*)",
+      "Bash(pnpm run db:backup*)",
+      "Bash(pnpm db:backup*)",
+      "Bash(pnpm run db:dev:backup*)",
+      "Bash(pnpm db:dev:backup*)",
+      "Bash(pnpm run db:studio*)",
+      "Bash(bash scripts/dump-and-restore.sh*)",
+      "Bash(bash scripts/dump-and-restore-full.sh*)",
+      "Bash(bash scripts/backup-remote-db.sh*)",
+      "Bash(bash scripts/backup-dev-db.sh*)",
+      "Bash(tsx scripts/school-access.ts*)",
+      "Bash(npx tsx scripts/school-access.ts*)",
+      "Bash(tsx scripts/user-limits.ts*)",
+      "Bash(npx tsx scripts/user-limits.ts*)",
+      "Bash(psql*)",
+      "Bash(pg_dump*)"
+    ]
   }
 }
