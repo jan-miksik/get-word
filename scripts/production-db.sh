@@ -23,7 +23,9 @@ Usage:
 
 Actions:
   backup [file]    Dump the database with pg_dump to a local file (defaults to
-                   backups/prod_<timestamp>.dump). Run this before migrate.
+                   $GET_WORD_BACKUP_DIR, by default the sibling
+                   getword-private/backups beside the repository). Run this
+                   before migrate.
   migrate          Apply canonical Drizzle migrations from drizzle/migrations/.
   restore <file>   Restore public application data into a new, migrated database.
   sql <file>       Run a reviewed SQL file with psql.
@@ -407,8 +409,8 @@ case "$action" in
   backup)
     command -v pg_dump >/dev/null 2>&1 || die "pg_dump is required for the backup action."
     if [[ -z "$backup_file" ]]; then
-      script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-      backup_dir="$script_dir/../backups"
+      # Outside the repository on purpose: the dump holds real user data.
+      backup_dir="${GET_WORD_BACKUP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/getword-private/backups}"
       mkdir -p "$backup_dir"
       backup_file="$backup_dir/prod_$(date +%Y%m%d_%H%M%S).dump"
     else

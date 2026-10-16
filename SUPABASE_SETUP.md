@@ -109,8 +109,9 @@ new production project with the same application data:
    ```
 
    The command reads development `DATABASE_URL` from `.env.local`, unless you
-   supply `DEV_DATABASE_URL` in the shell. It writes a private, gitignored file
-   such as `backups/dev_public_data_YYYYMMDD_HHMMSS.sql`. The dump contains
+   supply `DEV_DATABASE_URL` in the shell. It writes a private file beside the
+   repository, such as `../getword-private/backups/dev_public_data_YYYYMMDD_HHMMSS.sql`
+   (override with `GET_WORD_BACKUP_DIR`). The dump contains
    data from the app's `public` schema, not Supabase Auth or Storage schemas.
    Keep it private: it includes encrypted provider-key records. Set the same
    `APP_ENCRYPTION_SECRET` in production if imported provider credentials need
@@ -128,7 +129,7 @@ new production project with the same application data:
 3. **Restore the data into the new, still-empty production database:**
 
    ```bash
-   pnpm run db:prod -- restore backups/dev_public_data_YYYYMMDD_HHMMSS.sql
+   pnpm run db:prod -- restore ../getword-private/backups/dev_public_data_YYYYMMDD_HHMMSS.sql
    ```
 
    Paste the same production admin connection URL and type

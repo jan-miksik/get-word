@@ -17,7 +17,7 @@
   "maskableIconUrl": "https://getword.app/icons/maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
-    "path": "../google-play-package/signing.keystore",
+    "path": "../../getword-private/google-play-package/signing.keystore",
     "alias": "my-key-alias"
   },
   "appVersionName": "1.0.0.3",

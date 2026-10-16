@@ -12,7 +12,8 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
-BACKUP_DIR="$(dirname "$0")/../backups"
+# Outside the repository on purpose: the dump holds real user data.
+BACKUP_DIR="${GET_WORD_BACKUP_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/getword-private/backups}"
 mkdir -p "$BACKUP_DIR"
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")

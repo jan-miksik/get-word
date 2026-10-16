@@ -9,7 +9,8 @@ longer supports Android 5.0 and 5.1 devices.
 
 - JDK 17
 - Android SDK with platform and build tools for API 36
-- The existing upload keystore in `../google-play-package/`
+- The existing upload keystore in `../../getword-private/google-play-package/`
+  (kept beside the repository, never inside it: it is a signing key)
 
 The keystore and `signing-key-info.txt` are intentionally ignored by Git. Never
 copy their passwords into Gradle files, shell scripts, commits, or CI logs.

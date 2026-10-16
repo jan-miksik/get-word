@@ -1443,6 +1443,30 @@ export const accountDeletionJobs = pgTable(
   // it holds auth identifiers and has no reason to be publicly exposed.
   .enableRLS();
 
+// Store-review and QA accounts, so the dashboard can report on the real
+// population without them. They arrive in waves from the closed-testing
+// programmes the app stores require and contribute no retention: the dashboard
+// is unreadable with them mixed in and misleading with them silently gone, so
+// `testerScope` switches between the two populations instead.
+//
+// They are real personal email addresses, which is why they are rows here and
+// not a list in the repository. The client learns how many there are from the
+// stats payload, never who.
+export const testerAccounts = pgTable(
+  "tester_accounts",
+  {
+    email: text("email").primaryKey(),
+    note: text("note"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    check("tester_accounts_email_lowercase", sql`${table.email} = lower(${table.email})`),
+  ],
+)
+  // Deny-all RLS, as for account_deletion_jobs above: only the server's direct
+  // Postgres connection reads this, and it holds personal email addresses.
+  .enableRLS();
+
 // Type exports for use in queries
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -1500,3 +1524,5 @@ export type WordChatUsage = typeof wordChatUsage.$inferSelect;
 export type NewWordChatUsage = typeof wordChatUsage.$inferInsert;
 export type WordChatCommit = typeof wordChatCommits.$inferSelect;
 export type NewWordChatCommit = typeof wordChatCommits.$inferInsert;
+export type TesterAccount = typeof testerAccounts.$inferSelect;
+export type NewTesterAccount = typeof testerAccounts.$inferInsert;

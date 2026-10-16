@@ -8,8 +8,14 @@ vi.mock('../../client', () => ({
   },
 }));
 
+// The real addresses are rows in `tester_accounts`, never fixtures.
+const TESTER_EMAILS = ['store-review-one@example.com', 'store-review-two@example.com'];
+
+vi.mock('../tester-accounts', () => ({
+  getTesterAccountEmails: () => Promise.resolve(TESTER_EMAILS),
+}));
+
 import { getUsageStats } from '../usage-stats';
-import { TESTER_ACCOUNT_EMAILS } from '../tester-accounts';
 
 // Wednesday 2026-07-15 → current UTC week starts Monday 2026-07-13.
 const NOW = new Date('2026-07-15T12:00:00.000Z');
@@ -990,9 +996,9 @@ describe('tester scope', () => {
     const stats = await getUsageStats();
 
     expect(stats.testers.scope).toBe('hide');
-    expect(stats.testers.knownAccounts).toBe(TESTER_ACCOUNT_EMAILS.length);
+    expect(stats.testers.knownAccounts).toBe(TESTER_EMAILS.length);
     const query = registrationQuery();
-    expect(query.values).toContain(TESTER_ACCOUNT_EMAILS[0]);
+    expect(query.values).toContain(TESTER_EMAILS[0]);
     // Excluded, not narrowed to: the dashboard is about everybody else.
     expect(query.text).toContain('NOT (');
   });
@@ -1004,7 +1010,7 @@ describe('tester scope', () => {
 
     expect(stats.testers.scope).toBe('only');
     const query = registrationQuery();
-    expect(query.values).toContain(TESTER_ACCOUNT_EMAILS[0]);
+    expect(query.values).toContain(TESTER_EMAILS[0]);
     expect(query.text).toContain('AND lower(coalesce(');
   });
 
@@ -1020,7 +1026,7 @@ describe('tester scope', () => {
     expect(stats.testers.scope).toBe('all');
     const query = registrationQuery();
     expect(query.values).toContain('team@example.com');
-    expect(query.values).not.toContain(TESTER_ACCOUNT_EMAILS[0]);
+    expect(query.values).not.toContain(TESTER_EMAILS[0]);
   });
 });
 

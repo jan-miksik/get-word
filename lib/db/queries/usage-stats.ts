@@ -26,7 +26,7 @@ import { userHandle } from '@/features/admin/server/userHandle';
 import { WORD_CHAT_MONTHLY_SPEND_LIMIT_USD } from '@/features/word-chat/server/config';
 import { getActivityTotals, getUserActivityTotals } from './activity-stats';
 import { resolveStatsUserFilter } from './stats-user-filter';
-import { TESTER_ACCOUNT_EMAILS } from './tester-accounts';
+import { getTesterAccountEmails } from './tester-accounts';
 import { getGoogleApiFreeMonthlyUnits } from './google-api-usage';
 import { readSurveyStats } from './usage-stats-surveys';
 import { db } from '../client';
@@ -174,8 +174,8 @@ async function executeOrEmpty(query: SQL, context: string): Promise<Record<strin
  * - ADMIN_STATS_EXCLUDED_USER_EMAILS: comma/space/semicolon-separated emails.
  * - ADMIN_STATS_EXCLUDED_USER_IDS: comma/space/semicolon-separated app user UUIDs.
  *
- * Store-review and QA accounts are a separate, checked-in list
- * (`tester-accounts.ts`) that `testerScope` switches on: hidden by default,
+ * Store-review and QA accounts are a separate population, read from the
+ * `tester_accounts` table, that `testerScope` switches on: hidden by default,
  * shown alone with 'only', or mixed back in with 'all'. The env exclusions
  * above are the team's own accounts and apply in every scope.
  */
@@ -183,8 +183,10 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   const generatedAt = new Date();
   const activityWindow = normalizeActivityWindow(options.activityWindow);
   const testerScope = normalizeTesterScope(options.testerScope);
+  const testerEmails = await getTesterAccountEmails();
   const exclusionOptions = resolveStatsUserFilter({
     testerScope,
+    testerEmails,
     excludedUserIds: options.excludedUserIds,
     excludedUserEmails: options.excludedUserEmails,
   });
@@ -1281,7 +1283,7 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
 
   return {
     generatedAt: generatedAt.toISOString(),
-    testers: { scope: testerScope, knownAccounts: TESTER_ACCOUNT_EMAILS.length },
+    testers: { scope: testerScope, knownAccounts: testerEmails.length },
     registrations: {
       total: numberFromRow(registration, 'registered_total'),
       email: numberFromRow(registration, 'registered_email'),

@@ -32,6 +32,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:run": "npx tsx scripts/run-migrations.ts",
     "db:dev:backup": "bash scripts/backup-dev-db.sh",
+    "db:seed:synthetic": "tsx scripts/seed-synthetic-db.ts",
     "db:prod": "bash scripts/production-db.sh",
     "db:prod:backup": "bash scripts/production-db.sh backup",
     "db:prod:migrate": "bash scripts/production-db.sh migrate",

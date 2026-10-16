@@ -116,7 +116,7 @@ putting it into shell history:
 ```bash
 pnpm run db:dev:backup
 pnpm run db:prod:migrate
-pnpm run db:prod -- restore backups/dev_public_data_YYYYMMDD_HHMMSS.sql
+pnpm run db:prod -- restore ../getword-private/backups/dev_public_data_YYYYMMDD_HHMMSS.sql
 pnpm run db:prod -- sql path/to/reviewed-operation.sql
 pnpm run db:prod -- compact          # dry run
 pnpm run db:prod -- compact --apply
@@ -124,9 +124,11 @@ pnpm run db:prod -- shell            # emergency interactive access only
 ```
 
 `db:dev:backup` reads the current development `DATABASE_URL` from `.env.local`
-unless `DEV_DATABASE_URL` is provided, then writes an ignored
-`backups/dev_public_data_*.sql` export of application data in the `public`
-schema. For a new production database, apply migrations first, then restore
+unless `DEV_DATABASE_URL` is provided, then writes a
+`../getword-private/backups/dev_public_data_*.sql` export of application data in the
+`public` schema. Dumps are written beside the repository, never inside it, so
+real user data stays out of the working tree an AI assistant can read; override
+the location with `GET_WORD_BACKUP_DIR`. For a new production database, apply migrations first, then restore
 that data backup. It does not copy Supabase Auth or Storage-managed schemas.
 Treat the dump as sensitive user data; it includes encrypted provider-key
 records, which require the same `APP_ENCRYPTION_SECRET` to decrypt after import.
@@ -147,6 +149,32 @@ Optional utilities:
 pnpm run db:dump-restore
 pnpm run db:dump-restore-full
 ```
+
+### Scratch database with invented data
+
+The development database holds real user data: email addresses, people's own
+word lists, what they are failing to remember. None of that should be open in a
+session an AI assistant is reading, and none of it should end up in a
+transcript. For that work, point the app at a scratch database filled with
+invented rows instead:
+
+```bash
+export SYNTHETIC_DATABASE_URL=postgresql://localhost:5432/getword_scratch
+DATABASE_URL="$SYNTHETIC_DATABASE_URL" pnpm run db:migrate
+pnpm run db:seed:synthetic
+```
+
+Then run the app with `DATABASE_URL` set to that same URL. The seed gives you
+one editor, twelve learners on `@example.test` addresses, two public lists with
+categories and items, subscriptions, and progress spread across stages and due
+dates, so the study stream, the upcoming panel and the dashboard all have
+something to show.
+
+`scripts/seed-synthetic-db.ts` never reads `DATABASE_URL`, refuses a non-local
+host unless `--allow-remote` is paired with
+`SYNTHETIC_DB_CONFIRM=SCRATCH_DATABASE`, and refuses a database that already
+holds users unless `--reset` is passed. Dumps and other real-data artifacts are
+written beside the repository, in `../getword-private/`, never inside it.
 
 Drizzle-generated migrations in `drizzle/migrations/` are the canonical and
 only current checked-in schema migration path. Historical manual Supabase/RLS

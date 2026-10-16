@@ -3,7 +3,10 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="${ENV_FILE:-$project_root/.env.local}"
-backup_dir="$project_root/backups"
+# Dumps hold real user data, so they are written outside the repository (and
+# outside any AI-assistant session folder). Override with GET_WORD_BACKUP_DIR.
+backup_dir="${GET_WORD_BACKUP_DIR:-$(cd "$project_root/.." && pwd)/getword-private/backups}"
+mkdir -p "$backup_dir"
 timestamp="$(date +"%Y%m%d_%H%M%S")"
 backup_file="$backup_dir/dev_public_data_${timestamp}.sql"
 temporary_file="${backup_file}.partial"
