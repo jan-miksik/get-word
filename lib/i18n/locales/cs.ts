@@ -184,6 +184,9 @@ export const csMessages: I18nMessages = {
   "terms.terminationTitle": "Ukončení",
   "terms.terminationBody":
     "Aplikaci můžete kdykoli přestat používat. Přístup můžeme pozastavit nebo ukončit, pokud porušíte tyto Podmínky nebo používáte aplikaci způsobem, který by mohl způsobit škodu.",
+  "terms.attributionTitle": "Poděkování",
+  "terms.attributionBody":
+    "Frekvenční seznamy slov, které aplikace používá, jsou upravené verze seznamů FrequencyWords od Hermita Davea, odvozených z korpusu OpenSubtitles 2018 a použitých pod licencí Creative Commons Attribution-ShareAlike 4.0 (https://creativecommons.org/licenses/by-sa/4.0/). Zdrojový kód samotné aplikace je open source pod licencí Apache 2.0.",
   "terms.governingTitle": "Rozhodné právo",
   "terms.governingBody":
     "Tyto Podmínky se řídí právem České republiky, bez ohledu na kolizní normy. Pokud aplikaci používáte jako spotřebitel, nejste tím zbaveni ochrany, kterou vám poskytují kogentní předpisy na ochranu spotřebitele země, kde žijete, a můžete mít rovněž právo řešit spory prostřednictvím místních orgánů na ochranu spotřebitele.",

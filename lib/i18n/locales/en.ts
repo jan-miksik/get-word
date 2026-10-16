@@ -182,6 +182,9 @@ export const enMessages = {
   "terms.terminationTitle": "Termination",
   "terms.terminationBody":
     "You may stop using the app at any time. We may suspend or terminate access if you violate these Terms or use the app in a way that could cause harm.",
+  "terms.attributionTitle": "Credits",
+  "terms.attributionBody":
+    "The frequency reference lists the app uses are modified versions of the FrequencyWords lists by Hermit Dave, derived from the OpenSubtitles 2018 corpus and used under the Creative Commons Attribution-ShareAlike 4.0 licence (https://creativecommons.org/licenses/by-sa/4.0/). The app's own source code is open source under the Apache License 2.0.",
   "terms.governingTitle": "Governing law",
   "terms.governingBody":
     "These Terms are governed by the laws of the Czech Republic, without regard to conflict-of-law rules. If you use the app as a consumer, this does not deprive you of the protection of mandatory consumer-protection rules of the country where you live, and you may also have the right to resolve disputes through your local consumer-protection authorities.",

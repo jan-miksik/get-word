@@ -184,6 +184,9 @@ export const viMessages: I18nMessages = {
   "terms.terminationTitle": "Chấm dứt",
   "terms.terminationBody":
     "Bạn có thể ngừng sử dụng ứng dụng bất cứ lúc nào. Chúng tôi có thể tạm dừng hoặc chấm dứt quyền truy cập nếu bạn vi phạm các Điều khoản này hoặc sử dụng ứng dụng theo cách có thể gây hại.",
+  "terms.attributionTitle": "Ghi công",
+  "terms.attributionBody":
+    "Các danh sách tần suất từ mà ứng dụng sử dụng là bản chỉnh sửa của danh sách FrequencyWords do Hermit Dave tạo, bắt nguồn từ kho ngữ liệu OpenSubtitles 2018 và được dùng theo giấy phép Creative Commons Attribution-ShareAlike 4.0 (https://creativecommons.org/licenses/by-sa/4.0/). Mã nguồn của chính ứng dụng là mã nguồn mở theo giấy phép Apache 2.0.",
   "terms.governingTitle": "Luật điều chỉnh",
   "terms.governingBody":
     "Các Điều khoản này được điều chỉnh bởi luật pháp của Cộng hòa Séc, không xét đến các quy tắc xung đột pháp luật. Nếu bạn dùng ứng dụng với tư cách người tiêu dùng, điều này không tước đi sự bảo vệ mà các quy định bắt buộc về bảo vệ người tiêu dùng của quốc gia nơi bạn sống dành cho bạn, và bạn cũng có thể có quyền giải quyết tranh chấp thông qua cơ quan bảo vệ người tiêu dùng địa phương.",

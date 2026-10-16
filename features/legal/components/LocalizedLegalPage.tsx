@@ -43,6 +43,7 @@ const TERMS_SECTIONS: TextSection[] = [
   { title: 'terms.availabilityTitle', paragraphs: ['terms.availabilityBody'] },
   { title: 'terms.liabilityTitle', paragraphs: ['terms.liabilityBody'] },
   { title: 'terms.terminationTitle', paragraphs: ['terms.terminationBody'] },
+  { title: 'terms.attributionTitle', paragraphs: ['terms.attributionBody'] },
   { title: 'terms.governingTitle', paragraphs: ['terms.governingBody'] },
   { title: 'terms.changesTitle', paragraphs: ['terms.changesBody'] },
 ];

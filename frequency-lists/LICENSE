@@ -1,0 +1,12 @@
+The word lists in this directory (`czech_5000.txt`, `english_5000.txt`,
+`vietnamese_5000.txt`) are modified versions of the FrequencyWords lists by
+Hermit Dave, which are derived from the OpenSubtitles 2018 corpus.
+
+  Source:       https://github.com/hermitdave/FrequencyWords
+  Licence:      Creative Commons Attribution-ShareAlike 4.0 International
+                https://creativecommons.org/licenses/by-sa/4.0/
+  Modified:     yes — see README.md in this directory for what was changed
+
+These files, and any adaptation of them, are therefore licensed CC BY-SA 4.0.
+The rest of this repository is licensed under the Apache License 2.0; see
+../LICENSE.
